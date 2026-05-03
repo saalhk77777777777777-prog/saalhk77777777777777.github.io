@@ -1,0 +1,2246 @@
+﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
+        const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
+        const CANVAS_SIZE = 1024;
+        const MAX_IMAGE_IMPORT_SIZE = 2048;
+        const FONT_OPTIONS = ['Pretendard', 'Arial', 'Georgia', 'Verdana', 'Trebuchet MS', 'Courier New'];
+        const AI_CONFIG_STORAGE_KEY = 'skybox-ai-config-v1';
+        const PROJECT_DB_NAME = 'skybox-studio-projects';
+        const PROJECT_STORE_NAME = 'snapshots';
+
+        let activeFace = 'ft';
+        let selectedId = null;
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+        let idCounter = 1;
+        let aiLastPreview = '';
+        let lastBackgroundUploadReport = '아직 업로드 기록이 없습니다.';
+        let importedPresetSets = [];
+        let autoSaveTimer = null;
+        let isRestoringProject = false;
+        const POSTER_BACKGROUND_COLOR = '#b88ae9';
+        const POSTER_GRID_MODE = 'white';
+
+        const state = Object.fromEntries(FACES.map(face => [face, {
+            background: null,
+            backgroundName: '',
+            backgroundColor: '#0a0f1a',
+            backgroundOpacity: 1,
+            elements: []
+        }]));
+
+        const canvas = document.getElementById('main-canvas');
+        const ctx = canvas.getContext('2d');
+        const layerList = document.getElementById('layer-list');
+        const propertyPanel = document.getElementById('property-panel');
+        const selectionTitle = document.getElementById('selection-title');
+        const selectionSubtitle = document.getElementById('selection-subtitle');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        const cutoutCanvas = document.getElementById('cutout-canvas');
+        const cutoutCtx = cutoutCanvas.getContext('2d');
+        const aiPreview = document.getElementById('ai-preview');
+        const aiResult = document.getElementById('ai-result');
+        const aiStatus = document.getElementById('ai-status');
+        const backgroundPreview = document.getElementById('background-preview');
+        const backgroundStatusText = document.getElementById('background-status-text');
+        const backgroundStatusBadge = document.getElementById('background-status-badge');
+        const backgroundUploadLog = document.getElementById('background-upload-log');
+        const backgroundTemplateList = document.getElementById('background-template-list');
+        const backgroundTemplateCount = document.getElementById('background-template-count');
+        const backgroundTemplateColor = document.getElementById('background-template-color');
+        const backgroundTemplatePreview = document.getElementById('background-template-preview');
+        const backgroundTemplatePreviewCtx = backgroundTemplatePreview.getContext('2d');
+        const applyBackgroundTemplateButton = document.getElementById('apply-background-template');
+        const presetList = document.getElementById('preset-list');
+        const presetCount = document.getElementById('preset-count');
+        const presetStatusText = document.getElementById('preset-status-text');
+
+        const QUICK_BACKGROUND_COLORS = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#94a3b8', '#0f172a'];
+        let backgroundGridMode = 'white';
+
+        const aiConfig = {
+            endpoint: 'http://127.0.0.1:1234/v1/chat/completions',
+            model: 'qwen2.5-vl-7b-instruct',
+            apiKey: '',
+            prompt: '현재 스카이박스 면 이미지를 보고 한국어로 디자인 추천을 해줘. 배치, 강조 포인트, 텍스트 스타일, 색 조합, 테두리/그림자 효과를 중심으로 5개 항목으로 짧고 실용적으로 제안해줘.'
+        };
+
+        const cutoutState = {
+            elementId: null,
+            originalCanvas: null,
+            workingCanvas: null,
+            isDrawing: false,
+            lastPoint: null,
+            mode: 'erase',
+            brushSize: 30,
+            softness: 0.7,
+            opacity: 1,
+            zoom: 1
+        };
+
+        function getFaceState(face = activeFace) { return state[face]; }
+        function generateId() { return `layer-${idCounter++}`; }
+        function showLoading(message) { loadingText.textContent = message; loadingOverlay.classList.add('visible'); }
+        function hideLoading() { loadingOverlay.classList.remove('visible'); }
+        function clamp(value, min, max) { return Math.min(Math.max(value, min), max); }
+        function degToRad(deg) { return deg * Math.PI / 180; }
+        function createEmptyCanvas(width, height) { const c = document.createElement('canvas'); c.width = width; c.height = height; return c; }
+        function copyCanvas(source) { const copied = createEmptyCanvas(source.width, source.height); copied.getContext('2d').drawImage(source, 0, 0); return copied; }
+        function imageToCanvas(img, maxDimension = 0) {
+            const width = img.width || 1;
+            const height = img.height || 1;
+            const scale = maxDimension > 0 ? Math.min(1, maxDimension / Math.max(width, height)) : 1;
+            const drawWidth = Math.max(1, Math.round(width * scale));
+            const drawHeight = Math.max(1, Math.round(height * scale));
+            const c = createEmptyCanvas(drawWidth, drawHeight);
+            c.getContext('2d').drawImage(img, 0, 0, drawWidth, drawHeight);
+            return c;
+        }
+        function canvasToDataURL(source) { return source ? source.toDataURL('image/png') : ''; }
+        function canvasToBlob(source) {
+            return new Promise((resolve, reject) => {
+                source.toBlob(blob => blob ? resolve(blob) : reject(new Error('캔버스 변환에 실패했습니다.')), 'image/png');
+            });
+        }
+        async function canvasFromDataURL(dataURL) {
+            if (!dataURL) return null;
+            const image = await loadImageFromURL(dataURL);
+            return imageToCanvas(image);
+        }
+        function downloadBlob(blob, fileName) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            link.rel = 'noopener';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+                link.remove();
+            }, 1000);
+        }
+        function rgbaWithOpacity(hex, opacity) {
+            const safeHex = (hex || '#000000').replace('#', '');
+            const raw = safeHex.length === 3 ? safeHex.split('').map(ch => ch + ch).join('') : safeHex.padEnd(6, '0').slice(0, 6);
+            const r = parseInt(raw.slice(0, 2), 16);
+            const g = parseInt(raw.slice(2, 4), 16);
+            const b = parseInt(raw.slice(4, 6), 16);
+            return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        }
+        function applyShadow(renderCtx, shadow) {
+            renderCtx.shadowColor = rgbaWithOpacity(shadow.color, shadow.opacity);
+            renderCtx.shadowBlur = shadow.blur;
+            renderCtx.shadowOffsetX = shadow.offsetX;
+            renderCtx.shadowOffsetY = shadow.offsetY;
+        }
+        function hasVisibleShadow(shadow) {
+            return Boolean(shadow && shadow.opacity > 0 && (shadow.blur > 0 || shadow.offsetX !== 0 || shadow.offsetY !== 0));
+        }
+
+    function loadImageFromURL(url) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('이미지 디코딩에 실패했습니다.'));
+            img.src = url;
+        });
+    }
+
+        async function blobToImage(blob) {
+            const url = URL.createObjectURL(blob);
+            try {
+                return await loadImageFromURL(url);
+            } finally {
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        async function fileToImage(file) {
+            return blobToImage(file);
+        }
+
+        function getFileExtension(fileName) {
+            return (fileName.split('.').pop() || '').toLowerCase();
+        }
+
+        function isUrlSource(source) {
+            return source && typeof source.url === 'string';
+        }
+
+        function getSourceName(source) {
+            if (source?.name) return source.name;
+            if (source?.url) {
+                const lastPart = source.url.split('/').pop() || source.url;
+                try { return decodeURIComponent(lastPart); } catch { return lastPart; }
+            }
+            return 'unknown';
+        }
+
+        function getSourceExtension(source) {
+            return (source?.ext || getFileExtension(getSourceName(source))).toLowerCase();
+        }
+
+        async function sourceToBlob(source) {
+            if (source?.file instanceof Blob) return source.file;
+            if (!isUrlSource(source)) return source;
+            const response = await fetch(source.url);
+            if (!response.ok) throw new Error(`파일 요청 실패 (${response.status})`);
+            return await response.blob();
+        }
+
+        function getImportSourceName(source) {
+            return source?.name || source?.file?.name || getSourceName(source);
+        }
+
+        function getImportRelativePath(source) {
+            return source?.webkitRelativePath || source?.relativePath || source?.file?.webkitRelativePath || getImportSourceName(source);
+        }
+
+        function drawColorGridTemplate(renderCtx, width, height, template) {
+            const cell = template.size || 64;
+            const palette = template.palette || ['#ffffff', '#000000'];
+            const cols = Math.ceil(width / cell);
+            const rows = Math.ceil(height / cell);
+
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    const diagonal = (x + y) % palette.length;
+                    const wave = Math.floor((x / Math.max(1, cols - 1)) * (palette.length - 1));
+                    renderCtx.fillStyle = palette[(diagonal + wave) % palette.length];
+                    renderCtx.fillRect(x * cell, y * cell, cell, cell);
+                }
+            }
+
+            const gradient = renderCtx.createLinearGradient(0, 0, width, height);
+            gradient.addColorStop(0, 'rgba(255,255,255,0.22)');
+            gradient.addColorStop(0.5, 'rgba(255,255,255,0)');
+            gradient.addColorStop(1, 'rgba(0,0,0,0.18)');
+            renderCtx.fillStyle = gradient;
+            renderCtx.fillRect(0, 0, width, height);
+
+            renderCtx.strokeStyle = template.line || 'rgba(255,255,255,0.35)';
+            renderCtx.lineWidth = Math.max(1, Math.round(width / 512));
+            for (let x = 0; x <= width; x += cell) {
+                renderCtx.beginPath();
+                renderCtx.moveTo(x + 0.5, 0);
+                renderCtx.lineTo(x + 0.5, height);
+                renderCtx.stroke();
+            }
+            for (let y = 0; y <= height; y += cell) {
+                renderCtx.beginPath();
+                renderCtx.moveTo(0, y + 0.5);
+                renderCtx.lineTo(width, y + 0.5);
+                renderCtx.stroke();
+            }
+        }
+
+        function getGridColor(mode) {
+            if (mode === 'black') return 'rgba(0,0,0,0.82)';
+            if (mode === 'white') return 'rgba(255,255,255,0.88)';
+            return 'transparent';
+        }
+
+        function drawStraightGrid(renderCtx, size, mode) {
+            if (mode === 'none') return;
+            const gridSize = Math.max(8, Math.round(size / 16));
+            const lineWidth = Math.max(2, Math.round(size / 320));
+            renderCtx.save();
+            renderCtx.strokeStyle = getGridColor(mode);
+            renderCtx.lineWidth = lineWidth;
+            for (let x = 0; x <= size; x += gridSize) {
+                renderCtx.beginPath();
+                renderCtx.moveTo(x + 0.5, 0);
+                renderCtx.lineTo(x + 0.5, size);
+                renderCtx.stroke();
+            }
+            for (let y = 0; y <= size; y += gridSize) {
+                renderCtx.beginPath();
+                renderCtx.moveTo(0, y + 0.5);
+                renderCtx.lineTo(size, y + 0.5);
+                renderCtx.stroke();
+            }
+            renderCtx.lineWidth = lineWidth * 1.6;
+            renderCtx.globalAlpha = 0.55;
+            for (let x = 0; x <= size; x += gridSize * 4) {
+                renderCtx.beginPath();
+                renderCtx.moveTo(x + 0.5, 0);
+                renderCtx.lineTo(x + 0.5, size);
+                renderCtx.stroke();
+            }
+            for (let y = 0; y <= size; y += gridSize * 4) {
+                renderCtx.beginPath();
+                renderCtx.moveTo(0, y + 0.5);
+                renderCtx.lineTo(size, y + 0.5);
+                renderCtx.stroke();
+            }
+            renderCtx.restore();
+        }
+
+        function createCustomGridBackground(color, mode, size = CANVAS_SIZE) {
+            const templateCanvas = createEmptyCanvas(size, size);
+            const templateCtx = templateCanvas.getContext('2d');
+            templateCtx.fillStyle = color;
+            templateCtx.fillRect(0, 0, size, size);
+            drawStraightGrid(templateCtx, size, mode);
+            return templateCanvas;
+        }
+
+        function createBackgroundTemplateCanvas(template, size = CANVAS_SIZE) {
+            const templateCanvas = createEmptyCanvas(size, size);
+            const templateCtx = templateCanvas.getContext('2d');
+            if (template.type === 'solid' || template.type === 'solid-grid') {
+                templateCtx.fillStyle = template.color;
+                templateCtx.fillRect(0, 0, size, size);
+                if (template.type === 'solid-grid') {
+                    drawStraightGrid(templateCtx, size, template.gridMode || 'white');
+                }
+            } else {
+                drawColorGridTemplate(templateCtx, size, size, template);
+            }
+            return templateCanvas;
+        }
+
+        function renderBackgroundTemplates() {
+            backgroundTemplateCount.textContent = backgroundGridMode === 'white' ? 'White Grid' : backgroundGridMode === 'black' ? 'Black Grid' : 'Solid';
+            const preview = createCustomGridBackground(backgroundTemplateColor.value, backgroundGridMode, backgroundTemplatePreview.width);
+            backgroundTemplatePreviewCtx.clearRect(0, 0, backgroundTemplatePreview.width, backgroundTemplatePreview.height);
+            backgroundTemplatePreviewCtx.drawImage(preview, 0, 0, backgroundTemplatePreview.width, backgroundTemplatePreview.height);
+            document.querySelectorAll('[data-grid-mode]').forEach(button => {
+                button.classList.toggle('primary', button.dataset.gridMode === backgroundGridMode);
+            });
+            backgroundTemplateList.innerHTML = QUICK_BACKGROUND_COLORS.map(color => `
+                <button type="button" class="h-8 rounded-xl border border-white/10" style="background:${color}" data-quick-color="${color}" title="${color}"></button>
+            `).join('');
+            backgroundTemplateList.querySelectorAll('[data-quick-color]').forEach(button => {
+                button.addEventListener('click', () => {
+                    backgroundTemplateColor.value = button.dataset.quickColor;
+                    renderBackgroundTemplates();
+                    applyCustomGridBackground();
+                });
+            });
+        }
+
+        function updateAndApplyCustomGridBackground() {
+            renderBackgroundTemplates();
+            applyCustomGridBackground();
+        }
+
+        function applyCustomGridBackground() {
+            const color = backgroundTemplateColor.value;
+            const faceState = getFaceState();
+            faceState.background = createCustomGridBackground(color, backgroundGridMode);
+            faceState.backgroundName = `template_${color.replace('#', '')}_${backgroundGridMode}_grid.png`;
+            faceState.backgroundColor = color;
+            faceState.backgroundOpacity = 1;
+            const modeLabel = backgroundGridMode === 'white' ? '흰 그리드' : backgroundGridMode === 'black' ? '검은 그리드' : '그리드 없음';
+            lastBackgroundUploadReport = `[배경 템플릿]\n${activeFace.toUpperCase()} -> ${color} / ${modeLabel}`;
+            render();
+        }
+
+        function applyPosterBackgroundPreset() {
+            backgroundTemplateColor.value = POSTER_BACKGROUND_COLOR;
+            backgroundGridMode = POSTER_GRID_MODE;
+            applyCustomGridBackground();
+            renderBackgroundTemplates();
+        }
+
+        function fitElementToBox(element, boxWidth, boxHeight) {
+            const source = element.processedCanvas || element.maskCanvas || element.originalCanvas;
+            if (!source) return;
+            element.scale = Math.min(boxWidth / source.width, boxHeight / source.height);
+        }
+
+        function applyPosterImageStyle(element, role = 'sub', index = 0) {
+            element.opacity = 1;
+            element.blendMode = 'source-over';
+            element.cornerRadius = 0;
+            element.tintStrength = 0;
+            if (role === 'main') {
+                element.outlineWidth = 12;
+                element.outlineColor = '#7c3aed';
+                element.outlineStyle = 'solid';
+                element.outlineBlur = 12;
+                element.shadow = { color: '#ffffff', blur: 34, offsetX: 0, offsetY: 0, opacity: 0.92 };
+                element.rotation = 0;
+            } else {
+                element.outlineWidth = 7;
+                element.outlineColor = '#7c3aed';
+                element.outlineStyle = 'solid';
+                element.outlineBlur = 8;
+                element.shadow = { color: '#ffffff', blur: 18, offsetX: 0, offsetY: 0, opacity: 0.82 };
+                element.rotation = [-12, 10, -8, 12, -6, 7][index % 6];
+            }
+        }
+
+        function layoutPosterElements(elements) {
+            if (!elements.length) return;
+            const [main, ...subs] = elements;
+            fitElementToBox(main, CANVAS_SIZE * 0.54, CANVAS_SIZE * 0.7);
+            main.x = CANVAS_SIZE * 0.5;
+            main.y = CANVAS_SIZE * 0.53;
+            main.rotation = 0;
+
+            const slots = [
+                { x: 0.19, y: 0.24, w: 0.25, h: 0.2, r: -12 },
+                { x: 0.81, y: 0.24, w: 0.25, h: 0.2, r: 10 },
+                { x: 0.22, y: 0.74, w: 0.28, h: 0.2, r: -8 },
+                { x: 0.78, y: 0.74, w: 0.28, h: 0.2, r: 12 },
+                { x: 0.5, y: 0.16, w: 0.24, h: 0.18, r: -4 },
+                { x: 0.5, y: 0.84, w: 0.24, h: 0.18, r: 4 }
+            ];
+
+            subs.forEach((element, index) => {
+                const slot = slots[index % slots.length];
+                fitElementToBox(element, CANVAS_SIZE * slot.w, CANVAS_SIZE * slot.h);
+                element.x = CANVAS_SIZE * slot.x;
+                element.y = CANVAS_SIZE * slot.y;
+                element.rotation = slot.r;
+            });
+        }
+
+        async function arrangePosterLayoutForElements(elements) {
+            if (!elements.length) return;
+            applyPosterBackgroundPreset();
+            elements.forEach((element, index) => applyPosterImageStyle(element, index === 0 ? 'main' : 'sub', index - 1));
+            for (const element of elements) {
+                await updateImageProcessing(element);
+            }
+            layoutPosterElements(elements);
+        }
+
+        async function arrangePosterLayoutForCurrentFace() {
+            const imageElements = getFaceState().elements.filter(element => element.type === 'image');
+            if (!imageElements.length) {
+                alert('현재 면에 이미지 레이어가 있어야 포스터 배치를 할 수 있어요.');
+                return;
+            }
+            showLoading('현재 면 이미지를 포스터 구도로 정리하는 중이에요.');
+            try {
+                await arrangePosterLayoutForElements(imageElements);
+                selectedId = imageElements[0]?.id || null;
+                render();
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function collectDirectoryFilesFromHandle(directoryHandle, prefix = '') {
+            const files = [];
+            for await (const entry of directoryHandle.values()) {
+                const nextPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+                if (entry.kind === 'file') {
+                    const file = await entry.getFile();
+                    files.push({
+                        name: file.name,
+                        file,
+                        relativePath: nextPath
+                    });
+                    continue;
+                }
+                if (entry.kind === 'directory') {
+                    files.push(...await collectDirectoryFilesFromHandle(entry, nextPath));
+                }
+            }
+            return files;
+        }
+
+        async function importPresetFolder() {
+            if (typeof window.showDirectoryPicker === 'function') {
+                try {
+                    const directoryHandle = await window.showDirectoryPicker({ mode: 'read' });
+                    const files = await collectDirectoryFilesFromHandle(directoryHandle);
+                    if (files.length) {
+                        await buildPresetLibraryFromFiles(files);
+                        if (importedPresetSets.length === 0) {
+                            alert('가져온 폴더에서 완성된 스카이박스 세트를 찾지 못했습니다.\n각 세트 폴더 안에 ft/bk/lf/rt/up/dn 6면 파일이 있어야 합니다.');
+                        } else {
+                            alert(`스카이박스 세트 ${importedPresetSets.length}개를 찾았습니다.\n왼쪽 Skybox Presets 목록에서 클릭해서 적용해 주세요.`);
+                        }
+                    }
+                    return;
+                } catch (error) {
+                    if (error?.name === 'AbortError') return;
+                }
+            }
+            document.getElementById('preset-folder-input').click();
+        }
+
+        function stripFaceSuffix(fileName) {
+            return fileName.replace(/\.(tex|png|jpg|jpeg|webp|webg)$/i, '').replace(/_(ft|bk|lf|rt|up|dn)$/i, '');
+        }
+
+        function prettifyPresetName(pathValue) {
+            return pathValue.replace(/[\\/]+/g, ' / ');
+        }
+
+    async function readFileAsText(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.onerror = () => reject(reader.error || new Error('파일을 읽을 수 없습니다.'));
+            reader.readAsText(file);
+        });
+    }
+
+    function getErrorMessage(error, fallback = '알 수 없는 오류') {
+        if (!error) return fallback;
+        if (typeof error === 'string') return error;
+        if (error instanceof Error && error.message) return error.message;
+        if (typeof error.message === 'string' && error.message.trim()) return error.message;
+        return fallback;
+    }
+
+    async function readSourceAsText(source) {
+        if (!isUrlSource(source)) return readFileAsText(source);
+        const response = await fetch(source.url);
+        if (!response.ok) throw new Error(`파일 요청 실패 (${response.status})`);
+        return await response.text();
+    }
+
+    async function backgroundFileToImage(source) {
+        const ext = getSourceExtension(source);
+        const name = getSourceName(source);
+        if (ext === 'tex') {
+            try {
+                return await blobToImage(await sourceToBlob(source));
+            } catch (binaryError) {
+                const raw = (await readSourceAsText(source)).trim();
+                if (!raw) {
+                    throw new Error(`${name} 파일 내용이 비어 있습니다.`);
+                }
+                const normalized = raw.startsWith('data:image')
+                    ? raw
+                    : `data:image/png;base64,${raw.replace(/\s+/g, '')}`;
+                try {
+                    return await loadImageFromURL(normalized);
+                } catch (textError) {
+                    throw new Error(`.tex 디코딩 실패 (binary: ${getErrorMessage(binaryError)}, text: ${getErrorMessage(textError)})`);
+                }
+            }
+        }
+        return await blobToImage(await sourceToBlob(source));
+    }
+
+        function openProjectDb() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(PROJECT_DB_NAME, 1);
+                request.onupgradeneeded = () => {
+                    const db = request.result;
+                    if (!db.objectStoreNames.contains(PROJECT_STORE_NAME)) {
+                        db.createObjectStore(PROJECT_STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error || new Error('작업 저장소를 열 수 없습니다.'));
+            });
+        }
+
+        function runProjectStore(mode, action) {
+            return openProjectDb().then(db => new Promise((resolve, reject) => {
+                const transaction = db.transaction(PROJECT_STORE_NAME, mode);
+                const store = transaction.objectStore(PROJECT_STORE_NAME);
+                const request = action(store);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error || new Error('작업 저장소 요청 실패'));
+                transaction.oncomplete = () => db.close();
+                transaction.onerror = () => {
+                    db.close();
+                    reject(transaction.error || new Error('작업 저장소 처리 실패'));
+                };
+            }));
+        }
+
+        function putProjectSnapshot(snapshot) {
+            return runProjectStore('readwrite', store => store.put(snapshot));
+        }
+
+        function getProjectSnapshot(id) {
+            return runProjectStore('readonly', store => store.get(id));
+        }
+
+        function getProjectSnapshots() {
+            return runProjectStore('readonly', store => store.getAll());
+        }
+
+        function serializeElement(element) {
+            const serialized = { ...element };
+            if (element.type === 'image') {
+                serialized.originalCanvasData = canvasToDataURL(element.originalCanvas);
+                serialized.maskCanvasData = canvasToDataURL(element.maskCanvas);
+                delete serialized.originalCanvas;
+                delete serialized.maskCanvas;
+                delete serialized.processedCanvas;
+                delete serialized.previewUrl;
+            }
+            return serialized;
+        }
+
+        function serializeProject(title = '작업 기록') {
+            const savedState = {};
+            FACES.forEach(face => {
+                const faceState = getFaceState(face);
+                savedState[face] = {
+                    backgroundData: canvasToDataURL(faceState.background),
+                    backgroundName: faceState.backgroundName,
+                    backgroundColor: faceState.backgroundColor,
+                    backgroundOpacity: faceState.backgroundOpacity,
+                    elements: faceState.elements.map(serializeElement)
+                };
+            });
+
+            return {
+                id: `snapshot-${Date.now()}`,
+                title,
+                savedAt: new Date().toISOString(),
+                activeFace,
+                selectedId,
+                idCounter,
+                lastBackgroundUploadReport,
+                state: savedState
+            };
+        }
+
+        async function restoreElement(serialized) {
+            if (serialized.type !== 'image') return { ...serialized };
+            const element = { ...serialized };
+            element.originalCanvas = await canvasFromDataURL(serialized.originalCanvasData);
+            element.maskCanvas = await canvasFromDataURL(serialized.maskCanvasData || serialized.originalCanvasData);
+            if (!element.originalCanvas || !element.maskCanvas) {
+                throw new Error(`${serialized.name || '이미지'} 레이어 복원 실패`);
+            }
+            element.processedCanvas = copyCanvas(element.maskCanvas);
+            element.previewUrl = '';
+            delete element.originalCanvasData;
+            delete element.maskCanvasData;
+            await updateImageProcessing(element);
+            return element;
+        }
+
+        async function restoreProjectSnapshot(snapshot) {
+            if (!snapshot?.state) throw new Error('불러올 작업 데이터가 비어 있습니다.');
+            isRestoringProject = true;
+            try {
+                for (const face of FACES) {
+                    const savedFace = snapshot.state[face] || {};
+                    const faceState = getFaceState(face);
+                    faceState.background = await canvasFromDataURL(savedFace.backgroundData || '');
+                    faceState.backgroundName = savedFace.backgroundName || '';
+                    faceState.backgroundColor = savedFace.backgroundColor || '#0a0f1a';
+                    faceState.backgroundOpacity = Number(savedFace.backgroundOpacity ?? 1);
+                    faceState.elements = [];
+                    for (const element of savedFace.elements || []) {
+                        faceState.elements.push(await restoreElement(element));
+                    }
+                }
+                activeFace = FACES.includes(snapshot.activeFace) ? snapshot.activeFace : 'ft';
+                selectedId = snapshot.selectedId || null;
+                idCounter = Math.max(Number(snapshot.idCounter || 1), idCounter);
+                lastBackgroundUploadReport = snapshot.lastBackgroundUploadReport || '작업 기록을 불러왔습니다.';
+                render();
+            } finally {
+                isRestoringProject = false;
+            }
+        }
+
+        async function saveCurrentProject(title = '수동 저장') {
+            showLoading('현재 작업을 기록으로 저장하는 중이에요.');
+            try {
+                const snapshot = serializeProject(title);
+                await putProjectSnapshot(snapshot);
+                return snapshot;
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function handleManualSave() {
+            try {
+                const title = `작업 ${new Date().toLocaleString('ko-KR')}`;
+                const snapshot = await saveCurrentProject(title);
+                alert(`작업을 저장했습니다.\n${snapshot.title}`);
+            } catch (error) {
+                alert(`작업 저장 실패\n${getErrorMessage(error)}`);
+            }
+        }
+
+        async function handleLoadProject() {
+            try {
+                const snapshots = (await getProjectSnapshots())
+                    .filter(snapshot => snapshot.id !== 'snapshot-autosave')
+                    .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+                if (snapshots.length === 0) {
+                    const autoSaveSnapshot = await getProjectSnapshot('snapshot-autosave');
+                    if (!autoSaveSnapshot) {
+                        alert('아직 저장된 작업 기록이 없습니다.');
+                        return;
+                    }
+                    showLoading('자동 저장된 작업을 불러오는 중이에요.');
+                    await restoreProjectSnapshot(autoSaveSnapshot);
+                    alert('자동 저장된 최근 작업을 불러왔습니다.');
+                    return;
+                }
+                showLoading('작업 기록을 불러오는 중이에요.');
+                const latestSnapshot = await getProjectSnapshot(snapshots[0].id);
+                await restoreProjectSnapshot(latestSnapshot);
+                alert(`가장 최근 작업을 불러왔습니다.\n${snapshots[0].title}`);
+            } catch (error) {
+                alert(`작업 불러오기 실패\n${getErrorMessage(error)}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function updatePresetLibraryUI() {
+            presetCount.textContent = `${importedPresetSets.length} sets`;
+            if (importedPresetSets.length === 0) {
+                presetStatusText.textContent = '아직 가져온 스카이박스 폴더가 없습니다.';
+                presetList.innerHTML = '';
+                return;
+            }
+
+            presetStatusText.textContent = '가져온 세트를 클릭하면 6면 배경이 한 번에 적용됩니다.';
+            presetList.innerHTML = importedPresetSets.map((preset, index) => `
+                <button type="button" class="w-full text-left border border-white/5 rounded-2xl p-3 bg-white/5 hover:bg-white/10 transition-all" data-preset-index="${index}">
+                    <div class="text-sm font-bold text-white truncate">${preset.label}</div>
+                    <div class="text-[11px] text-slate-400 mt-1 truncate">${preset.variantLabel}</div>
+                </button>
+            `).join('');
+
+            presetList.querySelectorAll('[data-preset-index]').forEach(button => {
+                button.addEventListener('click', async () => {
+                    await applyImportedPreset(Number(button.dataset.presetIndex));
+                });
+            });
+        }
+
+        async function buildPresetLibraryFromFiles(files) {
+            showLoading('스카이박스 폴더를 분석하는 중이에요.');
+            const allowed = new Set(['tex', 'png', 'jpg', 'jpeg', 'webp', 'webg']);
+            const familyMap = new Map();
+
+            for (const file of files) {
+                const fileName = getImportSourceName(file);
+                const relativePath = getImportRelativePath(file);
+                showLoading(`프리셋 분석 중...\n${relativePath}`);
+                const ext = getFileExtension(fileName);
+                if (!allowed.has(ext)) continue;
+                const faceMatch = fileName.toLowerCase().match(/_(ft|bk|lf|rt|up|dn)\.(tex|png|jpg|jpeg|webp|webg)$/);
+                if (!faceMatch) continue;
+
+                const face = faceMatch[1];
+                const segments = relativePath.split(/[\\/]+/);
+                const folderPath = segments.slice(0, -1).join('/');
+                const variantBase = stripFaceSuffix(fileName);
+                const familyKey = `${folderPath}::${variantBase}`;
+
+                if (!familyMap.has(familyKey)) {
+                    familyMap.set(familyKey, {
+                        folderPath,
+                        variantBase,
+                        filesByFace: {},
+                        files: []
+                    });
+                }
+
+                const family = familyMap.get(familyKey);
+                family.filesByFace[face] = file;
+                family.files.push(file);
+            }
+
+            const completeFamilies = Array.from(familyMap.values()).filter(family => FACES.every(face => family.filesByFace[face]));
+            const chosenByFolder = new Map();
+
+            for (const family of completeFamilies) {
+                const current = chosenByFolder.get(family.folderPath);
+                const score = /sky512/i.test(family.variantBase) ? 2 : /indoor512/i.test(family.variantBase) ? 1 : 0;
+                if (!current || score > current.score) {
+                    chosenByFolder.set(family.folderPath, {
+                        score,
+                        family
+                    });
+                }
+            }
+
+            importedPresetSets = Array.from(chosenByFolder.values()).map(entry => {
+                const family = entry.family;
+                return {
+                    label: prettifyPresetName(family.folderPath || family.variantBase),
+                    variantLabel: family.variantBase,
+                    filesByFace: family.filesByFace
+                };
+            }).sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+
+            updatePresetLibraryUI();
+        }
+
+        async function loadBundledPresetManifest(notify = false) {
+            try {
+                const response = await fetch('assets/skybox/presets.json', { cache: 'no-cache' });
+                if (!response.ok) return;
+
+                const manifest = await response.json();
+                if (!Array.isArray(manifest.presets) || manifest.presets.length === 0) return;
+
+                importedPresetSets = manifest.presets.map(preset => ({
+                    label: preset.label || preset.variantLabel || 'Bundled Skybox',
+                    variantLabel: preset.variantLabel || 'bundled',
+                    filesByFace: preset.filesByFace || {}
+                })).sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+
+                updatePresetLibraryUI();
+                presetStatusText.textContent = `내장 스카이박스 ${importedPresetSets.length}개가 자동으로 준비됐습니다.`;
+                if (notify) {
+                    alert(`프로그램 폴더 스카이박스 ${importedPresetSets.length}개를 불러왔습니다.`);
+                }
+            } catch (error) {
+                presetStatusText.textContent = `내장 스카이박스를 자동으로 불러오지 못했습니다: ${getErrorMessage(error)}`;
+                if (notify) {
+                    alert(`프로그램 폴더 스카이박스 불러오기 실패\n${getErrorMessage(error)}`);
+                }
+            }
+        }
+
+        async function applyImportedPreset(index) {
+            const preset = importedPresetSets[index];
+            if (!preset) return;
+
+            showLoading(`프리셋 "${preset.label}" 적용 중이에요.`);
+            try {
+                for (const face of FACES) {
+                    const file = preset.filesByFace[face];
+                    if (!file) continue;
+                    showLoading(`프리셋 적용 중...\n${preset.label}\n${face.toUpperCase()} <- ${getSourceName(file)}`);
+                    const image = await backgroundFileToImage(file);
+                    const faceState = getFaceState(face);
+                    faceState.background = imageToCanvas(image, CANVAS_SIZE);
+                    faceState.backgroundName = getSourceName(file);
+                }
+                lastBackgroundUploadReport = `[프리셋 적용]\n${preset.label}\nvariant: ${preset.variantLabel}`;
+                render();
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function removeBackgroundViaAPI(file) {
+            const formData = new FormData();
+            formData.append('image_file', file);
+            formData.append('size', 'auto');
+            const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+                method: 'POST',
+                headers: { 'X-Api-Key': REMOVE_BG_API_KEY },
+                body: formData
+            });
+            if (!response.ok) {
+                const errorText = await response.text().catch(() => '');
+                throw new Error(errorText || `remove.bg API Error (${response.status})`);
+            }
+            return await response.blob();
+        }
+
+        function defaultShadow() {
+            return { color: '#000000', blur: 0, offsetX: 0, offsetY: 0, opacity: 0.55 };
+        }
+
+        function createImageElement(name, baseCanvas) {
+            const fitScale = clamp(400 / Math.max(baseCanvas.width, baseCanvas.height), 0.12, 1.5);
+            return {
+                id: generateId(),
+                type: 'image',
+                name,
+                x: CANVAS_SIZE / 2,
+                y: CANVAS_SIZE / 2,
+                scale: fitScale,
+                flipX: false,
+                flipY: false,
+                rotation: 0,
+                opacity: 1,
+                visible: true,
+                locked: false,
+                blendMode: 'source-over',
+                brightness: 100,
+                contrast: 100,
+                saturation: 100,
+                hue: 0,
+                blur: 0,
+                tintColor: '#ffffff',
+                tintStrength: 0,
+                cornerRadius: 0,
+                outlineWidth: 0,
+                outlineColor: '#ffffff',
+                outlineStyle: 'solid',
+                outlineBlur: 8,
+                shadow: defaultShadow(),
+                originalCanvas: copyCanvas(baseCanvas),
+                maskCanvas: copyCanvas(baseCanvas),
+                processedCanvas: copyCanvas(baseCanvas),
+                previewUrl: ''
+            };
+        }
+
+        function createTextElement() {
+            return {
+                id: generateId(),
+                type: 'text',
+                name: '새 텍스트',
+                text: 'Skybox Text',
+                x: CANVAS_SIZE / 2,
+                y: CANVAS_SIZE / 2,
+                scale: 1,
+                flipX: false,
+                flipY: false,
+                rotation: 0,
+                opacity: 1,
+                visible: true,
+                locked: false,
+                blendMode: 'source-over',
+                fontFamily: 'Pretendard',
+                fontSize: 84,
+                fontWeight: 800,
+                align: 'center',
+                letterSpacing: 0,
+                lineHeight: 1.15,
+                color: '#ffffff',
+                strokeWidth: 0,
+                strokeColor: '#0f172a',
+                strokeStyle: 'solid',
+                strokeBlur: 8,
+                backgroundColor: '#000000',
+                backgroundOpacity: 0,
+                paddingX: 24,
+                paddingY: 14,
+                shadow: defaultShadow()
+            };
+        }
+
+        function getSelectedElement() {
+            return getFaceState().elements.find(element => element.id === selectedId) || null;
+        }
+
+        function selectElement(id) {
+            selectedId = id;
+            render();
+        }
+
+        function getTextMetrics(element) {
+            const measureCanvas = createEmptyCanvas(10, 10);
+            const measureCtx = measureCanvas.getContext('2d');
+            measureCtx.font = `${element.fontWeight} ${element.fontSize}px ${element.fontFamily}`;
+            const lines = element.text.split('\n');
+            const widths = lines.map(line => measureCtx.measureText(line).width + Math.max(0, line.length - 1) * element.letterSpacing);
+            const maxWidth = widths.length ? Math.max(...widths) : 0;
+            const linePx = element.fontSize * element.lineHeight;
+            const height = Math.max(element.fontSize, lines.length * linePx);
+            return { width: maxWidth + element.paddingX * 2, height: height + element.paddingY * 2, linePx, lines };
+        }
+
+        function getElementBounds(element) {
+            if (element.type === 'image') return { width: element.processedCanvas.width * element.scale, height: element.processedCanvas.height * element.scale };
+            const metrics = getTextMetrics(element);
+            return { width: metrics.width * element.scale, height: metrics.height * element.scale };
+        }
+
+        function drawRoundedRectPath(renderCtx, x, y, width, height, radius) {
+            const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+            renderCtx.beginPath();
+            renderCtx.moveTo(x + r, y);
+            renderCtx.arcTo(x + width, y, x + width, y + height, r);
+            renderCtx.arcTo(x + width, y + height, x, y + height, r);
+            renderCtx.arcTo(x, y + height, x, y, r);
+            renderCtx.arcTo(x, y, x + width, y, r);
+            renderCtx.closePath();
+        }
+
+        function getBlendModeOptions() {
+            return [
+                { value: 'source-over', label: 'Normal' },
+                { value: 'multiply', label: 'Multiply' },
+                { value: 'screen', label: 'Screen' },
+                { value: 'overlay', label: 'Overlay' },
+                { value: 'darken', label: 'Darken' },
+                { value: 'lighten', label: 'Lighten' },
+                { value: 'color-dodge', label: 'Color Dodge' },
+                { value: 'soft-light', label: 'Soft Light' }
+            ];
+        }
+
+        function loadAiConfig() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(AI_CONFIG_STORAGE_KEY) || '{}');
+                Object.assign(aiConfig, saved);
+            } catch (error) {
+                console.warn('AI config load failed', error);
+            }
+        }
+
+        function saveAiConfig() {
+            localStorage.setItem(AI_CONFIG_STORAGE_KEY, JSON.stringify(aiConfig));
+        }
+
+        function syncAiConfigInputs() {
+            document.getElementById('ai-endpoint').value = aiConfig.endpoint;
+            document.getElementById('ai-model').value = aiConfig.model;
+            document.getElementById('ai-api-key').value = aiConfig.apiKey;
+            document.getElementById('ai-user-prompt').value = aiConfig.prompt;
+        }
+
+        function pullAiConfigFromInputs() {
+            aiConfig.endpoint = document.getElementById('ai-endpoint').value.trim();
+            aiConfig.model = document.getElementById('ai-model').value.trim();
+            aiConfig.apiKey = document.getElementById('ai-api-key').value.trim();
+            aiConfig.prompt = document.getElementById('ai-user-prompt').value.trim();
+            saveAiConfig();
+        }
+
+        function isPointInsideElement(element, x, y) {
+            const { width, height } = getElementBounds(element);
+            const cos = Math.cos(-degToRad(element.rotation));
+            const sin = Math.sin(-degToRad(element.rotation));
+            const dx = x - element.x;
+            const dy = y - element.y;
+            const localX = dx * cos - dy * sin;
+            const localY = dx * sin + dy * cos;
+            return Math.abs(localX) <= width / 2 && Math.abs(localY) <= height / 2;
+        }
+
+        function pointToCanvasPosition(event, targetCanvas = canvas) {
+            const rect = targetCanvas.getBoundingClientRect();
+            return {
+                x: (event.clientX - rect.left) * (targetCanvas.width / rect.width),
+                y: (event.clientY - rect.top) * (targetCanvas.height / rect.height)
+            };
+        }
+
+        async function updateImageProcessing(element) {
+            const source = element.maskCanvas || element.originalCanvas;
+            const output = createEmptyCanvas(source.width, source.height);
+            const outputCtx = output.getContext('2d');
+            outputCtx.filter = `brightness(${element.brightness}%) contrast(${element.contrast}%) saturate(${element.saturation}%) hue-rotate(${element.hue}deg) blur(${element.blur || 0}px)`;
+            outputCtx.drawImage(source, 0, 0);
+            outputCtx.filter = 'none';
+
+            if (element.tintStrength > 0) {
+                outputCtx.save();
+                outputCtx.globalCompositeOperation = 'source-atop';
+                outputCtx.globalAlpha = element.tintStrength / 100;
+                outputCtx.fillStyle = element.tintColor;
+                outputCtx.fillRect(0, 0, output.width, output.height);
+                outputCtx.restore();
+            }
+
+            if (element.outlineWidth > 0) {
+                const style = element.outlineStyle || 'solid';
+                const outlineBlur = Math.max(0, Number(element.outlineBlur ?? 8));
+                const pad = Math.ceil(Math.max(
+                    element.outlineWidth * (style === 'neon' ? 6 : style === 'blur' ? 4 : 2),
+                    outlineBlur * (style === 'neon' ? 3 : 2),
+                    4
+                ));
+                const maskCanvas = createEmptyCanvas(output.width + pad * 2, output.height + pad * 2);
+                const maskCtx = maskCanvas.getContext('2d');
+                const step = style === 'dashed' ? 28 : style === 'soft' ? 18 : 12;
+                const radius = element.outlineWidth * (style === 'neon' ? 1.2 : 1);
+
+                for (let angle = 0, index = 0; angle < 360; angle += step, index++) {
+                    if (style === 'dashed' && index % 2 === 1) continue;
+                    const rad = degToRad(angle);
+                    maskCtx.drawImage(output, pad + Math.cos(rad) * radius, pad + Math.sin(rad) * radius);
+                }
+
+                maskCtx.globalCompositeOperation = 'source-in';
+                maskCtx.fillStyle = element.outlineColor;
+                maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+                maskCtx.globalCompositeOperation = 'source-over';
+
+                const outline = createEmptyCanvas(maskCanvas.width, maskCanvas.height);
+                const outlineCtx = outline.getContext('2d');
+
+                if (style === 'blur') {
+                    outlineCtx.save();
+                    outlineCtx.filter = `blur(${outlineBlur}px)`;
+                    outlineCtx.drawImage(maskCanvas, 0, 0);
+                    outlineCtx.restore();
+                    outlineCtx.globalAlpha = 0.75;
+                    outlineCtx.drawImage(maskCanvas, 0, 0);
+                    outlineCtx.globalAlpha = 1;
+                } else if (style === 'neon') {
+                    outlineCtx.save();
+                    outlineCtx.filter = `blur(${Math.max(0, outlineBlur * 2.4)}px)`;
+                    outlineCtx.globalAlpha = 1;
+                    outlineCtx.drawImage(maskCanvas, 0, 0);
+                    outlineCtx.restore();
+                    outlineCtx.save();
+                    outlineCtx.filter = `blur(${outlineBlur}px)`;
+                    outlineCtx.globalAlpha = 0.95;
+                    outlineCtx.drawImage(maskCanvas, 0, 0);
+                    outlineCtx.restore();
+                    outlineCtx.globalAlpha = 1;
+                    outlineCtx.drawImage(maskCanvas, 0, 0);
+                } else if (style === 'soft') {
+                    outlineCtx.save();
+                    outlineCtx.filter = `blur(${outlineBlur}px)`;
+                    outlineCtx.drawImage(maskCanvas, 0, 0);
+                    outlineCtx.restore();
+                } else {
+                    outlineCtx.drawImage(maskCanvas, 0, 0);
+                }
+
+                outlineCtx.drawImage(output, pad, pad);
+                element.processedCanvas = outline;
+            } else {
+                element.processedCanvas = output;
+            }
+            element.previewUrl = element.processedCanvas.toDataURL('image/png');
+        }
+
+        async function addImages(files) {
+            showLoading('이미지를 레이어로 추가하고 있어요.');
+            try {
+                for (const file of files) {
+                        showLoading(`이미지 레이어 추가 중...\n${file.name}`);
+                    try {
+                        const image = await fileToImage(file);
+                        const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
+                        const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
+                        await updateImageProcessing(element);
+                        getFaceState().elements.push(element);
+                        selectedId = element.id;
+                    } catch (error) {
+                        alert(`이미지 추가 실패: ${file.name}\n${error.message}`);
+                    }
+                }
+                render();
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function addPosterQuickPack(files) {
+            showLoading('포스터용 이미지를 빠르게 배치하는 중이에요.');
+            const created = [];
+            try {
+                for (const file of files) {
+                    showLoading(`포스터용 이미지 추가 중...\n${file.name}`);
+                    try {
+                        const image = await fileToImage(file);
+                        const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
+                        const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
+                        created.push(element);
+                        getFaceState().elements.push(element);
+                    } catch (error) {
+                        alert(`포스터용 이미지 추가 실패: ${file.name}\n${getErrorMessage(error)}`);
+                    }
+                }
+                if (!created.length) return;
+                await arrangePosterLayoutForElements(created);
+                selectedId = created[0].id;
+                render();
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function addImagesWithAiCutout(files) {
+            showLoading('AI로 배경을 제거한 뒤 레이어로 추가하고 있어요.');
+            try {
+                for (const file of files) {
+                    showLoading(`AI 배경제거 중...\n${file.name}`);
+                    const resultBlob = await removeBackgroundViaAPI(file);
+                    const image = await loadImageFromURL(URL.createObjectURL(resultBlob));
+                    const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
+                    const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
+                    await updateImageProcessing(element);
+                    getFaceState().elements.push(element);
+                    selectedId = element.id;
+                }
+                render();
+            } catch (error) {
+                alert(`AI 배경제거에 실패했습니다.\n${error.message}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function setBackgrounds(files) {
+            showLoading('스카이박스 배경을 불러오는 중이에요.');
+            try {
+                const allowedExtensions = new Set(['tex', 'png', 'jpg', 'jpeg', 'webp', 'webg']);
+                const assigned = [];
+                const skipped = [];
+                for (const file of files) {
+                    showLoading(`배경 파일 확인 중...\n${file.name}`);
+                    const ext = getFileExtension(file.name);
+                    if (!allowedExtensions.has(ext)) {
+                        skipped.push(`${file.name} - 지원하지 않는 확장자`);
+                        continue;
+                    }
+                    const faceMatch = FACES.find(face => file.name.toLowerCase().includes(face));
+                    if (!faceMatch) {
+                        skipped.push(`${file.name} - ft/bk/lf/rt/up/dn 코드 없음`);
+                        continue;
+                    }
+                try {
+                        showLoading(`배경 적용 중...\n${file.name}\n-> ${faceMatch.toUpperCase()}`);
+                        const image = await backgroundFileToImage(file);
+                        const faceState = getFaceState(faceMatch);
+                        faceState.background = imageToCanvas(image, CANVAS_SIZE);
+                        faceState.backgroundName = file.name;
+                    assigned.push(`${file.name} -> ${faceMatch.toUpperCase()}`);
+                } catch (error) {
+                    skipped.push(`${file.name} - 불러오기 실패: ${getErrorMessage(error)}`);
+                }
+            }
+                render();
+
+                const resultLines = [];
+                if (assigned.length > 0) {
+                    resultLines.push('[성공]');
+                    resultLines.push(...assigned);
+                }
+                if (skipped.length > 0) {
+                    if (resultLines.length > 0) resultLines.push('');
+                    resultLines.push('[실패]');
+                    resultLines.push(...skipped);
+                }
+                if (resultLines.length === 0) {
+                    resultLines.push('처리된 배경 파일이 없습니다.');
+                }
+                lastBackgroundUploadReport = resultLines.join('\n');
+                updateBackgroundStatusUI();
+                alert(lastBackgroundUploadReport);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function drawBackground(faceState, renderCtx) {
+            renderCtx.save();
+            renderCtx.fillStyle = rgbaWithOpacity(faceState.backgroundColor, faceState.backgroundOpacity);
+            renderCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            if (faceState.background) renderCtx.drawImage(faceState.background, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            renderCtx.restore();
+        }
+
+        function drawSpacedText(renderCtx, line, x, y, align, letterSpacing, stroke) {
+            const glyphs = [...line];
+            const widths = glyphs.map(ch => renderCtx.measureText(ch).width);
+            const totalWidth = widths.reduce((sum, value) => sum + value, 0) + Math.max(0, glyphs.length - 1) * letterSpacing;
+            let cursorX = x;
+            if (align === 'center') cursorX -= totalWidth / 2;
+            if (align === 'right') cursorX -= totalWidth;
+
+            glyphs.forEach((glyph, index) => {
+                if (stroke) renderCtx.strokeText(glyph, cursorX, y);
+                renderCtx.fillText(glyph, cursorX, y);
+                cursorX += widths[index] + letterSpacing;
+            });
+        }
+
+        function applyTextStrokeStyle(renderCtx, element) {
+            renderCtx.setLineDash([]);
+            renderCtx.shadowColor = 'transparent';
+            renderCtx.shadowBlur = 0;
+            const style = element.strokeStyle || 'solid';
+            const strokeBlur = Math.max(0, Number(element.strokeBlur ?? 8));
+            if (style === 'dashed') renderCtx.setLineDash([14, 10]);
+            if (style === 'soft') renderCtx.lineJoin = 'round';
+            if (style === 'blur') {
+                renderCtx.shadowColor = rgbaWithOpacity(element.strokeColor, 0.8);
+                renderCtx.shadowBlur = strokeBlur;
+            }
+            if (style === 'neon') {
+                renderCtx.shadowColor = rgbaWithOpacity(element.strokeColor, 1);
+                renderCtx.shadowBlur = Math.max(strokeBlur, strokeBlur * 2.4);
+            }
+        }
+
+        function drawTextElement(element, renderCtx, includeSelection = false) {
+            const { width, height, linePx, lines } = getTextMetrics(element);
+            renderCtx.save();
+            renderCtx.translate(element.x, element.y);
+            renderCtx.rotate(degToRad(element.rotation));
+            renderCtx.scale(element.scale * (element.flipX ? -1 : 1), element.scale * (element.flipY ? -1 : 1));
+            renderCtx.globalAlpha = element.opacity;
+            renderCtx.globalCompositeOperation = element.blendMode || 'source-over';
+            applyShadow(renderCtx, element.shadow);
+
+            if (element.backgroundOpacity > 0) {
+                renderCtx.fillStyle = rgbaWithOpacity(element.backgroundColor, element.backgroundOpacity);
+                if ((element.cornerRadius || 0) > 0) {
+                    drawRoundedRectPath(renderCtx, -width / 2, -height / 2, width, height, element.cornerRadius || 0);
+                    renderCtx.fill();
+                } else {
+                    renderCtx.fillRect(-width / 2, -height / 2, width, height);
+                }
+            }
+
+            renderCtx.font = `${element.fontWeight} ${element.fontSize}px ${element.fontFamily}`;
+            renderCtx.textAlign = element.align;
+            renderCtx.textBaseline = 'middle';
+            renderCtx.fillStyle = element.color;
+            renderCtx.strokeStyle = element.strokeColor;
+            renderCtx.lineWidth = element.strokeWidth;
+            renderCtx.lineJoin = 'round';
+            applyTextStrokeStyle(renderCtx, element);
+
+            const anchorX = element.align === 'left' ? (-width / 2 + element.paddingX) : element.align === 'right' ? (width / 2 - element.paddingX) : 0;
+            const startY = -((lines.length - 1) * linePx) / 2;
+            lines.forEach((line, index) => {
+                const y = startY + index * linePx;
+                if (element.letterSpacing === 0) {
+                    if (element.strokeWidth > 0) renderCtx.strokeText(line, anchorX, y);
+                    renderCtx.fillText(line, anchorX, y);
+                } else {
+                    drawSpacedText(renderCtx, line, anchorX, y, element.align, element.letterSpacing, element.strokeWidth > 0);
+                }
+            });
+
+            if (includeSelection) {
+                renderCtx.shadowColor = 'transparent';
+                renderCtx.strokeStyle = '#67e8f9';
+                renderCtx.lineWidth = 2 / element.scale;
+                renderCtx.setLineDash([12 / element.scale, 8 / element.scale]);
+                renderCtx.strokeRect(-width / 2 - 8, -height / 2 - 8, width + 16, height + 16);
+                renderCtx.setLineDash([]);
+            }
+            renderCtx.restore();
+        }
+
+        function drawImageElement(element, renderCtx, includeSelection = false) {
+            const drawCanvas = element.processedCanvas || element.maskCanvas || element.originalCanvas;
+            const width = drawCanvas.width * element.scale;
+            const height = drawCanvas.height * element.scale;
+            renderCtx.save();
+            renderCtx.translate(element.x, element.y);
+            renderCtx.rotate(degToRad(element.rotation));
+            renderCtx.scale(element.flipX ? -1 : 1, element.flipY ? -1 : 1);
+            renderCtx.globalAlpha = element.opacity;
+            renderCtx.globalCompositeOperation = element.blendMode || 'source-over';
+            if ((element.cornerRadius || 0) > 0) {
+                if (hasVisibleShadow(element.shadow)) {
+                    applyShadow(renderCtx, element.shadow);
+                    renderCtx.fillStyle = 'rgba(0,0,0,0.01)';
+                    drawRoundedRectPath(renderCtx, -width / 2, -height / 2, width, height, element.cornerRadius || 0);
+                    renderCtx.fill();
+                    renderCtx.shadowColor = 'transparent';
+                    renderCtx.shadowBlur = 0;
+                    renderCtx.shadowOffsetX = 0;
+                    renderCtx.shadowOffsetY = 0;
+                }
+                drawRoundedRectPath(renderCtx, -width / 2, -height / 2, width, height, element.cornerRadius || 0);
+                renderCtx.clip();
+            } else {
+                applyShadow(renderCtx, element.shadow);
+            }
+            renderCtx.drawImage(drawCanvas, -width / 2, -height / 2, width, height);
+            if (includeSelection) {
+                renderCtx.shadowColor = 'transparent';
+                renderCtx.strokeStyle = '#67e8f9';
+                renderCtx.lineWidth = 2;
+                renderCtx.setLineDash([12, 8]);
+                renderCtx.strokeRect(-width / 2 - 8, -height / 2 - 8, width + 16, height + 16);
+                renderCtx.setLineDash([]);
+            }
+            renderCtx.restore();
+        }
+
+        function drawScene(faceKey, renderCtx, includeSelection = true) {
+            const faceState = getFaceState(faceKey);
+            drawBackground(faceState, renderCtx);
+            faceState.elements.forEach(element => {
+                if (!element.visible) return;
+                const selected = includeSelection && element.id === selectedId;
+                if (element.type === 'image') drawImageElement(element, renderCtx, selected);
+                if (element.type === 'text') drawTextElement(element, renderCtx, selected);
+            });
+        }
+
+        function renderFaceToDataURL(faceKey = activeFace) {
+            const tempCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
+            const tempCtx = tempCanvas.getContext('2d');
+            drawScene(faceKey, tempCtx, false);
+            return tempCanvas.toDataURL('image/png');
+        }
+
+        function buildFaceSummary(faceKey = activeFace) {
+            const face = getFaceState(faceKey);
+            const imageCount = face.elements.filter(element => element.type === 'image').length;
+            const textCount = face.elements.filter(element => element.type === 'text').length;
+            return [
+                `face: ${faceKey}`,
+                `background: ${face.backgroundName || 'none'}`,
+                `element_count: ${face.elements.length}`,
+                `image_layers: ${imageCount}`,
+                `text_layers: ${textCount}`,
+                `layer_names: ${face.elements.map(element => element.name).join(', ') || 'none'}`
+            ].join('\n');
+        }
+
+        function updateBackgroundStatusUI() {
+            const face = getFaceState();
+            backgroundUploadLog.textContent = lastBackgroundUploadReport;
+
+            if (face.background) {
+                backgroundPreview.src = face.background.toDataURL('image/png');
+                backgroundStatusBadge.textContent = 'Loaded';
+                backgroundStatusBadge.className = 'text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300';
+                backgroundStatusText.textContent = `${activeFace.toUpperCase()} 면 배경: ${face.backgroundName || '이름 없음'}`;
+            } else {
+                backgroundPreview.removeAttribute('src');
+                backgroundStatusBadge.textContent = 'Empty';
+                backgroundStatusBadge.className = 'text-[10px] font-black uppercase tracking-[0.18em] text-slate-500';
+                backgroundStatusText.textContent = `${activeFace.toUpperCase()} 면에 배경이 없습니다.`;
+            }
+        }
+
+        function updateFaceButtons() {
+            document.querySelectorAll('.face-tab').forEach(button => {
+                button.classList.toggle('active', button.dataset.face === activeFace);
+            });
+        }
+
+        function updateCanvasSettingsUI() {
+            const face = getFaceState();
+            document.getElementById('canvas-bg-color').value = face.backgroundColor;
+            document.getElementById('canvas-bg-opacity').value = face.backgroundOpacity;
+            document.getElementById('layer-count').textContent = `${face.elements.length} items`;
+            updateBackgroundStatusUI();
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            drawScene(activeFace, ctx, true);
+            updateFaceButtons();
+            updateLayerList();
+            updatePropertyPanel();
+            updateCanvasSettingsUI();
+        }
+
+        function updateLayerList() {
+            const face = getFaceState();
+            if (face.elements.length === 0) {
+                layerList.innerHTML = '<div class="text-center text-sm text-slate-500 py-10 leading-6">레이어가 아직 없어요.<br>이미지나 텍스트를 추가해 주세요.</div>';
+                return;
+            }
+
+            layerList.innerHTML = face.elements.map((element, index) => {
+                const isActive = element.id === selectedId;
+                const thumb = element.type === 'image'
+                    ? `<img src="${element.previewUrl}" class="w-11 h-11 rounded-xl object-contain bg-black/40 border border-white/5">`
+                    : `<div class="w-11 h-11 rounded-xl flex items-center justify-center bg-white/5 border border-white/5 text-cyan-200 font-black text-lg">T</div>`;
+                return `
+                    <div class="layer-item ${isActive ? 'active' : ''} border border-white/5 rounded-2xl p-3 transition-all cursor-pointer" data-layer-id="${element.id}">
+                        <div class="flex items-center gap-3">
+                            ${thumb}
+                            <div class="min-w-0 flex-1">
+                                <div class="text-sm font-bold truncate">${element.locked ? '🔒 ' : ''}${element.name}</div>
+                                <div class="text-[11px] text-slate-400 uppercase tracking-[0.18em]">${element.type} · ${face.elements.length - index}</div>
+                            </div>
+                            <button class="text-xs font-black text-slate-400 hover:text-white transition-colors" data-toggle-id="${element.id}">${element.visible ? 'ON' : 'OFF'}</button>
+                        </div>
+                    </div>
+                `;
+            }).reverse().join('');
+
+            layerList.querySelectorAll('[data-layer-id]').forEach(item => {
+                item.addEventListener('click', event => {
+                    if (event.target.closest('[data-toggle-id]')) return;
+                    selectElement(item.dataset.layerId);
+                });
+            });
+
+            layerList.querySelectorAll('[data-toggle-id]').forEach(button => {
+                button.addEventListener('click', event => {
+                    event.stopPropagation();
+                    const target = getFaceState().elements.find(element => element.id === button.dataset.toggleId);
+                    if (!target) return;
+                    target.visible = !target.visible;
+                    render();
+                });
+            });
+        }
+
+        function formatBoundValue(key, value) {
+            if (value == null) return '';
+            if (['scale', 'opacity', 'lineHeight', 'shadow.opacity', 'backgroundOpacity'].includes(key)) return Number(value).toFixed(2);
+            return String(value);
+        }
+
+        function rangeField({ label, key, min, max, step = 1, value, unit = '' }) {
+            return `
+                <div>
+                    <div class="flex justify-between text-[11px] font-bold text-slate-400 mb-2"><span>${label}</span><span data-value-label="${key}">${value}${unit}</span></div>
+                    <input data-bind="${key}" type="range" min="${min}" max="${max}" step="${step}" value="${value}">
+                </div>
+            `;
+        }
+
+        function colorField({ label, key, value }) {
+            return `<div><div class="text-[11px] font-bold text-slate-400 mb-2">${label}</div><input data-bind="${key}" type="color" value="${value}"></div>`;
+        }
+
+        function selectField({ label, key, value, options }) {
+            return `
+                <label class="block">
+                    <div class="text-[11px] font-bold text-slate-400 mb-2">${label}</div>
+                    <select data-bind="${key}" class="select-input">
+                        ${options.map(option => `<option value="${option.value}" ${option.value === value ? 'selected' : ''}>${option.label}</option>`).join('')}
+                    </select>
+                </label>
+            `;
+        }
+
+        function textField({ label, key, value, type = 'text', min = '', max = '', step = '' }) {
+            const escapedValue = String(value).replace(/"/g, '&quot;');
+            return `<label class="block"><div class="text-[11px] font-bold text-slate-400 mb-2">${label}</div><input data-bind="${key}" type="${type}" class="text-input" value="${escapedValue}" ${min !== '' ? `min="${min}"` : ''} ${max !== '' ? `max="${max}"` : ''} ${step !== '' ? `step="${step}"` : ''}></label>`;
+        }
+
+        function needsImageRefresh(key) {
+            return ['brightness', 'contrast', 'saturation', 'hue', 'blur', 'outlineWidth', 'outlineColor', 'outlineStyle', 'outlineBlur', 'tintStrength', 'tintColor'].includes(key);
+        }
+
+        function setBoundValue(target, keyPath, rawValue, inputType) {
+            const path = keyPath.split('.');
+            let ref = target;
+            for (let i = 0; i < path.length - 1; i++) ref = ref[path[i]];
+            const finalKey = path[path.length - 1];
+            const currentValue = ref[finalKey];
+            let nextValue = rawValue;
+            if (typeof currentValue === 'number' || inputType === 'range' || inputType === 'number') nextValue = Number(rawValue);
+            ref[finalKey] = nextValue;
+            if (keyPath === 'name') target.name = String(rawValue).trim() || (target.type === 'image' ? '이미지' : '텍스트');
+        }
+
+        function getBoundValue(target, keyPath) {
+            return keyPath.split('.').reduce((acc, key) => acc?.[key], target);
+        }
+
+        function syncPropertyPanelValues(selected) {
+            if (!selected || propertyPanel.dataset.boundId !== selected.id) return;
+            selectionTitle.textContent = selected.name;
+
+            propertyPanel.querySelectorAll('[data-bind]').forEach(input => {
+                const key = input.dataset.bind;
+                const value = getBoundValue(selected, key);
+                if (input === document.activeElement) return;
+                if (input.tagName === 'TEXTAREA') input.value = value ?? '';
+                else input.value = value ?? '';
+            });
+
+            propertyPanel.querySelectorAll('[data-value-label]').forEach(label => {
+                const key = label.dataset.valueLabel;
+                const input = propertyPanel.querySelector(`[data-bind="${key}"]`);
+                const unit = input?.type === 'range' && input.max === '1' && input.step === '0.01' && !key.includes('blur') && !key.includes('offset') ? '' : '';
+                const raw = getBoundValue(selected, key);
+                const suffix =
+                    key === 'brightness' || key === 'contrast' || key === 'saturation' || key === 'tintStrength' ? '%' :
+                    key === 'hue' ? 'deg' :
+                    key === 'outlineWidth' || key === 'outlineBlur' || key === 'strokeWidth' || key === 'strokeBlur' || key === 'paddingX' || key === 'paddingY' || key === 'letterSpacing' || key === 'shadow.blur' || key === 'shadow.offsetX' || key === 'shadow.offsetY' || key === 'blur' || key === 'cornerRadius' ? 'px' :
+                    '';
+                label.textContent = `${formatBoundValue(key, raw)}${suffix}`;
+            });
+            const lockButton = propertyPanel.querySelector('[data-action="toggle-lock"]');
+            if (lockButton) lockButton.textContent = selected.locked ? '잠금 해제' : '레이어 잠금';
+        }
+
+        function alignSelectedElement(mode) {
+            const selected = getSelectedElement();
+            if (!selected || selected.locked) return;
+            const bounds = getElementBounds(selected);
+            if (mode === 'left') selected.x = bounds.width / 2;
+            if (mode === 'center-x') selected.x = CANVAS_SIZE / 2;
+            if (mode === 'right') selected.x = CANVAS_SIZE - bounds.width / 2;
+            if (mode === 'top') selected.y = bounds.height / 2;
+            if (mode === 'center-y') selected.y = CANVAS_SIZE / 2;
+            if (mode === 'bottom') selected.y = CANVAS_SIZE - bounds.height / 2;
+            if (mode === 'fit-width' && selected.type === 'image') selected.scale = CANVAS_SIZE / selected.processedCanvas.width;
+            if (mode === 'fit-height' && selected.type === 'image') selected.scale = CANVAS_SIZE / selected.processedCanvas.height;
+            render();
+        }
+
+        async function applyElementAction(action) {
+            const selected = getSelectedElement();
+            if (!selected) return;
+            if (action === 'toggle-lock') {
+                selected.locked = !selected.locked;
+                render();
+                return;
+            }
+            if (selected.locked) return;
+            if (action === 'flip-x') selected.flipX = !selected.flipX;
+            if (action === 'flip-y') selected.flipY = !selected.flipY;
+            if (action === 'reset-effects') {
+                selected.opacity = 1;
+                selected.blendMode = 'source-over';
+                selected.shadow = defaultShadow();
+                if (selected.type === 'image') {
+                    selected.brightness = 100;
+                    selected.contrast = 100;
+                    selected.saturation = 100;
+                    selected.hue = 0;
+                    selected.blur = 0;
+                    selected.tintStrength = 0;
+                    selected.cornerRadius = 0;
+                    selected.outlineWidth = 0;
+                    selected.outlineBlur = 8;
+                    selected.outlineStyle = 'solid';
+                    await updateImageProcessing(selected);
+                } else {
+                    selected.strokeWidth = 0;
+                    selected.strokeBlur = 8;
+                    selected.backgroundOpacity = 0;
+                    selected.cornerRadius = 0;
+                    selected.strokeStyle = 'solid';
+                }
+            }
+            render();
+        }
+
+        function updatePropertyPanel() {
+            const selected = getSelectedElement();
+            if (!selected) {
+                selectionTitle.textContent = '선택된 레이어 없음';
+                selectionSubtitle.textContent = '이미지나 텍스트를 선택하면 여기서 상세 편집이 가능해집니다.';
+                if (propertyPanel.dataset.boundId !== '') {
+                    propertyPanel.innerHTML = `
+                        <div class="property-group">
+                            <div class="property-label mb-3">빠른 시작</div>
+                            <div class="text-sm text-slate-300 leading-7">
+                                1. 배경 이미지를 업로드해서 면을 채우고<br>
+                                2. 이미지나 텍스트를 추가한 뒤<br>
+                                3. 오른쪽 패널에서 색상, 그림자, 배경제거를 다듬어 주세요.
+                            </div>
+                        </div>
+                    `;
+                    propertyPanel.dataset.boundId = '';
+                    propertyPanel.dataset.boundType = '';
+                }
+                return;
+            }
+
+            selectionTitle.textContent = selected.name;
+            selectionSubtitle.textContent = selected.type === 'image'
+                ? '이미지 레이어 보정, 외곽선, 그림자, 수동 배경제거를 여기서 조절할 수 있어요.'
+                : '텍스트 내용, 폰트, 채움색, 외곽선, 배경 박스와 그림자를 여기서 조절할 수 있어요.';
+
+            if (propertyPanel.dataset.boundId === selected.id && propertyPanel.dataset.boundType === selected.type) {
+                syncPropertyPanelValues(selected);
+                return;
+            }
+
+            const sharedHtml = `
+                <div class="property-group space-y-4">
+                    <div class="property-label">기본 변형</div>
+                    ${textField({ label: '레이어 이름', key: 'name', value: selected.name })}
+                    ${rangeField({ label: '크기', key: 'scale', min: 0.05, max: 4, step: 0.01, value: selected.scale.toFixed(2) })}
+                    ${rangeField({ label: '회전', key: 'rotation', min: -180, max: 180, step: 1, value: selected.rotation })}
+                    ${rangeField({ label: '불투명도', key: 'opacity', min: 0, max: 1, step: 0.01, value: selected.opacity.toFixed(2) })}
+                    ${selectField({ label: '블렌드 모드', key: 'blendMode', value: selected.blendMode || 'source-over', options: getBlendModeOptions() })}
+                </div>
+                <div class="property-group space-y-4">
+                    <div class="property-label">위치</div>
+                    ${rangeField({ label: 'X', key: 'x', min: 0, max: CANVAS_SIZE, step: 1, value: Math.round(selected.x) })}
+                    ${rangeField({ label: 'Y', key: 'y', min: 0, max: CANVAS_SIZE, step: 1, value: Math.round(selected.y) })}
+                </div>
+                <div class="property-group space-y-4">
+                    <div class="property-label">캔바 스타일 빠른 작업</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" class="tool-button !rounded-2xl" data-action="flip-x">좌우 뒤집기</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="flip-y">상하 뒤집기</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="align-left">왼쪽 맞춤</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="align-right">오른쪽 맞춤</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="align-top">위쪽 맞춤</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="align-bottom">아래쪽 맞춤</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="align-center-x">가로 중앙</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="align-center-y">세로 중앙</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="toggle-lock">${selected.locked ? '잠금 해제' : '레이어 잠금'}</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="reset-effects">효과 초기화</button>
+                    </div>
+                </div>
+            `;
+
+            const imageHtml = selected.type !== 'image' ? '' : `
+                <div class="property-group space-y-4">
+                    <div class="property-label">이미지 보정</div>
+                    ${rangeField({ label: '밝기', key: 'brightness', min: 0, max: 200, step: 1, value: selected.brightness, unit: '%' })}
+                    ${rangeField({ label: '대비', key: 'contrast', min: 0, max: 200, step: 1, value: selected.contrast, unit: '%' })}
+                    ${rangeField({ label: '채도', key: 'saturation', min: 0, max: 300, step: 1, value: selected.saturation, unit: '%' })}
+                    ${rangeField({ label: '색조 회전', key: 'hue', min: -180, max: 180, step: 1, value: selected.hue, unit: 'deg' })}
+                    ${rangeField({ label: '블러', key: 'blur', min: 0, max: 30, step: 0.5, value: selected.blur || 0, unit: 'px' })}
+                    ${rangeField({ label: '모서리 둥글기', key: 'cornerRadius', min: 0, max: 240, step: 1, value: selected.cornerRadius || 0, unit: 'px' })}
+                </div>
+                <div class="property-group space-y-4">
+                    <div class="property-label">색상과 외곽선</div>
+                    ${rangeField({ label: '아웃라인', key: 'outlineWidth', min: 0, max: 40, step: 1, value: selected.outlineWidth, unit: 'px' })}
+                    ${rangeField({ label: '아웃라인 블러 강도', key: 'outlineBlur', min: 0, max: 80, step: 1, value: selected.outlineBlur ?? 8, unit: 'px' })}
+                    ${colorField({ label: '아웃라인 색상', key: 'outlineColor', value: selected.outlineColor })}
+                    ${selectField({ label: '아웃라인 스타일', key: 'outlineStyle', value: selected.outlineStyle || 'solid', options: [
+                        { value: 'solid', label: '기본' },
+                        { value: 'dashed', label: '점선' },
+                        { value: 'soft', label: '소프트' },
+                        { value: 'blur', label: '블러' },
+                        { value: 'neon', label: '네온' }
+                    ] })}
+                    ${rangeField({ label: '틴트 강도', key: 'tintStrength', min: 0, max: 100, step: 1, value: selected.tintStrength, unit: '%' })}
+                    ${colorField({ label: '틴트 색상', key: 'tintColor', value: selected.tintColor })}
+                </div>
+                <div class="property-group space-y-4">
+                    <div class="property-label">프레임 맞춤</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" class="tool-button !rounded-2xl" data-action="align-fit-width">가로 꽉 채우기</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="align-fit-height">세로 꽉 채우기</button>
+                    </div>
+                </div>
+            `;
+
+            const textHtml = selected.type !== 'text' ? '' : `
+                <div class="property-group space-y-4">
+                    <div class="property-label">텍스트</div>
+                    <label class="block"><div class="text-[11px] font-bold text-slate-400 mb-2">내용</div><textarea data-bind="text" class="textarea-input">${selected.text}</textarea></label>
+                    <label class="block"><div class="text-[11px] font-bold text-slate-400 mb-2">폰트</div><select data-bind="fontFamily" class="select-input">${FONT_OPTIONS.map(font => `<option value="${font}" ${font === selected.fontFamily ? 'selected' : ''}>${font}</option>`).join('')}</select></label>
+                    ${textField({ label: '폰트 두께', key: 'fontWeight', value: selected.fontWeight, type: 'number', min: 100, max: 900, step: 100 })}
+                    ${textField({ label: '폰트 크기', key: 'fontSize', value: selected.fontSize, type: 'number', min: 8, max: 300, step: 1 })}
+                    <label class="block"><div class="text-[11px] font-bold text-slate-400 mb-2">정렬</div><select data-bind="align" class="select-input"><option value="left" ${selected.align === 'left' ? 'selected' : ''}>Left</option><option value="center" ${selected.align === 'center' ? 'selected' : ''}>Center</option><option value="right" ${selected.align === 'right' ? 'selected' : ''}>Right</option></select></label>
+                    ${rangeField({ label: '자간', key: 'letterSpacing', min: -4, max: 24, step: 1, value: selected.letterSpacing, unit: 'px' })}
+                    ${rangeField({ label: '줄 간격', key: 'lineHeight', min: 0.7, max: 2, step: 0.01, value: selected.lineHeight.toFixed(2) })}
+                </div>
+                <div class="property-group space-y-4">
+                    <div class="property-label">텍스트 스타일</div>
+                    ${colorField({ label: '글자색', key: 'color', value: selected.color })}
+                    ${rangeField({ label: '외곽선 두께', key: 'strokeWidth', min: 0, max: 20, step: 1, value: selected.strokeWidth, unit: 'px' })}
+                    ${rangeField({ label: '외곽선 블러 강도', key: 'strokeBlur', min: 0, max: 80, step: 1, value: selected.strokeBlur ?? 8, unit: 'px' })}
+                    ${colorField({ label: '외곽선 색상', key: 'strokeColor', value: selected.strokeColor })}
+                    ${selectField({ label: '외곽선 스타일', key: 'strokeStyle', value: selected.strokeStyle || 'solid', options: [
+                        { value: 'solid', label: '기본' },
+                        { value: 'dashed', label: '점선' },
+                        { value: 'soft', label: '소프트' },
+                        { value: 'blur', label: '블러' },
+                        { value: 'neon', label: '네온' }
+                    ] })}
+                    ${rangeField({ label: '배경 박스 투명도', key: 'backgroundOpacity', min: 0, max: 1, step: 0.01, value: selected.backgroundOpacity.toFixed(2) })}
+                    ${colorField({ label: '배경 박스 색상', key: 'backgroundColor', value: selected.backgroundColor })}
+                    ${rangeField({ label: '좌우 패딩', key: 'paddingX', min: 0, max: 120, step: 1, value: selected.paddingX, unit: 'px' })}
+                    ${rangeField({ label: '상하 패딩', key: 'paddingY', min: 0, max: 120, step: 1, value: selected.paddingY, unit: 'px' })}
+                    ${rangeField({ label: '배경 박스 둥글기', key: 'cornerRadius', min: 0, max: 120, step: 1, value: selected.cornerRadius || 0, unit: 'px' })}
+                </div>
+            `;
+
+            const shadow = selected.shadow;
+            const shadowHtml = `
+                <div class="property-group space-y-4">
+                    <div class="property-label">그림자</div>
+                    ${rangeField({ label: '그림자 블러', key: 'shadow.blur', min: 0, max: 320, step: 1, value: shadow.blur, unit: 'px' })}
+                    ${rangeField({ label: '그림자 X', key: 'shadow.offsetX', min: -512, max: 512, step: 1, value: shadow.offsetX, unit: 'px' })}
+                    ${rangeField({ label: '그림자 Y', key: 'shadow.offsetY', min: -512, max: 512, step: 1, value: shadow.offsetY, unit: 'px' })}
+                    ${rangeField({ label: '그림자 투명도', key: 'shadow.opacity', min: 0, max: 1, step: 0.01, value: shadow.opacity.toFixed(2) })}
+                    ${colorField({ label: '그림자 색상', key: 'shadow.color', value: shadow.color })}
+                </div>
+            `;
+
+            propertyPanel.innerHTML = sharedHtml + imageHtml + textHtml + shadowHtml;
+            propertyPanel.dataset.boundId = selected.id;
+            propertyPanel.dataset.boundType = selected.type;
+            propertyPanel.querySelectorAll('[data-bind]').forEach(input => {
+                input.addEventListener('input', async () => {
+                    const selectedElement = getSelectedElement();
+                    if (!selectedElement) return;
+                    if (selectedElement.locked) {
+                        syncPropertyPanelValues(selectedElement);
+                        return;
+                    }
+                    setBoundValue(selectedElement, input.dataset.bind, input.value, input.type);
+                    if (selectedElement.type === 'image' && needsImageRefresh(input.dataset.bind)) await updateImageProcessing(selectedElement);
+                    render();
+                });
+            });
+            propertyPanel.querySelectorAll('[data-action]').forEach(button => {
+                button.addEventListener('click', async event => {
+                    const action = event.currentTarget.dataset.action;
+                    if (action?.startsWith('align-')) {
+                        alignSelectedElement(action.replace('align-', ''));
+                        return;
+                    }
+                    await applyElementAction(action);
+                });
+            });
+            syncPropertyPanelValues(selected);
+        }
+
+        function addTextLayer() {
+            const element = createTextElement();
+            getFaceState().elements.push(element);
+            selectedId = element.id;
+            render();
+        }
+
+        function removeElement(id) {
+            const face = getFaceState();
+            const index = face.elements.findIndex(element => element.id === id);
+            if (index === -1) return;
+            face.elements.splice(index, 1);
+            if (selectedId === id) selectedId = null;
+            render();
+        }
+
+        function duplicateSelectedElement() {
+            const selected = getSelectedElement();
+            if (!selected) return;
+            const copy = selected.type === 'image'
+                ? {
+                    ...selected,
+                    id: generateId(),
+                    name: `${selected.name} 복사본`,
+                    x: selected.x + 24,
+                    y: selected.y + 24,
+                    shadow: { ...selected.shadow },
+                    originalCanvas: copyCanvas(selected.originalCanvas),
+                    maskCanvas: copyCanvas(selected.maskCanvas),
+                    processedCanvas: copyCanvas(selected.processedCanvas),
+                    previewUrl: ''
+                }
+                : {
+                    ...selected,
+                    id: generateId(),
+                    name: `${selected.name} 복사본`,
+                    x: selected.x + 24,
+                    y: selected.y + 24,
+                    shadow: { ...selected.shadow }
+                };
+            if (copy.type === 'image') copy.previewUrl = copy.processedCanvas.toDataURL('image/png');
+            getFaceState().elements.push(copy);
+            selectedId = copy.id;
+            render();
+        }
+
+        function moveElementOrder(direction) {
+            const face = getFaceState();
+            const index = face.elements.findIndex(element => element.id === selectedId);
+            if (index === -1) return;
+            if (direction === 'front' && index < face.elements.length - 1) {
+                const [item] = face.elements.splice(index, 1);
+                face.elements.push(item);
+            }
+            if (direction === 'back' && index > 0) {
+                const [item] = face.elements.splice(index, 1);
+                face.elements.unshift(item);
+            }
+            render();
+        }
+
+        function centerSelectedElement() {
+            const selected = getSelectedElement();
+            if (!selected || selected.locked) return;
+            selected.x = CANVAS_SIZE / 2;
+            selected.y = CANVAS_SIZE / 2;
+            render();
+        }
+
+        function clearCurrentFace() {
+            const face = getFaceState();
+            face.background = null;
+            face.backgroundName = '';
+            face.elements = [];
+            selectedId = null;
+            lastBackgroundUploadReport = `${activeFace.toUpperCase()} 면을 초기화했습니다.`;
+            render();
+        }
+
+        async function exportAll() {
+            showLoading('각 면을 렌더링해서 ZIP으로 묶는 중이에요.');
+            try {
+                const renderedFaces = [];
+                for (const face of FACES) {
+                    const tempCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
+                    const tempCtx = tempCanvas.getContext('2d');
+                    drawScene(face, tempCtx, false);
+                    renderedFaces.push({
+                        face,
+                        canvas: tempCanvas,
+                        base64: tempCanvas.toDataURL('image/png').split(',')[1]
+                    });
+                }
+
+                if (typeof JSZip === 'undefined') {
+                    alert('ZIP 라이브러리를 불러오지 못해서 파일별로 내보냅니다.');
+                    for (const item of renderedFaces) {
+                        const blob = await canvasToBlob(item.canvas);
+                        downloadBlob(blob, `sky512_${item.face}.tex`);
+                    }
+                    return;
+                }
+
+                const zip = new JSZip();
+                renderedFaces.forEach(item => {
+                    zip.file(`sky512_${item.face}.tex`, item.base64, { base64: true });
+                    zip.file(`preview_${item.face}.png`, item.base64, { base64: true });
+                });
+                const blob = await zip.generateAsync({ type: 'blob' });
+                downloadBlob(blob, 'skybox_studio_pack.zip');
+                await saveCurrentProject('내보내기 전 자동 기록');
+            } catch (error) {
+                alert(`내보내기 실패\n${getErrorMessage(error)}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function openAiModal() {
+            aiLastPreview = renderFaceToDataURL(activeFace);
+            aiPreview.src = aiLastPreview;
+            aiStatus.textContent = '준비됨';
+            document.getElementById('ai-modal').classList.add('visible');
+        }
+
+        function closeAiModal() {
+            document.getElementById('ai-modal').classList.remove('visible');
+        }
+
+        async function requestAiRecommendation() {
+            pullAiConfigFromInputs();
+            if (!aiConfig.endpoint || !aiConfig.model || !aiConfig.prompt) {
+                alert('AI 엔드포인트, 모델 이름, 프롬프트를 먼저 입력해 주세요.');
+                return;
+            }
+
+            aiStatus.textContent = '요청 중';
+            aiResult.textContent = 'AI 서버에 현재 면을 보내고 있습니다...';
+
+            try {
+                const preview = aiLastPreview || renderFaceToDataURL(activeFace);
+                aiPreview.src = preview;
+                const payload = {
+                    model: aiConfig.model,
+                    temperature: 0.7,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'You are a practical graphic design director. Analyze the given image and return concise, production-friendly Korean recommendations.'
+                        },
+                        {
+                            role: 'user',
+                            content: [
+                                { type: 'text', text: `${aiConfig.prompt}\n\n현재 편집 정보:\n${buildFaceSummary(activeFace)}` },
+                                { type: 'image_url', image_url: { url: preview } }
+                            ]
+                        }
+                    ]
+                };
+
+                const headers = { 'Content-Type': 'application/json' };
+                if (aiConfig.apiKey) headers.Authorization = `Bearer ${aiConfig.apiKey}`;
+
+                const response = await fetch(aiConfig.endpoint, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text().catch(() => '');
+                    throw new Error(errorText || `AI request failed (${response.status})`);
+                }
+
+                const data = await response.json();
+                const content = data?.choices?.[0]?.message?.content;
+                const normalized = Array.isArray(content)
+                    ? content.map(part => part?.text || '').join('\n')
+                    : String(content || '').trim();
+
+                aiResult.textContent = normalized || '응답은 왔지만 추천 텍스트가 비어 있습니다.';
+                aiStatus.textContent = '완료';
+            } catch (error) {
+                aiResult.textContent = `AI 추천 요청 실패\n${error.message}`;
+                aiStatus.textContent = '실패';
+            }
+        }
+
+        function setActiveFace(face) {
+            activeFace = face;
+            if (!getFaceState().elements.some(element => element.id === selectedId)) selectedId = null;
+            render();
+        }
+
+        function findTopElementAt(x, y) {
+            const elements = getFaceState().elements;
+            for (let i = elements.length - 1; i >= 0; i--) {
+                const element = elements[i];
+                if (!element.visible) continue;
+                if (isPointInsideElement(element, x, y)) return element;
+            }
+            return null;
+        }
+
+        function createCheckerCanvas() {
+            const patternCanvas = createEmptyCanvas(20, 20);
+            const patternCtx = patternCanvas.getContext('2d');
+            patternCtx.fillStyle = '#0f172a';
+            patternCtx.fillRect(0, 0, 20, 20);
+            patternCtx.fillStyle = '#1e293b';
+            patternCtx.fillRect(0, 0, 10, 10);
+            patternCtx.fillRect(10, 10, 10, 10);
+            return patternCanvas;
+        }
+
+        function syncCutoutControlLabels() {
+            document.getElementById('brush-size-value').textContent = String(cutoutState.brushSize);
+            document.getElementById('brush-softness-value').textContent = cutoutState.softness.toFixed(2);
+            document.getElementById('brush-opacity-value').textContent = cutoutState.opacity.toFixed(2);
+            document.getElementById('cutout-zoom-value').textContent = `${Math.round(cutoutState.zoom * 100)}%`;
+        }
+
+        function updateCutoutModeButtons() {
+            document.getElementById('brush-erase').classList.toggle('primary', cutoutState.mode === 'erase');
+            document.getElementById('brush-restore').classList.toggle('primary', cutoutState.mode === 'restore');
+        }
+
+        function redrawCutoutCanvas() {
+            if (!cutoutState.workingCanvas) return;
+            cutoutCanvas.width = cutoutState.workingCanvas.width;
+            cutoutCanvas.height = cutoutState.workingCanvas.height;
+            cutoutCanvas.style.width = `${cutoutState.workingCanvas.width * cutoutState.zoom}px`;
+            cutoutCanvas.style.height = `${cutoutState.workingCanvas.height * cutoutState.zoom}px`;
+            cutoutCtx.clearRect(0, 0, cutoutCanvas.width, cutoutCanvas.height);
+            cutoutCtx.fillStyle = cutoutCtx.createPattern(createCheckerCanvas(), 'repeat');
+            cutoutCtx.fillRect(0, 0, cutoutCanvas.width, cutoutCanvas.height);
+            cutoutCtx.drawImage(cutoutState.workingCanvas, 0, 0);
+        }
+
+        function cutoutPointerPosition(event) {
+            const rect = cutoutCanvas.getBoundingClientRect();
+            return {
+                x: clamp((event.clientX - rect.left) * (cutoutCanvas.width / rect.width), 0, cutoutCanvas.width),
+                y: clamp((event.clientY - rect.top) * (cutoutCanvas.height / rect.height), 0, cutoutCanvas.height)
+            };
+        }
+
+        async function openCutoutEditor() {
+            const selected = getSelectedElement();
+            if (!selected || selected.type !== 'image') {
+                alert('수동 배경제거는 이미지 레이어를 선택했을 때만 사용할 수 있어요.');
+                return;
+            }
+            cutoutState.elementId = selected.id;
+            cutoutState.originalCanvas = copyCanvas(selected.originalCanvas);
+            cutoutState.workingCanvas = copyCanvas(selected.maskCanvas || selected.originalCanvas);
+            cutoutState.isDrawing = false;
+            cutoutState.lastPoint = null;
+            cutoutState.mode = 'erase';
+            cutoutState.brushSize = 30;
+            cutoutState.softness = 0.7;
+            cutoutState.opacity = 1;
+            cutoutState.zoom = 1;
+            document.getElementById('cutout-modal').classList.add('visible');
+            document.getElementById('brush-size').value = cutoutState.brushSize;
+            document.getElementById('brush-softness').value = cutoutState.softness;
+            document.getElementById('brush-opacity').value = cutoutState.opacity;
+            document.getElementById('cutout-zoom').value = cutoutState.zoom;
+            syncCutoutControlLabels();
+            updateCutoutModeButtons();
+            redrawCutoutCanvas();
+        }
+
+        function closeCutoutEditor() {
+            document.getElementById('cutout-modal').classList.remove('visible');
+        }
+
+        function drawBrushStroke(from, to) {
+            const workCtx = cutoutState.workingCanvas.getContext('2d');
+            const original = cutoutState.originalCanvas;
+            const size = cutoutState.brushSize;
+            workCtx.save();
+            workCtx.lineCap = 'round';
+            workCtx.lineJoin = 'round';
+            workCtx.lineWidth = size;
+            workCtx.globalAlpha = cutoutState.opacity;
+            workCtx.filter = `blur(${Math.max(0, size * cutoutState.softness * 0.18)}px)`;
+
+            if (cutoutState.mode === 'erase') {
+                workCtx.globalCompositeOperation = 'destination-out';
+                workCtx.strokeStyle = 'rgba(0,0,0,1)';
+                workCtx.beginPath();
+                workCtx.moveTo(from.x, from.y);
+                workCtx.lineTo(to.x, to.y);
+                workCtx.stroke();
+            } else {
+                const restoreCanvas = createEmptyCanvas(cutoutState.workingCanvas.width, cutoutState.workingCanvas.height);
+                const restoreCtx = restoreCanvas.getContext('2d');
+                restoreCtx.drawImage(original, 0, 0);
+                restoreCtx.globalCompositeOperation = 'destination-in';
+                restoreCtx.filter = workCtx.filter;
+                restoreCtx.lineCap = 'round';
+                restoreCtx.lineJoin = 'round';
+                restoreCtx.lineWidth = size;
+                restoreCtx.strokeStyle = 'rgba(0,0,0,1)';
+                restoreCtx.beginPath();
+                restoreCtx.moveTo(from.x, from.y);
+                restoreCtx.lineTo(to.x, to.y);
+                restoreCtx.stroke();
+                workCtx.globalCompositeOperation = 'source-over';
+                workCtx.drawImage(restoreCanvas, 0, 0);
+            }
+            workCtx.restore();
+            redrawCutoutCanvas();
+        }
+
+        canvas.addEventListener('mousedown', event => {
+            const point = pointToCanvasPosition(event);
+            const target = findTopElementAt(point.x, point.y);
+            if (!target) {
+                selectedId = null;
+                render();
+                return;
+            }
+            selectedId = target.id;
+            if (!target.locked) {
+                isDragging = true;
+                dragOffset.x = point.x - target.x;
+                dragOffset.y = point.y - target.y;
+            }
+            render();
+        });
+
+        window.addEventListener('mousemove', event => {
+            if (!isDragging) return;
+            const selected = getSelectedElement();
+            if (!selected) return;
+            const point = pointToCanvasPosition(event);
+            selected.x = clamp(point.x - dragOffset.x, 0, CANVAS_SIZE);
+            selected.y = clamp(point.y - dragOffset.y, 0, CANVAS_SIZE);
+            render();
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            cutoutState.isDrawing = false;
+            cutoutState.lastPoint = null;
+        });
+
+        canvas.addEventListener('wheel', event => {
+            event.preventDefault();
+            const selected = getSelectedElement();
+            if (!selected || selected.locked) return;
+            if (event.shiftKey) selected.rotation = clamp(selected.rotation + (event.deltaY > 0 ? 3 : -3), -180, 180);
+            else selected.scale = clamp(selected.scale + (event.deltaY > 0 ? -0.04 : 0.04), 0.05, 4);
+            render();
+        }, { passive: false });
+
+        cutoutCanvas.addEventListener('mousedown', event => {
+            cutoutState.isDrawing = true;
+            cutoutState.lastPoint = cutoutPointerPosition(event);
+        });
+
+        cutoutCanvas.addEventListener('mousemove', event => {
+            if (!cutoutState.isDrawing || !cutoutState.lastPoint) return;
+            const nextPoint = cutoutPointerPosition(event);
+            drawBrushStroke(cutoutState.lastPoint, nextPoint);
+            cutoutState.lastPoint = nextPoint;
+        });
+
+        document.getElementById('brush-erase').addEventListener('click', () => { cutoutState.mode = 'erase'; updateCutoutModeButtons(); });
+        document.getElementById('brush-restore').addEventListener('click', () => { cutoutState.mode = 'restore'; updateCutoutModeButtons(); });
+        document.getElementById('brush-size').addEventListener('input', event => { cutoutState.brushSize = Number(event.target.value); syncCutoutControlLabels(); });
+        document.getElementById('brush-softness').addEventListener('input', event => { cutoutState.softness = Number(event.target.value); syncCutoutControlLabels(); });
+        document.getElementById('brush-opacity').addEventListener('input', event => { cutoutState.opacity = Number(event.target.value); syncCutoutControlLabels(); });
+        document.getElementById('cutout-zoom').addEventListener('input', event => { cutoutState.zoom = Number(event.target.value); syncCutoutControlLabels(); redrawCutoutCanvas(); });
+        document.getElementById('cutout-reset').addEventListener('click', () => { cutoutState.workingCanvas = copyCanvas(cutoutState.originalCanvas); redrawCutoutCanvas(); });
+        document.getElementById('cutout-cancel').addEventListener('click', closeCutoutEditor);
+        document.getElementById('cutout-apply').addEventListener('click', async () => {
+            const selected = getSelectedElement();
+            if (!selected || selected.id !== cutoutState.elementId) return closeCutoutEditor();
+            selected.maskCanvas = copyCanvas(cutoutState.workingCanvas);
+            await updateImageProcessing(selected);
+            closeCutoutEditor();
+            render();
+        });
+
+        document.getElementById('sky-bulk').addEventListener('change', async event => {
+            const files = Array.from(event.target.files || []);
+            if (files.length) await setBackgrounds(files);
+            event.target.value = '';
+        });
+        document.getElementById('asset-bulk').addEventListener('change', async event => {
+            const files = Array.from(event.target.files || []);
+            if (files.length) await addImages(files);
+            event.target.value = '';
+        });
+        document.getElementById('poster-quick-input').addEventListener('change', async event => {
+            const files = Array.from(event.target.files || []);
+            if (files.length) await addPosterQuickPack(files);
+            event.target.value = '';
+        });
+        document.getElementById('asset-bulk-ai').addEventListener('change', async event => {
+            const files = Array.from(event.target.files || []);
+            if (files.length) await addImagesWithAiCutout(files);
+            event.target.value = '';
+        });
+        document.getElementById('preset-bundled-button').addEventListener('click', async () => {
+            showLoading('프로그램 폴더 안의 스카이박스를 다시 읽는 중이에요.');
+            try {
+                await loadBundledPresetManifest(true);
+            } finally {
+                hideLoading();
+            }
+        });
+        document.getElementById('preset-folder-button').addEventListener('click', importPresetFolder);
+        document.getElementById('preset-folder-input').addEventListener('change', async event => {
+            const files = Array.from(event.target.files || []);
+            if (files.length) {
+                await buildPresetLibraryFromFiles(files);
+                if (importedPresetSets.length === 0) {
+                    alert('가져온 폴더에서 완성된 스카이박스 세트를 찾지 못했습니다.\n각 세트 폴더 안에 ft/bk/lf/rt/up/dn 6면 파일이 있어야 합니다.');
+                } else {
+                    alert(`스카이박스 세트 ${importedPresetSets.length}개를 찾았습니다.\n왼쪽 Skybox Presets 목록에서 클릭해서 적용해 주세요.`);
+                }
+            }
+            event.target.value = '';
+        });
+        document.getElementById('open-ai').addEventListener('click', openAiModal);
+        document.getElementById('ai-close').addEventListener('click', closeAiModal);
+        document.getElementById('ai-run').addEventListener('click', requestAiRecommendation);
+        ['ai-endpoint', 'ai-model', 'ai-api-key', 'ai-user-prompt'].forEach(id => {
+            document.getElementById(id).addEventListener('change', pullAiConfigFromInputs);
+        });
+        document.getElementById('add-text').addEventListener('click', addTextLayer);
+        document.getElementById('duplicate-layer').addEventListener('click', duplicateSelectedElement);
+        document.getElementById('open-cutout').addEventListener('click', openCutoutEditor);
+        document.getElementById('delete-layer').addEventListener('click', () => { if (selectedId) removeElement(selectedId); });
+        document.getElementById('save-project').addEventListener('click', handleManualSave);
+        document.getElementById('load-project').addEventListener('click', handleLoadProject);
+        document.getElementById('apply-poster-background').addEventListener('click', applyPosterBackgroundPreset);
+        document.getElementById('arrange-poster-layout').addEventListener('click', arrangePosterLayoutForCurrentFace);
+        document.getElementById('export-all').addEventListener('click', exportAll);
+        document.getElementById('clear-face').addEventListener('click', clearCurrentFace);
+        document.getElementById('bring-front').addEventListener('click', () => moveElementOrder('front'));
+        document.getElementById('send-back').addEventListener('click', () => moveElementOrder('back'));
+        document.getElementById('center-layer').addEventListener('click', centerSelectedElement);
+        document.getElementById('canvas-bg-color').addEventListener('input', event => { getFaceState().backgroundColor = event.target.value; render(); });
+        document.getElementById('canvas-bg-opacity').addEventListener('input', event => { getFaceState().backgroundOpacity = Number(event.target.value); render(); });
+        backgroundTemplateColor.addEventListener('input', updateAndApplyCustomGridBackground);
+        applyBackgroundTemplateButton.addEventListener('click', applyCustomGridBackground);
+        document.querySelectorAll('[data-grid-mode]').forEach(button => {
+            button.addEventListener('click', () => {
+                backgroundGridMode = button.dataset.gridMode;
+                updateAndApplyCustomGridBackground();
+            });
+        });
+        document.querySelectorAll('.face-tab').forEach(button => button.addEventListener('click', () => setActiveFace(button.dataset.face)));
+
+        window.addEventListener('keydown', event => {
+            const tag = document.activeElement?.tagName;
+            const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+            if (typing) return;
+            if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId && !getSelectedElement()?.locked) removeElement(selectedId);
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') {
+                event.preventDefault();
+                duplicateSelectedElement();
+            }
+        });
+
+        loadAiConfig();
+        syncAiConfigInputs();
+        renderBackgroundTemplates();
+        render();
+        loadBundledPresetManifest();
