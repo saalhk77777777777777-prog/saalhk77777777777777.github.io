@@ -1748,6 +1748,18 @@
             if (selected.locked) return;
             if (action === 'flip-x') selected.flipX = !selected.flipX;
             if (action === 'flip-y') selected.flipY = !selected.flipY;
+            if (action === 'shadow-off') {
+                selected.shadow = { ...selected.shadow, blur: 0, offsetX: 0, offsetY: 0, opacity: 0, color: selected.shadow.color || '#000000' };
+            }
+            if (action === 'shadow-hard') {
+                selected.shadow = { ...selected.shadow, blur: 0, offsetX: 18, offsetY: 18, opacity: 0.72, color: selected.shadow.color || '#000000' };
+            }
+            if (action === 'shadow-soft') {
+                selected.shadow = { ...selected.shadow, blur: 34, offsetX: 14, offsetY: 18, opacity: 0.48, color: selected.shadow.color || '#000000' };
+            }
+            if (action === 'shadow-glow') {
+                selected.shadow = { ...selected.shadow, blur: 72, offsetX: 0, offsetY: 0, opacity: 0.82, color: selected.shadow.color || '#ffffff' };
+            }
             if (action === 'reset-effects') {
                 selected.opacity = 1;
                 selected.blendMode = 'source-over';
@@ -1908,7 +1920,13 @@
             const shadowHtml = `
                 <div class="property-group space-y-4">
                     <div class="property-label">그림자</div>
-                    ${rangeField({ label: '그림자 블러', key: 'shadow.blur', min: 0, max: 320, step: 1, value: shadow.blur, unit: 'px' })}
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" class="tool-button !rounded-2xl" data-action="shadow-off">그림자 끄기</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="shadow-hard">선명 그림자</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="shadow-soft">소프트 그림자</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="shadow-glow">글로우</button>
+                    </div>
+                    ${rangeField({ label: '그림자 블러 강도', key: 'shadow.blur', min: 0, max: 512, step: 1, value: shadow.blur, unit: 'px' })}
                     ${rangeField({ label: '그림자 X', key: 'shadow.offsetX', min: -512, max: 512, step: 1, value: shadow.offsetX, unit: 'px' })}
                     ${rangeField({ label: '그림자 Y', key: 'shadow.offsetY', min: -512, max: 512, step: 1, value: shadow.offsetY, unit: 'px' })}
                     ${rangeField({ label: '그림자 투명도', key: 'shadow.opacity', min: 0, max: 1, step: 0.01, value: shadow.opacity.toFixed(2) })}
