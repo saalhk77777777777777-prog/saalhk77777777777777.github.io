@@ -6,6 +6,8 @@
         const AI_CONFIG_STORAGE_KEY = 'skybox-ai-config-v1';
         const PROJECT_DB_NAME = 'skybox-studio-projects';
         const PROJECT_STORE_NAME = 'snapshots';
+        const IS_PUBLIC_HOSTED = ['http:', 'https:'].includes(window.location.protocol)
+            && !['localhost', '127.0.0.1'].includes(window.location.hostname);
 
         let activeFace = 'ft';
         let selectedId = null;
@@ -59,7 +61,7 @@
         let backgroundGridMode = 'white';
 
         const aiConfig = {
-            endpoint: 'http://127.0.0.1:1234/v1/chat/completions',
+            endpoint: IS_PUBLIC_HOSTED ? '' : 'http://127.0.0.1:1234/v1/chat/completions',
             model: 'qwen2.5-vl-7b-instruct',
             apiKey: '',
             prompt: '현재 스카이박스 면 이미지를 보고 한국어로 디자인 추천을 해줘. 배치, 강조 포인트, 텍스트 스타일, 색 조합, 테두리/그림자 효과를 중심으로 5개 항목으로 짧고 실용적으로 제안해줘.'
@@ -778,7 +780,7 @@
 
         async function loadBundledPresetManifest(notify = false) {
             try {
-                const response = await fetch('assets/skybox/presets.json', { cache: 'no-cache' });
+                const response = await fetch('./assets/skybox/presets.json', { cache: 'no-cache' });
                 if (!response.ok) return;
 
                 const manifest = await response.json();
@@ -985,6 +987,9 @@
             document.getElementById('ai-model').value = aiConfig.model;
             document.getElementById('ai-api-key').value = aiConfig.apiKey;
             document.getElementById('ai-user-prompt').value = aiConfig.prompt;
+            if (IS_PUBLIC_HOSTED) {
+                document.getElementById('ai-endpoint').placeholder = '공개 배포에서는 외부에서 접근 가능한 AI 서버 주소를 입력하세요.';
+            }
         }
 
         function pullAiConfigFromInputs() {
@@ -1144,6 +1149,10 @@
         }
 
         async function addImagesWithAiCutout(files) {
+            if (IS_PUBLIC_HOSTED) {
+                alert('공개 배포(Render)에서는 브라우저에서 remove.bg를 직접 호출하는 기능이 막힐 수 있어요.\n이 기능은 로컬 실행 버전에서 사용하는 것을 권장합니다.');
+                return;
+            }
             showLoading('AI로 배경을 제거한 뒤 레이어로 추가하고 있어요.');
             try {
                 for (const file of files) {
@@ -1900,6 +1909,11 @@
 
         async function requestAiRecommendation() {
             pullAiConfigFromInputs();
+            if (IS_PUBLIC_HOSTED && (!aiConfig.endpoint || /127\.0\.0\.1|localhost/i.test(aiConfig.endpoint))) {
+                aiStatus.textContent = '설정 필요';
+                aiResult.textContent = '공개 배포에서는 로컬 주소(127.0.0.1 / localhost)로 AI 추천을 요청할 수 없습니다.\n외부에서 접근 가능한 AI 서버 주소를 입력하거나, 이 기능은 로컬 실행 버전에서 사용해 주세요.';
+                return;
+            }
             if (!aiConfig.endpoint || !aiConfig.model || !aiConfig.prompt) {
                 alert('AI 엔드포인트, 모델 이름, 프롬프트를 먼저 입력해 주세요.');
                 return;
@@ -2243,4 +2257,7 @@
         syncAiConfigInputs();
         renderBackgroundTemplates();
         render();
+        if (IS_PUBLIC_HOSTED) {
+            presetStatusText.textContent = '공개 배포에서는 내장 프리셋, 이미지 편집, 저장/내보내기는 사용할 수 있지만 AI 추천과 AI 배경제거는 별도 서버 설정이 필요합니다.';
+        }
         loadBundledPresetManifest();
