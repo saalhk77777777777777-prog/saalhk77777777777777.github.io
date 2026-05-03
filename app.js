@@ -843,6 +843,154 @@
             return await response.blob();
         }
 
+        function sampleSolidBackgroundColor(sourceCanvas) {
+            const width = sourceCanvas.width;
+            const height = sourceCanvas.height;
+            const sampleCanvas = createEmptyCanvas(width, height);
+            const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+            sampleCtx.drawImage(sourceCanvas, 0, 0);
+            const data = sampleCtx.getImageData(0, 0, width, height).data;
+            const step = Math.max(1, Math.floor(Math.min(width, height) / 48));
+            const buckets = new Map();
+
+            function addPixel(x, y) {
+                const index = (y * width + x) * 4;
+                const alpha = data[index + 3];
+                if (alpha < 16) return;
+                const r = data[index];
+                const g = data[index + 1];
+                const b = data[index + 2];
+                const key = `${Math.round(r / 16)}-${Math.round(g / 16)}-${Math.round(b / 16)}`;
+                const current = buckets.get(key) || { count: 0, r: 0, g: 0, b: 0 };
+                current.count += 1;
+                current.r += r;
+                current.g += g;
+                current.b += b;
+                buckets.set(key, current);
+            }
+
+            for (let x = 0; x < width; x += step) {
+                addPixel(x, 0);
+                addPixel(x, height - 1);
+            }
+            for (let y = 0; y < height; y += step) {
+                addPixel(0, y);
+                addPixel(width - 1, y);
+            }
+
+            let best = null;
+            for (const bucket of buckets.values()) {
+                if (!best || bucket.count > best.count) best = bucket;
+            }
+            if (!best || best.count === 0) return { r: 255, g: 255, b: 255, tolerance: 42, softness: 28 };
+
+            const average = {
+                r: best.r / best.count,
+                g: best.g / best.count,
+                b: best.b / best.count
+            };
+            const brightness = (average.r + average.g + average.b) / 3;
+            const tolerance = brightness > 220 || brightness < 35 ? 54 : 42;
+            return { ...average, tolerance, softness: 30 };
+        }
+
+        function colorDistance(a, b) {
+            const dr = a.r - b.r;
+            const dg = a.g - b.g;
+            const db = a.b - b.b;
+            return Math.sqrt(dr * dr + dg * dg + db * db);
+        }
+
+        function removeSolidBackgroundFromCanvas(sourceCanvas, colorHint = null) {
+            const width = sourceCanvas.width;
+            const height = sourceCanvas.height;
+            const resultCanvas = copyCanvas(sourceCanvas);
+            const resultCtx = resultCanvas.getContext('2d', { willReadFrequently: true });
+            const imageData = resultCtx.getImageData(0, 0, width, height);
+            const { data } = imageData;
+            const key = colorHint || sampleSolidBackgroundColor(sourceCanvas);
+            const hardTolerance = Math.max(18, Number(key.tolerance || 42));
+            const softTolerance = hardTolerance + Math.max(10, Number(key.softness || 28));
+            const visited = new Uint8Array(width * height);
+            const stack = [];
+
+            function trySeed(x, y) {
+                if (x < 0 || y < 0 || x >= width || y >= height) return;
+                const idx = y * width + x;
+                if (visited[idx]) return;
+                const offset = idx * 4;
+                const alpha = data[offset + 3];
+                if (alpha < 8) {
+                    visited[idx] = 1;
+                    return;
+                }
+                const dist = colorDistance({ r: data[offset], g: data[offset + 1], b: data[offset + 2] }, key);
+                if (dist <= softTolerance) stack.push(idx);
+            }
+
+            for (let x = 0; x < width; x++) {
+                trySeed(x, 0);
+                trySeed(x, height - 1);
+            }
+            for (let y = 0; y < height; y++) {
+                trySeed(0, y);
+                trySeed(width - 1, y);
+            }
+
+            while (stack.length) {
+                const idx = stack.pop();
+                if (visited[idx]) continue;
+                visited[idx] = 1;
+                const offset = idx * 4;
+                const alpha = data[offset + 3];
+                if (alpha < 8) continue;
+
+                const pixel = { r: data[offset], g: data[offset + 1], b: data[offset + 2] };
+                const dist = colorDistance(pixel, key);
+                if (dist > softTolerance) continue;
+
+                if (dist <= hardTolerance) {
+                    data[offset + 3] = 0;
+                } else {
+                    const ratio = (dist - hardTolerance) / Math.max(1, softTolerance - hardTolerance);
+                    data[offset + 3] = Math.round(alpha * Math.min(1, ratio));
+                }
+
+                const x = idx % width;
+                const y = Math.floor(idx / width);
+                if (x > 0 && !visited[idx - 1]) stack.push(idx - 1);
+                if (x < width - 1 && !visited[idx + 1]) stack.push(idx + 1);
+                if (y > 0 && !visited[idx - width]) stack.push(idx - width);
+                if (y < height - 1 && !visited[idx + width]) stack.push(idx + width);
+            }
+
+            resultCtx.putImageData(imageData, 0, 0);
+            return resultCanvas;
+        }
+
+        async function addSolidCutoutImages(files, options = {}) {
+            const { title = '단색 배경을 자동으로 제거하고 있어요.', nameSuffix = '단색제거' } = options;
+            showLoading(title);
+            try {
+                for (const file of files) {
+                    showLoading(`${title}\n${file.name}`);
+                    const image = await fileToImage(file);
+                    const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
+                    const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
+                    element.maskCanvas = removeSolidBackgroundFromCanvas(element.originalCanvas);
+                    await updateImageProcessing(element);
+                    element.name = `${element.name} ${nameSuffix}`.trim();
+                    getFaceState().elements.push(element);
+                    selectedId = element.id;
+                }
+                render();
+            } catch (error) {
+                alert(`단색 배경 제거에 실패했습니다.\n${getErrorMessage(error)}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
         function defaultShadow() {
             return { color: '#000000', blur: 0, offsetX: 0, offsetY: 0, opacity: 0.55 };
         }
@@ -1149,23 +1297,42 @@
         }
 
         async function addImagesWithAiCutout(files) {
-            if (IS_PUBLIC_HOSTED) {
-                alert('공개 배포(Render)에서는 브라우저에서 remove.bg를 직접 호출하는 기능이 막힐 수 있어요.\n이 기능은 로컬 실행 버전에서 사용하는 것을 권장합니다.');
-                return;
-            }
             showLoading('AI로 배경을 제거한 뒤 레이어로 추가하고 있어요.');
+            const fallbackFiles = [];
+            let usedFallback = false;
             try {
                 for (const file of files) {
                     showLoading(`AI 배경제거 중...\n${file.name}`);
-                    const resultBlob = await removeBackgroundViaAPI(file);
-                    const image = await loadImageFromURL(URL.createObjectURL(resultBlob));
-                    const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
-                    const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
-                    await updateImageProcessing(element);
-                    getFaceState().elements.push(element);
-                    selectedId = element.id;
+                    try {
+                        const resultBlob = await removeBackgroundViaAPI(file);
+                        const image = await loadImageFromURL(URL.createObjectURL(resultBlob));
+                        const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
+                        const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
+                        await updateImageProcessing(element);
+                        getFaceState().elements.push(element);
+                        selectedId = element.id;
+                    } catch (error) {
+                        fallbackFiles.push(file);
+                    }
+                }
+                if (fallbackFiles.length) {
+                    usedFallback = true;
+                    for (const file of fallbackFiles) {
+                        showLoading(`단색 배경 제거 fallback 중...\n${file.name}`);
+                        const image = await fileToImage(file);
+                        const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
+                        const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
+                        element.maskCanvas = removeSolidBackgroundFromCanvas(element.originalCanvas);
+                        await updateImageProcessing(element);
+                        element.name = `${element.name} 단색제거`;
+                        getFaceState().elements.push(element);
+                        selectedId = element.id;
+                    }
                 }
                 render();
+                if (usedFallback) {
+                    alert('일부 이미지는 remove.bg 직접 호출이 막혀서 단색 배경 자동 제거 방식으로 대신 추가했습니다.');
+                }
             } catch (error) {
                 alert(`AI 배경제거에 실패했습니다.\n${error.message}`);
             } finally {
@@ -2188,6 +2355,11 @@
         document.getElementById('asset-bulk-ai').addEventListener('change', async event => {
             const files = Array.from(event.target.files || []);
             if (files.length) await addImagesWithAiCutout(files);
+            event.target.value = '';
+        });
+        document.getElementById('asset-bulk-solid').addEventListener('change', async event => {
+            const files = Array.from(event.target.files || []);
+            if (files.length) await addSolidCutoutImages(files);
             event.target.value = '';
         });
         document.getElementById('preset-bundled-button').addEventListener('click', async () => {
