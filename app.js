@@ -1216,9 +1216,6 @@
                     outlineCtx.filter = `blur(${outlineBlur}px)`;
                     outlineCtx.drawImage(maskCanvas, 0, 0);
                     outlineCtx.restore();
-                    outlineCtx.globalAlpha = 0.75;
-                    outlineCtx.drawImage(maskCanvas, 0, 0);
-                    outlineCtx.globalAlpha = 1;
                 } else if (style === 'neon') {
                     outlineCtx.save();
                     outlineCtx.filter = `blur(${Math.max(0, outlineBlur * 2.4)}px)`;
@@ -1400,7 +1397,7 @@
             renderCtx.restore();
         }
 
-        function drawSpacedText(renderCtx, line, x, y, align, letterSpacing, stroke) {
+        function drawSpacedText(renderCtx, line, x, y, align, letterSpacing, stroke, fill = true) {
             const glyphs = [...line];
             const widths = glyphs.map(ch => renderCtx.measureText(ch).width);
             const totalWidth = widths.reduce((sum, value) => sum + value, 0) + Math.max(0, glyphs.length - 1) * letterSpacing;
@@ -1410,7 +1407,7 @@
 
             glyphs.forEach((glyph, index) => {
                 if (stroke) renderCtx.strokeText(glyph, cursorX, y);
-                renderCtx.fillText(glyph, cursorX, y);
+                if (fill) renderCtx.fillText(glyph, cursorX, y);
                 cursorX += widths[index] + letterSpacing;
             });
         }
@@ -1423,14 +1420,42 @@
             const strokeBlur = Math.max(0, Number(element.strokeBlur ?? 8));
             if (style === 'dashed') renderCtx.setLineDash([14, 10]);
             if (style === 'soft') renderCtx.lineJoin = 'round';
-            if (style === 'blur') {
-                renderCtx.shadowColor = rgbaWithOpacity(element.strokeColor, 0.8);
-                renderCtx.shadowBlur = strokeBlur;
-            }
             if (style === 'neon') {
                 renderCtx.shadowColor = rgbaWithOpacity(element.strokeColor, 1);
                 renderCtx.shadowBlur = Math.max(strokeBlur, strokeBlur * 2.4);
             }
+        }
+
+        function drawBlurredTextStroke(element, metrics, anchorX, startY, renderCtx) {
+            if (!element.strokeWidth || element.strokeWidth <= 0) return;
+            const { width, height, linePx, lines } = metrics;
+            const strokeBlur = Math.max(0, Number(element.strokeBlur ?? 8));
+            const pad = Math.ceil(Math.max(strokeBlur * 3, element.strokeWidth * 3, 8));
+            const strokeCanvas = createEmptyCanvas(Math.ceil(width + pad * 2), Math.ceil(height + pad * 2));
+            const strokeCtx = strokeCanvas.getContext('2d');
+            strokeCtx.font = `${element.fontWeight} ${element.fontSize}px ${element.fontFamily}`;
+            strokeCtx.textAlign = element.align;
+            strokeCtx.textBaseline = 'middle';
+            strokeCtx.strokeStyle = element.strokeColor;
+            strokeCtx.lineWidth = element.strokeWidth;
+            strokeCtx.lineJoin = 'round';
+
+            const textX = anchorX + width / 2 + pad;
+            const textStartY = startY + height / 2 + pad;
+            lines.forEach((line, index) => {
+                const y = textStartY + index * linePx;
+                if (element.letterSpacing === 0) {
+                    strokeCtx.strokeText(line, textX, y);
+                } else {
+                    drawSpacedText(strokeCtx, line, textX, y, element.align, element.letterSpacing, true, false);
+                }
+            });
+
+            const blurCanvas = createEmptyCanvas(strokeCanvas.width, strokeCanvas.height);
+            const blurCtx = blurCanvas.getContext('2d');
+            blurCtx.filter = `blur(${strokeBlur}px)`;
+            blurCtx.drawImage(strokeCanvas, 0, 0);
+            renderCtx.drawImage(blurCanvas, -width / 2 - pad, -height / 2 - pad);
         }
 
         function drawTextElement(element, renderCtx, includeSelection = false) {
@@ -1464,13 +1489,19 @@
 
             const anchorX = element.align === 'left' ? (-width / 2 + element.paddingX) : element.align === 'right' ? (width / 2 - element.paddingX) : 0;
             const startY = -((lines.length - 1) * linePx) / 2;
+            const strokeStyle = element.strokeStyle || 'solid';
+            if (strokeStyle === 'blur') {
+                drawBlurredTextStroke(element, { width, height, linePx, lines }, anchorX, startY, renderCtx);
+                renderCtx.shadowColor = 'transparent';
+                renderCtx.shadowBlur = 0;
+            }
             lines.forEach((line, index) => {
                 const y = startY + index * linePx;
                 if (element.letterSpacing === 0) {
-                    if (element.strokeWidth > 0) renderCtx.strokeText(line, anchorX, y);
+                    if (element.strokeWidth > 0 && strokeStyle !== 'blur') renderCtx.strokeText(line, anchorX, y);
                     renderCtx.fillText(line, anchorX, y);
                 } else {
-                    drawSpacedText(renderCtx, line, anchorX, y, element.align, element.letterSpacing, element.strokeWidth > 0);
+                    drawSpacedText(renderCtx, line, anchorX, y, element.align, element.letterSpacing, element.strokeWidth > 0 && strokeStyle !== 'blur');
                 }
             });
 
