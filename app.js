@@ -1685,6 +1685,62 @@
             `;
         }
 
+        function stepRangeInput(input, direction, multiplier = 1) {
+            const min = Number(input.min || 0);
+            const max = Number(input.max || 100);
+            const step = Number(input.step || 1);
+            const current = Number(input.value || 0);
+            const precision = Math.max(
+                String(input.step || '').split('.')[1]?.length || 0,
+                String(current).split('.')[1]?.length || 0
+            );
+            const next = clamp(current + direction * step * multiplier, min, max);
+            input.value = precision > 0 ? next.toFixed(precision) : String(Math.round(next));
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        function bindRangeKeyboardAndWheelControls() {
+            document.addEventListener('wheel', event => {
+                const input = event.target;
+                if (!(input instanceof HTMLInputElement) || input.type !== 'range') return;
+                event.preventDefault();
+                const multiplier = event.shiftKey ? 10 : event.ctrlKey || event.metaKey ? 0.2 : 1;
+                stepRangeInput(input, event.deltaY > 0 ? -1 : 1, multiplier);
+            }, { passive: false });
+
+            document.addEventListener('keydown', event => {
+                const input = event.target;
+                if (!(input instanceof HTMLInputElement) || input.type !== 'range') return;
+                const multiplier = event.shiftKey ? 10 : event.ctrlKey || event.metaKey ? 0.2 : 1;
+                if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    stepRangeInput(input, 1, multiplier);
+                }
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    stepRangeInput(input, -1, multiplier);
+                }
+                if (event.key === 'PageUp') {
+                    event.preventDefault();
+                    stepRangeInput(input, 1, 10);
+                }
+                if (event.key === 'PageDown') {
+                    event.preventDefault();
+                    stepRangeInput(input, -1, 10);
+                }
+                if (event.key === 'Home') {
+                    event.preventDefault();
+                    input.value = input.min || '0';
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                if (event.key === 'End') {
+                    event.preventDefault();
+                    input.value = input.max || '100';
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+        }
+
         function colorField({ label, key, value }) {
             return `<div><div class="text-[11px] font-bold text-slate-400 mb-2">${label}</div><input data-bind="${key}" type="color" value="${value}"></div>`;
         }
@@ -2476,6 +2532,7 @@
 
         loadAiConfig();
         syncAiConfigInputs();
+        bindRangeKeyboardAndWheelControls();
         renderBackgroundTemplates();
         render();
         if (IS_PUBLIC_HOSTED) {
