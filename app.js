@@ -29,6 +29,7 @@
             backgroundName: '',
             backgroundColor: '#0a0f1a',
             backgroundOpacity: 1,
+            backgroundCurve: 0,
             elements: []
         }]));
 
@@ -615,6 +616,7 @@
                     backgroundName: faceState.backgroundName,
                     backgroundColor: faceState.backgroundColor,
                     backgroundOpacity: faceState.backgroundOpacity,
+                    backgroundCurve: faceState.backgroundCurve,
                     elements: faceState.elements.map(serializeElement)
                 };
             });
@@ -642,6 +644,7 @@
             element.perspectiveX = Number(element.perspectiveX ?? 0);
             element.perspectiveY = Number(element.perspectiveY ?? 0);
             element.perspectiveBend = Number(element.perspectiveBend ?? 0);
+            element.perspectiveCurve = Number(element.perspectiveCurve ?? 0);
             element.processedCanvas = copyCanvas(element.maskCanvas);
             element.previewUrl = '';
             delete element.originalCanvasData;
@@ -661,6 +664,7 @@
                     faceState.backgroundName = savedFace.backgroundName || '';
                     faceState.backgroundColor = savedFace.backgroundColor || '#0a0f1a';
                     faceState.backgroundOpacity = Number(savedFace.backgroundOpacity ?? 1);
+                    faceState.backgroundCurve = Number(savedFace.backgroundCurve ?? 0);
                     faceState.elements = [];
                     for (const element of savedFace.elements || []) {
                         faceState.elements.push(await restoreElement(element));
@@ -1039,6 +1043,7 @@
                 perspectiveX: 0,
                 perspectiveY: 0,
                 perspectiveBend: 0,
+                perspectiveCurve: 0,
                 opacity: 1,
                 visible: true,
                 locked: false,
@@ -1425,7 +1430,23 @@
             renderCtx.save();
             renderCtx.fillStyle = rgbaWithOpacity(faceState.backgroundColor, faceState.backgroundOpacity);
             renderCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            if (faceState.background) renderCtx.drawImage(faceState.background, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            if (faceState.background) {
+                const curve = Number(faceState.backgroundCurve || 0);
+                if (Math.abs(curve) > 0.01) {
+                    renderCtx.save();
+                    renderCtx.translate(CANVAS_SIZE / 2, CANVAS_SIZE / 2);
+                    drawPerspectiveImage(renderCtx, faceState.background, CANVAS_SIZE, CANVAS_SIZE, {
+                        perspectiveX: 0,
+                        perspectiveY: 0,
+                        perspectiveBend: 0,
+                        perspectiveCurve: curve,
+                        shadow: { color: '#000000', blur: 0, offsetX: 0, offsetY: 0, opacity: 0 }
+                    });
+                    renderCtx.restore();
+                } else {
+                    renderCtx.drawImage(faceState.background, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                }
+            }
             renderCtx.restore();
         }
 
@@ -1551,13 +1572,15 @@
         function imageHasPerspectiveWarp(element) {
             return Math.abs(Number(element.perspectiveX || 0)) > 0.01
                 || Math.abs(Number(element.perspectiveY || 0)) > 0.01
-                || Math.abs(Number(element.perspectiveBend || 0)) > 0.01;
+                || Math.abs(Number(element.perspectiveBend || 0)) > 0.01
+                || Math.abs(Number(element.perspectiveCurve || 0)) > 0.01;
         }
 
         function getWarpedImagePoint(u, v, width, height, element) {
             const px = clamp(Number(element.perspectiveX || 0), -100, 100) / 100;
             const py = clamp(Number(element.perspectiveY || 0), -100, 100) / 100;
             const bend = clamp(Number(element.perspectiveBend || 0), -100, 100) / 100;
+            const curve = clamp(Number(element.perspectiveCurve || 0), -100, 100) / 100;
             const sideInset = Math.abs(px) * height * 0.34;
             const verticalInset = Math.abs(py) * width * 0.34;
 
@@ -1590,10 +1613,15 @@
                 x: bl.x + (br.x - bl.x) * u,
                 y: bl.y + (br.y - bl.y) * u
             };
-            const curve = Math.sin(Math.PI * u) * bend * width * 0.18;
+            const nx = u * 2 - 1;
+            const ny = v * 2 - 1;
+            const radius = nx * nx + ny * ny;
+            const surfaceCurveX = nx * radius * curve * width * 0.16;
+            const surfaceCurveY = ny * radius * curve * height * 0.16;
+            const horizontalBend = Math.sin(Math.PI * u) * bend * width * 0.18;
             return {
-                x: top.x + (bottom.x - top.x) * v + curve,
-                y: top.y + (bottom.y - top.y) * v
+                x: top.x + (bottom.x - top.x) * v + horizontalBend + surfaceCurveX,
+                y: top.y + (bottom.y - top.y) * v + surfaceCurveY
             };
         }
 
@@ -1635,29 +1663,38 @@
             renderCtx.save();
             drawWarpedImagePath(renderCtx, width, height, element);
             renderCtx.clip();
-            const segments = 96;
+            const hasSurfaceCurve = Math.abs(Number(element.perspectiveCurve || 0)) > 0.01;
+            const columns = hasSurfaceCurve ? 42 : 96;
+            const rows = hasSurfaceCurve ? 42 : 1;
             const sourceWidth = sourceCanvas.width;
             const sourceHeight = sourceCanvas.height;
-            for (let i = 0; i < segments; i++) {
-                const u0 = i / segments;
-                const u1 = (i + 1) / segments;
-                const sx = Math.floor(sourceWidth * u0);
-                const nextSx = Math.ceil(sourceWidth * u1);
-                const sliceWidth = Math.max(1, nextSx - sx);
-                const p0 = getWarpedImagePoint(u0, 0, width, height, element);
-                const p1 = getWarpedImagePoint(u1, 0, width, height, element);
-                const p3 = getWarpedImagePoint(u0, 1, width, height, element);
-                renderCtx.save();
-                renderCtx.transform(
-                    (p1.x - p0.x) / sliceWidth,
-                    (p1.y - p0.y) / sliceWidth,
-                    (p3.x - p0.x) / sourceHeight,
-                    (p3.y - p0.y) / sourceHeight,
-                    p0.x,
-                    p0.y
-                );
-                renderCtx.drawImage(sourceCanvas, sx, 0, sliceWidth, sourceHeight, 0, 0, sliceWidth + 1, sourceHeight);
-                renderCtx.restore();
+            for (let row = 0; row < rows; row++) {
+                const v0 = row / rows;
+                const v1 = (row + 1) / rows;
+                const sy = Math.floor(sourceHeight * v0);
+                const nextSy = Math.ceil(sourceHeight * v1);
+                const sliceHeight = Math.max(1, nextSy - sy);
+                for (let col = 0; col < columns; col++) {
+                    const u0 = col / columns;
+                    const u1 = (col + 1) / columns;
+                    const sx = Math.floor(sourceWidth * u0);
+                    const nextSx = Math.ceil(sourceWidth * u1);
+                    const sliceWidth = Math.max(1, nextSx - sx);
+                    const p0 = getWarpedImagePoint(u0, v0, width, height, element);
+                    const p1 = getWarpedImagePoint(u1, v0, width, height, element);
+                    const p3 = getWarpedImagePoint(u0, v1, width, height, element);
+                    renderCtx.save();
+                    renderCtx.transform(
+                        (p1.x - p0.x) / sliceWidth,
+                        (p1.y - p0.y) / sliceWidth,
+                        (p3.x - p0.x) / sliceHeight,
+                        (p3.y - p0.y) / sliceHeight,
+                        p0.x,
+                        p0.y
+                    );
+                    renderCtx.drawImage(sourceCanvas, sx, sy, sliceWidth, sliceHeight, 0, 0, sliceWidth + 1, sliceHeight + 1);
+                    renderCtx.restore();
+                }
             }
             renderCtx.restore();
         }
@@ -1937,6 +1974,10 @@
             const face = getFaceState();
             document.getElementById('canvas-bg-color').value = face.backgroundColor;
             document.getElementById('canvas-bg-opacity').value = face.backgroundOpacity;
+            const curveInput = document.getElementById('canvas-bg-curve');
+            const curveLabel = document.getElementById('canvas-bg-curve-value');
+            if (curveInput && curveInput !== document.activeElement) curveInput.value = Number(face.backgroundCurve || 0);
+            if (curveLabel) curveLabel.textContent = String(Number(face.backgroundCurve || 0));
             document.getElementById('layer-count').textContent = `${face.elements.length} items`;
             updateBackgroundStatusUI();
         }
@@ -2185,6 +2226,7 @@
                     selected.perspectiveX = 0;
                     selected.perspectiveY = 0;
                     selected.perspectiveBend = 0;
+                    selected.perspectiveCurve = 0;
                     selected.tintStrength = 0;
                     selected.cornerRadius = 0;
                     selected.outlineWidth = 0;
@@ -2203,11 +2245,19 @@
                 selected.perspectiveX = -42;
                 selected.perspectiveY = 0;
                 selected.perspectiveBend = -10;
+                selected.perspectiveCurve = 32;
             }
             if (action === 'perspective-wall-right' && selected.type === 'image') {
                 selected.perspectiveX = 42;
                 selected.perspectiveY = 0;
                 selected.perspectiveBend = 10;
+                selected.perspectiveCurve = 32;
+            }
+            if (action === 'perspective-skybox-curve' && selected.type === 'image') {
+                selected.perspectiveX = 0;
+                selected.perspectiveY = 0;
+                selected.perspectiveBend = 0;
+                selected.perspectiveCurve = 46;
             }
             render();
         }
@@ -2290,9 +2340,11 @@
                     ${rangeField({ label: '좌우 원근', key: 'perspectiveX', min: -100, max: 100, step: 1, value: selected.perspectiveX ?? 0 })}
                     ${rangeField({ label: '상하 원근', key: 'perspectiveY', min: -100, max: 100, step: 1, value: selected.perspectiveY ?? 0 })}
                     ${rangeField({ label: '사진 휘기', key: 'perspectiveBend', min: -100, max: 100, step: 1, value: selected.perspectiveBend ?? 0 })}
+                    ${rangeField({ label: '스카이박스 곡면', key: 'perspectiveCurve', min: -100, max: 100, step: 1, value: selected.perspectiveCurve ?? 0 })}
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" class="tool-button !rounded-2xl" data-action="perspective-wall-left">왼쪽 벽 느낌</button>
                         <button type="button" class="tool-button !rounded-2xl" data-action="perspective-wall-right">오른쪽 벽 느낌</button>
+                        <button type="button" class="tool-button !rounded-2xl col-span-2" data-action="perspective-skybox-curve">스카이박스 곡면 보정</button>
                     </div>
                 </div>
                 <div class="property-group space-y-4">
@@ -2865,6 +2917,7 @@
         }
         document.getElementById('canvas-bg-color').addEventListener('input', event => { getFaceState().backgroundColor = event.target.value; render(); });
         document.getElementById('canvas-bg-opacity').addEventListener('input', event => { getFaceState().backgroundOpacity = Number(event.target.value); render(); });
+        document.getElementById('canvas-bg-curve').addEventListener('input', event => { getFaceState().backgroundCurve = Number(event.target.value); render(); });
         backgroundTemplateColor.addEventListener('input', updateAndApplyCustomGridBackground);
         applyBackgroundTemplateButton.addEventListener('click', applyCustomGridBackground);
         document.querySelectorAll('[data-grid-mode]').forEach(button => {
