@@ -1,4 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
+        const APP_VERSION = 'v2026.05.08.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -65,6 +66,8 @@
         const viewerStatus = document.getElementById('viewer-status');
         const viewerPerspectiveInput = document.getElementById('viewer-perspective');
         const modeTabs = document.querySelectorAll('.app-mode-tab');
+        const appVersionBadge = document.getElementById('app-version');
+        if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
         const threeViewer = {
             ready: false,
