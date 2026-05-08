@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.08.2';
+        const APP_VERSION = 'v2026.05.08.3';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -20,8 +20,6 @@
         let importedPresetSets = [];
         let autoSaveTimer = null;
         let isRestoringProject = false;
-        let activeAppMode = 'editor';
-        let viewerUpdateQueued = false;
         const POSTER_BACKGROUND_COLOR = '#b88ae9';
         const POSTER_GRID_MODE = 'white';
 
@@ -61,32 +59,8 @@
         const presetList = document.getElementById('preset-list');
         const presetCount = document.getElementById('preset-count');
         const presetStatusText = document.getElementById('preset-status-text');
-        const editorWorkspace = document.getElementById('editor-workspace');
-        const viewerWorkspace = document.getElementById('viewer-workspace');
-        const viewerContainer = document.getElementById('three-viewer');
-        const viewerStatus = document.getElementById('viewer-status');
-        const viewerPerspectiveInput = document.getElementById('viewer-perspective');
-        const modeTabs = document.querySelectorAll('.app-mode-tab');
         const appVersionBadge = document.getElementById('app-version');
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
-
-        const threeViewer = {
-            ready: false,
-            renderer: null,
-            scene: null,
-            camera: null,
-            mesh: null,
-            faceMeshes: [],
-            materials: [],
-            textures: [],
-            roomSize: 10,
-            seamOverlap: 0.08,
-            yaw: 0,
-            pitch: 0,
-            dragging: false,
-            lastX: 0,
-            lastY: 0
-        };
 
         const QUICK_BACKGROUND_COLORS = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#94a3b8', '#0f172a'];
         let backgroundGridMode = 'white';
@@ -1895,168 +1869,6 @@
             return tempCanvas;
         }
 
-        function setViewerStatus(message) {
-            if (viewerStatus) viewerStatus.textContent = message;
-        }
-
-        function getThreeFaceSetups() {
-            const half = threeViewer.roomSize / 2;
-            return [
-                { face: 'ft', position: [0, 0, -half], rotation: [0, 0, 0] },
-                { face: 'bk', position: [0, 0, half], rotation: [0, Math.PI, 0] },
-                { face: 'lf', position: [-half, 0, 0], rotation: [0, Math.PI / 2, 0] },
-                { face: 'rt', position: [half, 0, 0], rotation: [0, -Math.PI / 2, 0] },
-                { face: 'up', position: [0, half, 0], rotation: [Math.PI / 2, 0, 0] },
-                { face: 'dn', position: [0, -half, 0], rotation: [-Math.PI / 2, 0, 0] }
-            ];
-        }
-
-        function setThreeViewerFov(value) {
-            if (!threeViewer.camera) return;
-            const nextFov = clamp(Number(value) || 82, 45, 110);
-            threeViewer.camera.fov = nextFov;
-            threeViewer.camera.updateProjectionMatrix();
-            if (viewerPerspectiveInput) viewerPerspectiveInput.value = Math.round(nextFov);
-        }
-
-        function resizeThreeViewer() {
-            if (!threeViewer.ready || !viewerContainer) return;
-            const rect = viewerContainer.getBoundingClientRect();
-            const width = Math.max(1, Math.floor(rect.width));
-            const height = Math.max(1, Math.floor(rect.height));
-            threeViewer.renderer.setSize(width, height, false);
-            threeViewer.camera.aspect = width / height;
-            threeViewer.camera.updateProjectionMatrix();
-        }
-
-        function updateThreeCamera() {
-            if (!threeViewer.camera) return;
-            threeViewer.pitch = clamp(threeViewer.pitch, -Math.PI / 2 + 0.04, Math.PI / 2 - 0.04);
-            threeViewer.camera.rotation.order = 'YXZ';
-            threeViewer.camera.rotation.set(threeViewer.pitch, threeViewer.yaw, 0);
-        }
-
-        function resetThreeViewerView() {
-            threeViewer.yaw = 0;
-            threeViewer.pitch = 0;
-            setThreeViewerFov(82);
-            updateThreeCamera();
-        }
-
-        function initThreeViewer() {
-            if (threeViewer.ready) return true;
-            if (!viewerContainer) return false;
-            if (typeof THREE === 'undefined') {
-                setViewerStatus('Three.js를 불러오지 못했습니다.');
-                return false;
-            }
-
-            threeViewer.scene = new THREE.Scene();
-            threeViewer.camera = new THREE.PerspectiveCamera(82, 1, 0.1, 100);
-            threeViewer.camera.position.set(0, 0, 0);
-            threeViewer.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-            threeViewer.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-            threeViewer.renderer.setClearColor(0x020712, 1);
-            viewerContainer.appendChild(threeViewer.renderer.domElement);
-
-            const faceSetups = getThreeFaceSetups();
-            const faceMaterials = faceSetups.map(() => new THREE.MeshBasicMaterial({
-                color: 0xffffff,
-                side: THREE.FrontSide,
-                toneMapped: false
-            }));
-            threeViewer.materials = faceMaterials;
-            threeViewer.faceMeshes = faceSetups.map((setup, index) => {
-                const size = threeViewer.roomSize + threeViewer.seamOverlap;
-                const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), faceMaterials[index]);
-                mesh.position.set(...setup.position);
-                mesh.rotation.set(...setup.rotation);
-                threeViewer.scene.add(mesh);
-                return mesh;
-            });
-            resetThreeViewerView();
-
-            viewerContainer.addEventListener('pointerdown', event => {
-                threeViewer.dragging = true;
-                threeViewer.lastX = event.clientX;
-                threeViewer.lastY = event.clientY;
-                viewerContainer.setPointerCapture(event.pointerId);
-            });
-            viewerContainer.addEventListener('pointermove', event => {
-                if (!threeViewer.dragging) return;
-                const dx = event.clientX - threeViewer.lastX;
-                const dy = event.clientY - threeViewer.lastY;
-                threeViewer.lastX = event.clientX;
-                threeViewer.lastY = event.clientY;
-                threeViewer.yaw -= dx * 0.004;
-                threeViewer.pitch -= dy * 0.004;
-                updateThreeCamera();
-            });
-            viewerContainer.addEventListener('pointerup', event => {
-                threeViewer.dragging = false;
-                if (viewerContainer.hasPointerCapture(event.pointerId)) viewerContainer.releasePointerCapture(event.pointerId);
-            });
-            viewerContainer.addEventListener('wheel', event => {
-                event.preventDefault();
-                setThreeViewerFov(threeViewer.camera.fov + (event.deltaY > 0 ? 3 : -3));
-            }, { passive: false });
-
-            window.addEventListener('resize', resizeThreeViewer);
-            threeViewer.renderer.setAnimationLoop(() => {
-                threeViewer.renderer.render(threeViewer.scene, threeViewer.camera);
-            });
-            threeViewer.ready = true;
-            resizeThreeViewer();
-            updateThreeViewerTextures();
-            return true;
-        }
-
-        function updateThreeViewerTextures() {
-            if (!threeViewer.ready || typeof THREE === 'undefined') return;
-            const faceSetups = getThreeFaceSetups();
-            faceSetups.forEach(({ face }, index) => {
-                const faceCanvas = renderFaceToCanvas(face);
-                if (threeViewer.textures[index]) threeViewer.textures[index].dispose();
-                const texture = new THREE.CanvasTexture(faceCanvas);
-                if ('colorSpace' in texture && THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
-                texture.wrapS = THREE.ClampToEdgeWrapping;
-                texture.wrapT = THREE.ClampToEdgeWrapping;
-                texture.minFilter = THREE.LinearFilter;
-                texture.magFilter = THREE.LinearFilter;
-                texture.generateMipmaps = false;
-                if (threeViewer.renderer?.capabilities?.getMaxAnisotropy) {
-                    texture.anisotropy = Math.min(4, threeViewer.renderer.capabilities.getMaxAnisotropy());
-                }
-                texture.needsUpdate = true;
-                threeViewer.textures[index] = texture;
-                threeViewer.materials[index].map = texture;
-                threeViewer.materials[index].needsUpdate = true;
-            });
-            setViewerStatus('원근감과 이음새 보정이 적용된 6면 미리보기입니다.');
-        }
-
-        function queueThreeViewerUpdate() {
-            if (activeAppMode !== 'viewer' || viewerUpdateQueued) return;
-            viewerUpdateQueued = true;
-            requestAnimationFrame(() => {
-                viewerUpdateQueued = false;
-                updateThreeViewerTextures();
-            });
-        }
-
-        function setAppMode(mode) {
-            activeAppMode = mode;
-            modeTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.mode === mode));
-            editorWorkspace.classList.toggle('workspace-hidden', mode !== 'editor');
-            viewerWorkspace.classList.toggle('workspace-hidden', mode !== 'viewer');
-            if (mode === 'viewer' && initThreeViewer()) {
-                requestAnimationFrame(() => {
-                    resizeThreeViewer();
-                    updateThreeViewerTextures();
-                });
-            }
-        }
-
         function buildFaceSummary(faceKey = activeFace) {
             const face = getFaceState(faceKey);
             const imageCount = face.elements.filter(element => element.type === 'image').length;
@@ -2117,7 +1929,6 @@
             updateLayerList();
             updatePropertyPanel();
             updateCanvasSettingsUI();
-            queueThreeViewerUpdate();
         }
 
         function updateLayerList() {
@@ -3035,14 +2846,6 @@
         document.getElementById('bring-front').addEventListener('click', () => moveElementOrder('front'));
         document.getElementById('send-back').addEventListener('click', () => moveElementOrder('back'));
         document.getElementById('center-layer').addEventListener('click', centerSelectedElement);
-        modeTabs.forEach(tab => tab.addEventListener('click', () => setAppMode(tab.dataset.mode)));
-        document.getElementById('viewer-refresh').addEventListener('click', () => {
-            if (initThreeViewer()) updateThreeViewerTextures();
-        });
-        document.getElementById('viewer-reset').addEventListener('click', resetThreeViewerView);
-        if (viewerPerspectiveInput) {
-            viewerPerspectiveInput.addEventListener('input', event => setThreeViewerFov(event.target.value));
-        }
         document.getElementById('canvas-bg-color').addEventListener('input', event => { getFaceState().backgroundColor = event.target.value; render(); });
         document.getElementById('canvas-bg-opacity').addEventListener('input', event => { getFaceState().backgroundOpacity = Number(event.target.value); render(); });
         document.getElementById('canvas-bg-curve').addEventListener('input', event => { getFaceState().backgroundCurve = Number(event.target.value); render(); });

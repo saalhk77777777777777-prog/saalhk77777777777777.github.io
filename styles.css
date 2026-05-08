@@ -18,13 +18,6 @@
         .tool-button.primary { background: linear-gradient(135deg, rgba(56,189,248,0.95), rgba(14,165,233,0.95)); color: #06111d; border-color: rgba(103,232,249,0.4); }
         .tool-button.danger { background: rgba(251,113,133,0.12); color: #fecdd3; border-color: rgba(251,113,133,0.2); }
         .tool-button.success { background: rgba(52,211,153,0.12); color: #bbf7d0; border-color: rgba(52,211,153,0.22); }
-        .app-mode-tab { border: 0; border-radius: 999px; padding: 8px 14px; font-size: 12px; font-weight: 900; color: #9fb3d1; background: transparent; transition: 160ms ease; }
-        .app-mode-tab:hover { color: #ffffff; background: rgba(255,255,255,0.06); }
-        .app-mode-tab.active { color: #06111d; background: linear-gradient(135deg, rgba(103,232,249,0.95), rgba(56,189,248,0.95)); }
-        .workspace-hidden { display: none !important; }
-        #three-viewer canvas { display: block; width: 100%; height: 100%; }
-        .viewer-control { display: inline-flex; align-items: center; gap: 9px; color: #c9d9f1; font-size: 12px; font-weight: 900; }
-        .viewer-control input[type="range"] { width: 128px; }
         .version-badge { position: fixed; right: 14px; bottom: 12px; z-index: 80; padding: 7px 11px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.1); background: rgba(4, 10, 19, 0.78); color: rgba(214, 230, 255, 0.76); font-size: 11px; font-weight: 900; letter-spacing: 0.03em; backdrop-filter: blur(14px); pointer-events: none; box-shadow: 0 14px 42px rgba(0,0,0,0.28); }
         .version-badge span { color: #67e8f9; }
         .face-tab.active { background: linear-gradient(135deg, rgba(103,232,249,0.2), rgba(56,189,248,0.12)); color: white; border-color: rgba(103,232,249,0.25); box-shadow: inset 0 0 0 1px rgba(103,232,249,0.08); }

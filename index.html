@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Skybox Studio Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <script src="./vendor/jszip.min.js"></script>
     <link rel="stylesheet" href="./styles.css">
 </head>
@@ -125,10 +124,6 @@
                 <div>
                     <h1 class="text-lg font-black tracking-tight">Skybox Studio Pro</h1>
                     <p class="text-xs text-slate-400 mt-1">단일 HTML로 돌아가는 스카이박스 전용 편집기</p>
-                </div>
-                <div class="panel rounded-full p-1 flex items-center gap-1">
-                    <button id="tab-editor" class="app-mode-tab active" data-mode="editor">편집</button>
-                    <button id="tab-viewer" class="app-mode-tab" data-mode="viewer">3D 뷰어</button>
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2">
@@ -272,31 +267,7 @@
             <div id="property-panel" class="flex-1 overflow-y-auto scrollbar p-5 space-y-4"></div>
         </aside>
     </main>
-
-    <main id="viewer-workspace" class="workspace-hidden flex-1 min-h-0 relative overflow-hidden bg-[#030711]">
-        <div id="three-viewer" class="absolute inset-0"></div>
-        <div class="absolute top-5 left-5 right-5 z-10 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
-            <div class="panel rounded-full px-4 py-2 flex items-center gap-3 pointer-events-auto">
-                <div class="property-label">3D Preview</div>
-                <div id="viewer-status" class="text-xs text-slate-300">FT/BK/LF/RT/UP/DN 합성 미리보기</div>
-            </div>
-            <div class="panel rounded-full px-4 py-2 flex items-center gap-2 pointer-events-auto">
-                <label class="viewer-control">
-                    <span>원근감</span>
-                    <input id="viewer-perspective" type="range" min="45" max="110" value="82">
-                </label>
-                <button id="viewer-refresh" class="tool-button !px-4 !py-2">새로고침</button>
-                <button id="viewer-reset" class="tool-button !px-4 !py-2">시점 초기화</button>
-            </div>
-        </div>
-        <div class="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 panel rounded-full px-4 py-2 flex flex-wrap items-center gap-3">
-            <div class="text-xs text-slate-300">드래그: 둘러보기</div>
-            <div class="text-xs text-slate-300">휠: 줌</div>
-            <div class="text-xs text-slate-300">편집 탭으로 돌아가면 각 면을 계속 수정할 수 있어요</div>
-        </div>
-    </main>
-
-    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.08.2</span></div>
+    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.08.3</span></div>
     <script src="./app.js"></script>
 </body>
 </html>
