@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.08.1';
+        const APP_VERSION = 'v2026.05.08.2';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -31,6 +31,7 @@
             backgroundColor: '#0a0f1a',
             backgroundOpacity: 1,
             backgroundCurve: 0,
+            backgroundSeam: 0,
             elements: []
         }]));
 
@@ -379,6 +380,18 @@
             renderBackgroundTemplates();
         }
 
+        function applyRobloxSeamPreset() {
+            FACES.forEach(face => {
+                const faceState = getFaceState(face);
+                if (faceState.background) {
+                    faceState.backgroundSeam = 72;
+                    faceState.backgroundCurve = 18;
+                }
+            });
+            lastBackgroundUploadReport = '[로블록스 이음새 보정]\n6면 배경의 가장자리를 서로 섞고 안쪽으로 늘리는 보정을 켰습니다.';
+            render();
+        }
+
         function fitElementToBox(element, boxWidth, boxHeight) {
             const source = element.processedCanvas || element.maskCanvas || element.originalCanvas;
             if (!source) return;
@@ -620,6 +633,7 @@
                     backgroundColor: faceState.backgroundColor,
                     backgroundOpacity: faceState.backgroundOpacity,
                     backgroundCurve: faceState.backgroundCurve,
+                    backgroundSeam: faceState.backgroundSeam,
                     elements: faceState.elements.map(serializeElement)
                 };
             });
@@ -668,6 +682,7 @@
                     faceState.backgroundColor = savedFace.backgroundColor || '#0a0f1a';
                     faceState.backgroundOpacity = Number(savedFace.backgroundOpacity ?? 1);
                     faceState.backgroundCurve = Number(savedFace.backgroundCurve ?? 0);
+                    faceState.backgroundSeam = Number(savedFace.backgroundSeam ?? 0);
                     faceState.elements = [];
                     for (const element of savedFace.elements || []) {
                         faceState.elements.push(await restoreElement(element));
@@ -1429,16 +1444,17 @@
             }
         }
 
-        function drawBackground(faceState, renderCtx) {
+        function drawBackground(faceState, renderCtx, faceKey = activeFace) {
             renderCtx.save();
             renderCtx.fillStyle = rgbaWithOpacity(faceState.backgroundColor, faceState.backgroundOpacity);
             renderCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
             if (faceState.background) {
+                const backgroundCanvas = createRobloxSeamCanvas(faceKey, faceState.background, faceState.backgroundSeam);
                 const curve = Number(faceState.backgroundCurve || 0);
                 if (Math.abs(curve) > 0.01) {
                     renderCtx.save();
                     renderCtx.translate(CANVAS_SIZE / 2, CANVAS_SIZE / 2);
-                    drawPerspectiveImage(renderCtx, faceState.background, CANVAS_SIZE, CANVAS_SIZE, {
+                    drawPerspectiveImage(renderCtx, backgroundCanvas, CANVAS_SIZE, CANVAS_SIZE, {
                         perspectiveX: 0,
                         perspectiveY: 0,
                         perspectiveBend: 0,
@@ -1447,7 +1463,7 @@
                     });
                     renderCtx.restore();
                 } else {
-                    renderCtx.drawImage(faceState.background, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                    renderCtx.drawImage(backgroundCanvas, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
                 }
             }
             renderCtx.restore();
@@ -1480,6 +1496,111 @@
                 renderCtx.shadowColor = rgbaWithOpacity(element.strokeColor, 1);
                 renderCtx.shadowBlur = Math.max(strokeBlur, strokeBlur * 2.4);
             }
+        }
+
+        function getCubeEdgeLinks(face) {
+            const links = {
+                ft: {
+                    top: { face: 'up', edge: 'bottom' },
+                    bottom: { face: 'dn', edge: 'top' },
+                    left: { face: 'lf', edge: 'right' },
+                    right: { face: 'rt', edge: 'left' }
+                },
+                bk: {
+                    top: { face: 'up', edge: 'top', reverse: true },
+                    bottom: { face: 'dn', edge: 'bottom', reverse: true },
+                    left: { face: 'rt', edge: 'right' },
+                    right: { face: 'lf', edge: 'left' }
+                },
+                lf: {
+                    top: { face: 'up', edge: 'left' },
+                    bottom: { face: 'dn', edge: 'left', reverse: true },
+                    left: { face: 'bk', edge: 'right' },
+                    right: { face: 'ft', edge: 'left' }
+                },
+                rt: {
+                    top: { face: 'up', edge: 'right', reverse: true },
+                    bottom: { face: 'dn', edge: 'right' },
+                    left: { face: 'ft', edge: 'right' },
+                    right: { face: 'bk', edge: 'left' }
+                },
+                up: {
+                    top: { face: 'bk', edge: 'top', reverse: true },
+                    bottom: { face: 'ft', edge: 'top' },
+                    left: { face: 'lf', edge: 'top' },
+                    right: { face: 'rt', edge: 'top', reverse: true }
+                },
+                dn: {
+                    top: { face: 'ft', edge: 'bottom' },
+                    bottom: { face: 'bk', edge: 'bottom', reverse: true },
+                    left: { face: 'lf', edge: 'bottom', reverse: true },
+                    right: { face: 'rt', edge: 'bottom' }
+                }
+            };
+            return links[face] || {};
+        }
+
+        function sampleEdgePixel(imageData, edge, t, reverse = false) {
+            const { width, height, data } = imageData;
+            const p = clamp(reverse ? 1 - t : t, 0, 1);
+            const x = edge === 'left' ? 0 : edge === 'right' ? width - 1 : Math.round(p * (width - 1));
+            const y = edge === 'top' ? 0 : edge === 'bottom' ? height - 1 : Math.round(p * (height - 1));
+            const index = (y * width + x) * 4;
+            return [data[index], data[index + 1], data[index + 2], data[index + 3]];
+        }
+
+        function getEdgePoint(edge, distance, t, width, height) {
+            const x = edge === 'left' ? distance : edge === 'right' ? width - 1 - distance : Math.round(t * (width - 1));
+            const y = edge === 'top' ? distance : edge === 'bottom' ? height - 1 - distance : Math.round(t * (height - 1));
+            return { x: clamp(x, 0, width - 1), y: clamp(y, 0, height - 1) };
+        }
+
+        function createRobloxSeamCanvas(faceKey, baseCanvas, strength) {
+            const amount = clamp(Number(strength || 0), 0, 100) / 100;
+            if (!baseCanvas || amount <= 0) return baseCanvas;
+            const width = baseCanvas.width;
+            const height = baseCanvas.height;
+            const output = copyCanvas(baseCanvas);
+            const outputCtx = output.getContext('2d', { willReadFrequently: true });
+            const outputData = outputCtx.getImageData(0, 0, width, height);
+            const baseCtx = baseCanvas.getContext('2d', { willReadFrequently: true });
+            const baseData = baseCtx.getImageData(0, 0, width, height);
+            const links = getCubeEdgeLinks(faceKey);
+            const edgeWidth = Math.max(8, Math.round(Math.min(width, height) * (0.035 + amount * 0.085)));
+
+            Object.entries(links).forEach(([edge, link]) => {
+                const neighbor = getFaceState(link.face).background;
+                if (!neighbor) return;
+                const neighborCanvas = neighbor.width === width && neighbor.height === height ? neighbor : imageToCanvas(neighbor, Math.max(width, height));
+                const neighborCtx = neighborCanvas.getContext('2d', { willReadFrequently: true });
+                const neighborData = neighborCtx.getImageData(0, 0, neighborCanvas.width, neighborCanvas.height);
+
+                for (let d = 0; d < edgeWidth; d++) {
+                    const falloff = (1 - d / edgeWidth) * amount;
+                    const stretch = Math.pow(falloff, 0.72);
+                    const steps = edge === 'top' || edge === 'bottom' ? width : height;
+                    for (let i = 0; i < steps; i++) {
+                        const t = steps <= 1 ? 0 : i / (steps - 1);
+                        const point = getEdgePoint(edge, d, t, width, height);
+                        const index = (point.y * width + point.x) * 4;
+                        const selfEdge = sampleEdgePixel(baseData, edge, t);
+                        const otherEdge = sampleEdgePixel(neighborData, link.edge, t, Boolean(link.reverse));
+                        const averageEdge = [
+                            (selfEdge[0] + otherEdge[0]) / 2,
+                            (selfEdge[1] + otherEdge[1]) / 2,
+                            (selfEdge[2] + otherEdge[2]) / 2,
+                            (selfEdge[3] + otherEdge[3]) / 2
+                        ];
+                        outputData.data[index] = outputData.data[index] * (1 - stretch) + averageEdge[0] * stretch;
+                        outputData.data[index + 1] = outputData.data[index + 1] * (1 - stretch) + averageEdge[1] * stretch;
+                        outputData.data[index + 2] = outputData.data[index + 2] * (1 - stretch) + averageEdge[2] * stretch;
+                        outputData.data[index + 3] = outputData.data[index + 3] * (1 - stretch) + averageEdge[3] * stretch;
+                    }
+                }
+            });
+
+            outputCtx.putImageData(outputData, 0, 0);
+            return output;
         }
 
         function drawBlurredTextStroke(element, metrics, anchorX, startY, renderCtx) {
@@ -1751,7 +1872,7 @@
 
         function drawScene(faceKey, renderCtx, includeSelection = true) {
             const faceState = getFaceState(faceKey);
-            drawBackground(faceState, renderCtx);
+            drawBackground(faceState, renderCtx, faceKey);
             faceState.elements.forEach(element => {
                 if (!element.visible) return;
                 const selected = includeSelection && element.id === selectedId;
@@ -1979,8 +2100,12 @@
             document.getElementById('canvas-bg-opacity').value = face.backgroundOpacity;
             const curveInput = document.getElementById('canvas-bg-curve');
             const curveLabel = document.getElementById('canvas-bg-curve-value');
+            const seamInput = document.getElementById('canvas-bg-seam');
+            const seamLabel = document.getElementById('canvas-bg-seam-value');
             if (curveInput && curveInput !== document.activeElement) curveInput.value = Number(face.backgroundCurve || 0);
             if (curveLabel) curveLabel.textContent = String(Number(face.backgroundCurve || 0));
+            if (seamInput && seamInput !== document.activeElement) seamInput.value = Number(face.backgroundSeam || 0);
+            if (seamLabel) seamLabel.textContent = String(Number(face.backgroundSeam || 0));
             document.getElementById('layer-count').textContent = `${face.elements.length} items`;
             updateBackgroundStatusUI();
         }
@@ -2921,6 +3046,8 @@
         document.getElementById('canvas-bg-color').addEventListener('input', event => { getFaceState().backgroundColor = event.target.value; render(); });
         document.getElementById('canvas-bg-opacity').addEventListener('input', event => { getFaceState().backgroundOpacity = Number(event.target.value); render(); });
         document.getElementById('canvas-bg-curve').addEventListener('input', event => { getFaceState().backgroundCurve = Number(event.target.value); render(); });
+        document.getElementById('canvas-bg-seam').addEventListener('input', event => { getFaceState().backgroundSeam = Number(event.target.value); render(); });
+        document.getElementById('apply-roblox-seam').addEventListener('click', applyRobloxSeamPreset);
         backgroundTemplateColor.addEventListener('input', updateAndApplyCustomGridBackground);
         applyBackgroundTemplateButton.addEventListener('click', applyCustomGridBackground);
         document.querySelectorAll('[data-grid-mode]').forEach(button => {

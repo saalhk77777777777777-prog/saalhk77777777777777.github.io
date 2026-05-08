@@ -175,9 +175,16 @@
                     <div><div class="text-[11px] text-slate-400 mb-2">배경색</div><input id="canvas-bg-color" type="color" value="#0a0f1a"></div>
                     <div><div class="text-[11px] text-slate-400 mb-2">배경 불투명도</div><input id="canvas-bg-opacity" type="range" min="0" max="1" step="0.01" value="1"></div>
                 </div>
-                <div>
-                    <div class="flex justify-between text-[11px] font-bold text-slate-400 mb-2"><span>배경 곡면 보정</span><span id="canvas-bg-curve-value">0</span></div>
-                    <input id="canvas-bg-curve" type="range" min="-100" max="100" step="1" value="0">
+                <div class="space-y-3">
+                    <div>
+                        <div class="flex justify-between text-[11px] font-bold text-slate-400 mb-2"><span>배경 곡면 보정</span><span id="canvas-bg-curve-value">0</span></div>
+                        <input id="canvas-bg-curve" type="range" min="-100" max="100" step="1" value="0">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[11px] font-bold text-slate-400 mb-2"><span>로블록스 이음새</span><span id="canvas-bg-seam-value">0</span></div>
+                        <input id="canvas-bg-seam" type="range" min="0" max="100" step="1" value="0">
+                    </div>
+                    <button id="apply-roblox-seam" type="button" class="tool-button success w-full">6면 로블록스식 이어붙이기</button>
                 </div>
                 <div class="property-group space-y-3">
                     <div class="flex items-center justify-between">
@@ -289,7 +296,7 @@
         </div>
     </main>
 
-    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.08.1</span></div>
+    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.08.2</span></div>
     <script src="./app.js"></script>
 </body>
 </html>
