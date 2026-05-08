@@ -270,6 +270,10 @@
                 <div id="viewer-status" class="text-xs text-slate-300">FT/BK/LF/RT/UP/DN 합성 미리보기</div>
             </div>
             <div class="panel rounded-full px-4 py-2 flex items-center gap-2 pointer-events-auto">
+                <label class="viewer-control">
+                    <span>원근감</span>
+                    <input id="viewer-perspective" type="range" min="45" max="110" value="82">
+                </label>
                 <button id="viewer-refresh" class="tool-button !px-4 !py-2">새로고침</button>
                 <button id="viewer-reset" class="tool-button !px-4 !py-2">시점 초기화</button>
             </div>

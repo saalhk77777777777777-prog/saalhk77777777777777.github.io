@@ -62,6 +62,7 @@
         const viewerWorkspace = document.getElementById('viewer-workspace');
         const viewerContainer = document.getElementById('three-viewer');
         const viewerStatus = document.getElementById('viewer-status');
+        const viewerPerspectiveInput = document.getElementById('viewer-perspective');
         const modeTabs = document.querySelectorAll('.app-mode-tab');
 
         const threeViewer = {
@@ -70,8 +71,11 @@
             scene: null,
             camera: null,
             mesh: null,
+            faceMeshes: [],
             materials: [],
             textures: [],
+            roomSize: 10,
+            seamOverlap: 0.08,
             yaw: 0,
             pitch: 0,
             dragging: false,
@@ -1605,6 +1609,26 @@
             if (viewerStatus) viewerStatus.textContent = message;
         }
 
+        function getThreeFaceSetups() {
+            const half = threeViewer.roomSize / 2;
+            return [
+                { face: 'ft', position: [0, 0, -half], rotation: [0, 0, 0] },
+                { face: 'bk', position: [0, 0, half], rotation: [0, Math.PI, 0] },
+                { face: 'lf', position: [-half, 0, 0], rotation: [0, Math.PI / 2, 0] },
+                { face: 'rt', position: [half, 0, 0], rotation: [0, -Math.PI / 2, 0] },
+                { face: 'up', position: [0, half, 0], rotation: [Math.PI / 2, 0, 0] },
+                { face: 'dn', position: [0, -half, 0], rotation: [-Math.PI / 2, 0, 0] }
+            ];
+        }
+
+        function setThreeViewerFov(value) {
+            if (!threeViewer.camera) return;
+            const nextFov = clamp(Number(value) || 82, 45, 110);
+            threeViewer.camera.fov = nextFov;
+            threeViewer.camera.updateProjectionMatrix();
+            if (viewerPerspectiveInput) viewerPerspectiveInput.value = Math.round(nextFov);
+        }
+
         function resizeThreeViewer() {
             if (!threeViewer.ready || !viewerContainer) return;
             const rect = viewerContainer.getBoundingClientRect();
@@ -1625,10 +1649,7 @@
         function resetThreeViewerView() {
             threeViewer.yaw = 0;
             threeViewer.pitch = 0;
-            if (threeViewer.camera) {
-                threeViewer.camera.fov = 75;
-                threeViewer.camera.updateProjectionMatrix();
-            }
+            setThreeViewerFov(82);
             updateThreeCamera();
         }
 
@@ -1641,20 +1662,28 @@
             }
 
             threeViewer.scene = new THREE.Scene();
-            threeViewer.camera = new THREE.PerspectiveCamera(75, 1, 0.1, 100);
+            threeViewer.camera = new THREE.PerspectiveCamera(82, 1, 0.1, 100);
             threeViewer.camera.position.set(0, 0, 0);
             threeViewer.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
             threeViewer.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
             threeViewer.renderer.setClearColor(0x020712, 1);
             viewerContainer.appendChild(threeViewer.renderer.domElement);
 
-            const faceMaterials = ['rt', 'lf', 'up', 'dn', 'ft', 'bk'].map(() => new THREE.MeshBasicMaterial({
+            const faceSetups = getThreeFaceSetups();
+            const faceMaterials = faceSetups.map(() => new THREE.MeshBasicMaterial({
                 color: 0xffffff,
-                side: THREE.BackSide
+                side: THREE.FrontSide,
+                toneMapped: false
             }));
             threeViewer.materials = faceMaterials;
-            threeViewer.mesh = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), faceMaterials);
-            threeViewer.scene.add(threeViewer.mesh);
+            threeViewer.faceMeshes = faceSetups.map((setup, index) => {
+                const size = threeViewer.roomSize + threeViewer.seamOverlap;
+                const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), faceMaterials[index]);
+                mesh.position.set(...setup.position);
+                mesh.rotation.set(...setup.rotation);
+                threeViewer.scene.add(mesh);
+                return mesh;
+            });
             resetThreeViewerView();
 
             viewerContainer.addEventListener('pointerdown', event => {
@@ -1679,8 +1708,7 @@
             });
             viewerContainer.addEventListener('wheel', event => {
                 event.preventDefault();
-                threeViewer.camera.fov = clamp(threeViewer.camera.fov + (event.deltaY > 0 ? 3 : -3), 35, 105);
-                threeViewer.camera.updateProjectionMatrix();
+                setThreeViewerFov(threeViewer.camera.fov + (event.deltaY > 0 ? 3 : -3));
             }, { passive: false });
 
             window.addEventListener('resize', resizeThreeViewer);
@@ -1695,20 +1723,26 @@
 
         function updateThreeViewerTextures() {
             if (!threeViewer.ready || typeof THREE === 'undefined') return;
-            const faceOrder = ['rt', 'lf', 'up', 'dn', 'ft', 'bk'];
-            faceOrder.forEach((face, index) => {
+            const faceSetups = getThreeFaceSetups();
+            faceSetups.forEach(({ face }, index) => {
                 const faceCanvas = renderFaceToCanvas(face);
                 if (threeViewer.textures[index]) threeViewer.textures[index].dispose();
                 const texture = new THREE.CanvasTexture(faceCanvas);
                 if ('colorSpace' in texture && THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+                texture.wrapS = THREE.ClampToEdgeWrapping;
+                texture.wrapT = THREE.ClampToEdgeWrapping;
                 texture.minFilter = THREE.LinearFilter;
                 texture.magFilter = THREE.LinearFilter;
+                texture.generateMipmaps = false;
+                if (threeViewer.renderer?.capabilities?.getMaxAnisotropy) {
+                    texture.anisotropy = Math.min(4, threeViewer.renderer.capabilities.getMaxAnisotropy());
+                }
                 texture.needsUpdate = true;
                 threeViewer.textures[index] = texture;
                 threeViewer.materials[index].map = texture;
                 threeViewer.materials[index].needsUpdate = true;
             });
-            setViewerStatus('현재 6면이 3D 뷰어에 반영됐습니다.');
+            setViewerStatus('원근감과 이음새 보정이 적용된 6면 미리보기입니다.');
         }
 
         function queueThreeViewerUpdate() {
@@ -2674,6 +2708,9 @@
             if (initThreeViewer()) updateThreeViewerTextures();
         });
         document.getElementById('viewer-reset').addEventListener('click', resetThreeViewerView);
+        if (viewerPerspectiveInput) {
+            viewerPerspectiveInput.addEventListener('input', event => setThreeViewerFov(event.target.value));
+        }
         document.getElementById('canvas-bg-color').addEventListener('input', event => { getFaceState().backgroundColor = event.target.value; render(); });
         document.getElementById('canvas-bg-opacity').addEventListener('input', event => { getFaceState().backgroundOpacity = Number(event.target.value); render(); });
         backgroundTemplateColor.addEventListener('input', updateAndApplyCustomGridBackground);
