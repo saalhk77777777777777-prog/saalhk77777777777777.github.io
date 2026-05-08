@@ -19,6 +19,8 @@
         let importedPresetSets = [];
         let autoSaveTimer = null;
         let isRestoringProject = false;
+        let activeAppMode = 'editor';
+        let viewerUpdateQueued = false;
         const POSTER_BACKGROUND_COLOR = '#b88ae9';
         const POSTER_GRID_MODE = 'white';
 
@@ -56,6 +58,26 @@
         const presetList = document.getElementById('preset-list');
         const presetCount = document.getElementById('preset-count');
         const presetStatusText = document.getElementById('preset-status-text');
+        const editorWorkspace = document.getElementById('editor-workspace');
+        const viewerWorkspace = document.getElementById('viewer-workspace');
+        const viewerContainer = document.getElementById('three-viewer');
+        const viewerStatus = document.getElementById('viewer-status');
+        const modeTabs = document.querySelectorAll('.app-mode-tab');
+
+        const threeViewer = {
+            ready: false,
+            renderer: null,
+            scene: null,
+            camera: null,
+            mesh: null,
+            materials: [],
+            textures: [],
+            yaw: 0,
+            pitch: 0,
+            dragging: false,
+            lastX: 0,
+            lastY: 0
+        };
 
         const QUICK_BACKGROUND_COLORS = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#94a3b8', '#0f172a'];
         let backgroundGridMode = 'white';
@@ -1572,6 +1594,145 @@
             return tempCanvas.toDataURL('image/png');
         }
 
+        function renderFaceToCanvas(faceKey = activeFace) {
+            const tempCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
+            const tempCtx = tempCanvas.getContext('2d');
+            drawScene(faceKey, tempCtx, false);
+            return tempCanvas;
+        }
+
+        function setViewerStatus(message) {
+            if (viewerStatus) viewerStatus.textContent = message;
+        }
+
+        function resizeThreeViewer() {
+            if (!threeViewer.ready || !viewerContainer) return;
+            const rect = viewerContainer.getBoundingClientRect();
+            const width = Math.max(1, Math.floor(rect.width));
+            const height = Math.max(1, Math.floor(rect.height));
+            threeViewer.renderer.setSize(width, height, false);
+            threeViewer.camera.aspect = width / height;
+            threeViewer.camera.updateProjectionMatrix();
+        }
+
+        function updateThreeCamera() {
+            if (!threeViewer.camera) return;
+            threeViewer.pitch = clamp(threeViewer.pitch, -Math.PI / 2 + 0.04, Math.PI / 2 - 0.04);
+            threeViewer.camera.rotation.order = 'YXZ';
+            threeViewer.camera.rotation.set(threeViewer.pitch, threeViewer.yaw, 0);
+        }
+
+        function resetThreeViewerView() {
+            threeViewer.yaw = 0;
+            threeViewer.pitch = 0;
+            if (threeViewer.camera) {
+                threeViewer.camera.fov = 75;
+                threeViewer.camera.updateProjectionMatrix();
+            }
+            updateThreeCamera();
+        }
+
+        function initThreeViewer() {
+            if (threeViewer.ready) return true;
+            if (!viewerContainer) return false;
+            if (typeof THREE === 'undefined') {
+                setViewerStatus('Three.js를 불러오지 못했습니다.');
+                return false;
+            }
+
+            threeViewer.scene = new THREE.Scene();
+            threeViewer.camera = new THREE.PerspectiveCamera(75, 1, 0.1, 100);
+            threeViewer.camera.position.set(0, 0, 0);
+            threeViewer.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            threeViewer.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            threeViewer.renderer.setClearColor(0x020712, 1);
+            viewerContainer.appendChild(threeViewer.renderer.domElement);
+
+            const faceMaterials = ['rt', 'lf', 'up', 'dn', 'ft', 'bk'].map(() => new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                side: THREE.BackSide
+            }));
+            threeViewer.materials = faceMaterials;
+            threeViewer.mesh = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), faceMaterials);
+            threeViewer.scene.add(threeViewer.mesh);
+            resetThreeViewerView();
+
+            viewerContainer.addEventListener('pointerdown', event => {
+                threeViewer.dragging = true;
+                threeViewer.lastX = event.clientX;
+                threeViewer.lastY = event.clientY;
+                viewerContainer.setPointerCapture(event.pointerId);
+            });
+            viewerContainer.addEventListener('pointermove', event => {
+                if (!threeViewer.dragging) return;
+                const dx = event.clientX - threeViewer.lastX;
+                const dy = event.clientY - threeViewer.lastY;
+                threeViewer.lastX = event.clientX;
+                threeViewer.lastY = event.clientY;
+                threeViewer.yaw -= dx * 0.004;
+                threeViewer.pitch -= dy * 0.004;
+                updateThreeCamera();
+            });
+            viewerContainer.addEventListener('pointerup', event => {
+                threeViewer.dragging = false;
+                if (viewerContainer.hasPointerCapture(event.pointerId)) viewerContainer.releasePointerCapture(event.pointerId);
+            });
+            viewerContainer.addEventListener('wheel', event => {
+                event.preventDefault();
+                threeViewer.camera.fov = clamp(threeViewer.camera.fov + (event.deltaY > 0 ? 3 : -3), 35, 105);
+                threeViewer.camera.updateProjectionMatrix();
+            }, { passive: false });
+
+            window.addEventListener('resize', resizeThreeViewer);
+            threeViewer.renderer.setAnimationLoop(() => {
+                threeViewer.renderer.render(threeViewer.scene, threeViewer.camera);
+            });
+            threeViewer.ready = true;
+            resizeThreeViewer();
+            updateThreeViewerTextures();
+            return true;
+        }
+
+        function updateThreeViewerTextures() {
+            if (!threeViewer.ready || typeof THREE === 'undefined') return;
+            const faceOrder = ['rt', 'lf', 'up', 'dn', 'ft', 'bk'];
+            faceOrder.forEach((face, index) => {
+                const faceCanvas = renderFaceToCanvas(face);
+                if (threeViewer.textures[index]) threeViewer.textures[index].dispose();
+                const texture = new THREE.CanvasTexture(faceCanvas);
+                if ('colorSpace' in texture && THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+                texture.minFilter = THREE.LinearFilter;
+                texture.magFilter = THREE.LinearFilter;
+                texture.needsUpdate = true;
+                threeViewer.textures[index] = texture;
+                threeViewer.materials[index].map = texture;
+                threeViewer.materials[index].needsUpdate = true;
+            });
+            setViewerStatus('현재 6면이 3D 뷰어에 반영됐습니다.');
+        }
+
+        function queueThreeViewerUpdate() {
+            if (activeAppMode !== 'viewer' || viewerUpdateQueued) return;
+            viewerUpdateQueued = true;
+            requestAnimationFrame(() => {
+                viewerUpdateQueued = false;
+                updateThreeViewerTextures();
+            });
+        }
+
+        function setAppMode(mode) {
+            activeAppMode = mode;
+            modeTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.mode === mode));
+            editorWorkspace.classList.toggle('workspace-hidden', mode !== 'editor');
+            viewerWorkspace.classList.toggle('workspace-hidden', mode !== 'viewer');
+            if (mode === 'viewer' && initThreeViewer()) {
+                requestAnimationFrame(() => {
+                    resizeThreeViewer();
+                    updateThreeViewerTextures();
+                });
+            }
+        }
+
         function buildFaceSummary(faceKey = activeFace) {
             const face = getFaceState(faceKey);
             const imageCount = face.elements.filter(element => element.type === 'image').length;
@@ -1624,6 +1785,7 @@
             updateLayerList();
             updatePropertyPanel();
             updateCanvasSettingsUI();
+            queueThreeViewerUpdate();
         }
 
         function updateLayerList() {
@@ -2507,6 +2669,11 @@
         document.getElementById('bring-front').addEventListener('click', () => moveElementOrder('front'));
         document.getElementById('send-back').addEventListener('click', () => moveElementOrder('back'));
         document.getElementById('center-layer').addEventListener('click', centerSelectedElement);
+        modeTabs.forEach(tab => tab.addEventListener('click', () => setAppMode(tab.dataset.mode)));
+        document.getElementById('viewer-refresh').addEventListener('click', () => {
+            if (initThreeViewer()) updateThreeViewerTextures();
+        });
+        document.getElementById('viewer-reset').addEventListener('click', resetThreeViewerView);
         document.getElementById('canvas-bg-color').addEventListener('input', event => { getFaceState().backgroundColor = event.target.value; render(); });
         document.getElementById('canvas-bg-opacity').addEventListener('input', event => { getFaceState().backgroundOpacity = Number(event.target.value); render(); });
         backgroundTemplateColor.addEventListener('input', updateAndApplyCustomGridBackground);
