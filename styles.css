@@ -47,15 +47,16 @@
         body.mobile-layout header > div > div:first-child { width: 100%; gap: 12px; }
         body.mobile-layout header h1 { font-size: 16px; }
         body.mobile-layout header p { font-size: 11px; }
-        body.mobile-layout header .tool-button { flex: 1 1 calc(50% - 8px); min-height: 42px; padding: 11px 10px; font-size: 11px; }
+        body.mobile-layout header > div > div:last-child { width: 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+        body.mobile-layout header .tool-button { flex: 0 0 auto; min-height: 38px; padding: 10px 12px; font-size: 11px; white-space: nowrap; }
         body.mobile-layout header label.tool-button { min-width: 0; }
         body.mobile-layout #editor-workspace { min-height: auto; display: flex; flex-direction: column; overflow: visible; }
-        body.mobile-layout #editor-workspace > aside:first-child { width: 100%; max-height: none; border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.1); overflow: visible; }
-        body.mobile-layout #editor-workspace > aside:last-child { width: 100%; min-height: 420px; border-left: 0; border-top: 1px solid rgba(255,255,255,0.1); overflow: visible; }
+        body.mobile-layout #editor-workspace > aside:first-child { order: 2; width: 100%; max-height: none; border-right: 0; border-top: 1px solid rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.1); overflow: visible; }
+        body.mobile-layout #editor-workspace > aside:last-child { order: 3; width: 100%; min-height: 420px; border-left: 0; border-top: 1px solid rgba(255,255,255,0.1); overflow: visible; }
         body.mobile-layout #property-panel { max-height: none; overflow: visible; padding-bottom: 84px; }
         body.mobile-layout .property-group { border-radius: 20px; padding: 15px; }
-        body.mobile-layout .canvas-stage { min-height: 72vh; width: 100%; flex: none; padding: 0; overflow: auto; border-bottom: 1px solid rgba(255,255,255,0.08); }
-        body.mobile-layout .canvas-center { min-width: max-content; min-height: 72vh; padding: 86px 18px 116px; align-items: center; justify-content: center; }
+        body.mobile-layout .canvas-stage { order: 1; min-height: calc(100dvh - 126px); width: 100%; flex: none; padding: 0; overflow: auto; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        body.mobile-layout .canvas-center { min-width: max-content; min-height: calc(100dvh - 126px); padding: 78px 18px 112px; align-items: center; justify-content: center; }
         body.mobile-layout #canvas-stage > .absolute.top-5 { position: sticky; top: 12px; left: 12px; transform: none; width: calc(100vw - 24px); margin: 12px; }
         body.mobile-layout #canvas-stage > .absolute.top-5 .panel { border-radius: 22px; justify-content: center; gap: 8px; }
         body.mobile-layout #canvas-stage > .absolute.top-5 .text-xs { display: none; }
