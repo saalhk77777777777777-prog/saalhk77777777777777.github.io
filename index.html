@@ -148,7 +148,7 @@
     </header>
 
     <main id="editor-workspace" class="flex-1 min-h-0 flex">
-        <aside class="w-[300px] shrink-0 border-r border-white/10 bg-black/25 panel-strong flex flex-col">
+        <aside class="w-[300px] shrink-0 border-r border-white/10 bg-black/25 panel-strong overflow-y-auto scrollbar">
             <div class="px-5 py-5 border-b border-white/10">
                 <div class="property-label">Face Switch</div>
                 <div class="grid grid-cols-3 gap-2 mt-3">
@@ -235,25 +235,36 @@
                     <div class="text-xs text-slate-400 leading-5">첫 번째 이미지는 메인, 나머지는 주변 카드처럼 자동 정리됩니다.</div>
                 </div>
             </div>
-            <div id="layer-list" class="flex-1 min-h-0 overflow-y-auto scrollbar px-4 pb-5 space-y-2"></div>
+            <div id="layer-list" class="px-4 pb-5 space-y-2"></div>
         </aside>
 
-        <section class="flex-1 min-w-0 relative grid-bg flex items-center justify-center p-6">
+        <section id="canvas-stage" class="canvas-stage flex-1 min-w-0 relative grid-bg overflow-auto p-6">
             <div class="absolute top-5 left-1/2 -translate-x-1/2 z-10">
                 <div class="panel rounded-full px-4 py-2 flex flex-wrap items-center gap-3">
                     <div class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Canvas Controls</div>
                     <div class="text-xs text-slate-300">드래그: 이동</div>
                     <div class="text-xs text-slate-300">휠: 크기</div>
                     <div class="text-xs text-slate-300">Shift + 휠: 회전</div>
+                    <button id="toggle-grid" type="button" class="tool-button !px-3 !py-1">그리드 ON</button>
+                    <button id="toggle-snap" type="button" class="tool-button !px-3 !py-1">스냅 OFF</button>
                 </div>
             </div>
-            <div class="relative">
-                <canvas id="main-canvas" width="1024" height="1024" class="aspect-square max-w-[min(72vw,78vh)] max-h-[78vh] rounded-[30px] border border-white/10 shadow-[0_40px_120px_rgba(0,0,0,0.45)] bg-black/40"></canvas>
+            <div class="canvas-center">
+                <div class="relative canvas-shell">
+                <canvas id="main-canvas" width="1024" height="1024" class="editor-canvas rounded-[30px] border border-white/10 shadow-[0_40px_120px_rgba(0,0,0,0.45)] bg-black/40"></canvas>
                 <div class="absolute left-1/2 -translate-x-1/2 bottom-5 panel rounded-[26px] px-5 py-4 flex items-center gap-5">
                     <div class="text-[11px] uppercase tracking-[0.2em] text-slate-400 font-black">Quick</div>
                     <button id="bring-front" class="tool-button !px-4 !py-2">맨 앞으로</button>
                     <button id="send-back" class="tool-button !px-4 !py-2">맨 뒤로</button>
                     <button id="center-layer" class="tool-button !px-4 !py-2">가운데 정렬</button>
+                </div>
+                </div>
+            </div>
+            <div class="absolute right-5 bottom-5 z-10 panel rounded-[26px] px-4 py-3 flex items-center gap-3">
+                <button id="fit-canvas" type="button" class="tool-button !px-4 !py-2">화면 맞춤</button>
+                <div class="w-40">
+                    <div class="flex justify-between text-[11px] font-bold text-slate-400 mb-1"><span>줌</span><span id="canvas-zoom-value">74%</span></div>
+                    <input id="canvas-zoom" type="range" min="30" max="160" step="1" value="74">
                 </div>
             </div>
         </section>
@@ -267,7 +278,7 @@
             <div id="property-panel" class="flex-1 overflow-y-auto scrollbar p-5 space-y-4"></div>
         </aside>
     </main>
-    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.08.3</span></div>
+    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.09.1</span></div>
     <script src="./app.js"></script>
 </body>
 </html>

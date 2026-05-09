@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.08.3';
+        const APP_VERSION = 'v2026.05.09.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -20,6 +20,9 @@
         let importedPresetSets = [];
         let autoSaveTimer = null;
         let isRestoringProject = false;
+        let canvasZoom = 74;
+        let showEditorGrid = true;
+        let snapToGrid = false;
         const POSTER_BACKGROUND_COLOR = '#b88ae9';
         const POSTER_GRID_MODE = 'white';
 
@@ -35,6 +38,12 @@
 
         const canvas = document.getElementById('main-canvas');
         const ctx = canvas.getContext('2d');
+        const canvasStage = document.getElementById('canvas-stage');
+        const canvasZoomInput = document.getElementById('canvas-zoom');
+        const canvasZoomValue = document.getElementById('canvas-zoom-value');
+        const fitCanvasButton = document.getElementById('fit-canvas');
+        const toggleGridButton = document.getElementById('toggle-grid');
+        const toggleSnapButton = document.getElementById('toggle-snap');
         const layerList = document.getElementById('layer-list');
         const propertyPanel = document.getElementById('property-panel');
         const selectionTitle = document.getElementById('selection-title');
@@ -672,14 +681,14 @@
             }
         }
 
-        async function saveCurrentProject(title = '수동 저장') {
-            showLoading('현재 작업을 기록으로 저장하는 중이에요.');
+        async function saveCurrentProject(title = '수동 저장', options = {}) {
+            if (!options.silent) showLoading('현재 작업을 기록으로 저장하는 중이에요.');
             try {
                 const snapshot = serializeProject(title);
                 await putProjectSnapshot(snapshot);
                 return snapshot;
             } finally {
-                hideLoading();
+                if (!options.silent) hideLoading();
             }
         }
 
@@ -1194,6 +1203,40 @@
                 x: (event.clientX - rect.left) * (targetCanvas.width / rect.width),
                 y: (event.clientY - rect.top) * (targetCanvas.height / rect.height)
             };
+        }
+
+        function snapCanvasValue(value) {
+            return snapToGrid ? Math.round(value / 16) * 16 : value;
+        }
+
+        function syncCanvasView() {
+            const size = Math.round(CANVAS_SIZE * canvasZoom / 100);
+            canvas.style.width = `${size}px`;
+            canvas.style.height = `${size}px`;
+            if (canvasZoomInput && canvasZoomInput !== document.activeElement) canvasZoomInput.value = String(Math.round(canvasZoom));
+            if (canvasZoomValue) canvasZoomValue.textContent = `${Math.round(canvasZoom)}%`;
+            if (canvasStage) canvasStage.classList.toggle('grid-bg', showEditorGrid);
+            if (toggleGridButton) toggleGridButton.textContent = showEditorGrid ? '그리드 ON' : '그리드 OFF';
+            if (toggleSnapButton) {
+                toggleSnapButton.textContent = snapToGrid ? '스냅 ON' : '스냅 OFF';
+                toggleSnapButton.classList.toggle('success', snapToGrid);
+            }
+        }
+
+        function fitCanvasToStage() {
+            if (!canvasStage) return;
+            const rect = canvasStage.getBoundingClientRect();
+            const fit = Math.floor((Math.min(rect.width, rect.height) - 150) / CANVAS_SIZE * 100);
+            canvasZoom = clamp(fit, 30, 160);
+            syncCanvasView();
+        }
+
+        function nudgeSelectedElement(dx, dy, multiplier = 1) {
+            const selected = getSelectedElement();
+            if (!selected || selected.locked) return;
+            selected.x = clamp(snapCanvasValue(selected.x + dx * multiplier), 0, CANVAS_SIZE);
+            selected.y = clamp(snapCanvasValue(selected.y + dy * multiplier), 0, CANVAS_SIZE);
+            render();
         }
 
         async function updateImageProcessing(element) {
@@ -2469,8 +2512,10 @@
         }
 
         async function exportAll() {
-            showLoading('각 면을 렌더링해서 ZIP으로 묶는 중이에요.');
+            showLoading('내보내기 전 작업 기록을 자동 저장하는 중이에요.');
             try {
+                await saveCurrentProject(`전체 내보내기 자동 저장 ${new Date().toLocaleString('ko-KR')}`, { silent: true });
+                showLoading('각 면을 렌더링해서 ZIP으로 묶는 중이에요.');
                 const renderedFaces = [];
                 for (const face of FACES) {
                     const tempCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
@@ -2499,7 +2544,6 @@
                 });
                 const blob = await zip.generateAsync({ type: 'blob' });
                 downloadBlob(blob, 'skybox_studio_pack.zip');
-                await saveCurrentProject('내보내기 전 자동 기록');
             } catch (error) {
                 alert(`내보내기 실패\n${getErrorMessage(error)}`);
             } finally {
@@ -2732,8 +2776,8 @@
             const selected = getSelectedElement();
             if (!selected) return;
             const point = pointToCanvasPosition(event);
-            selected.x = clamp(point.x - dragOffset.x, 0, CANVAS_SIZE);
-            selected.y = clamp(point.y - dragOffset.y, 0, CANVAS_SIZE);
+            selected.x = clamp(snapCanvasValue(point.x - dragOffset.x), 0, CANVAS_SIZE);
+            selected.y = clamp(snapCanvasValue(point.y - dragOffset.y), 0, CANVAS_SIZE);
             render();
         });
 
@@ -2745,6 +2789,11 @@
 
         canvas.addEventListener('wheel', event => {
             event.preventDefault();
+            if (event.ctrlKey || event.metaKey) {
+                canvasZoom = clamp(canvasZoom + (event.deltaY > 0 ? -5 : 5), 30, 160);
+                syncCanvasView();
+                return;
+            }
             const selected = getSelectedElement();
             if (!selected || selected.locked) return;
             if (event.shiftKey) selected.rotation = clamp(selected.rotation + (event.deltaY > 0 ? 3 : -3), -180, 180);
@@ -2846,6 +2895,19 @@
         document.getElementById('bring-front').addEventListener('click', () => moveElementOrder('front'));
         document.getElementById('send-back').addEventListener('click', () => moveElementOrder('back'));
         document.getElementById('center-layer').addEventListener('click', centerSelectedElement);
+        fitCanvasButton.addEventListener('click', fitCanvasToStage);
+        canvasZoomInput.addEventListener('input', event => {
+            canvasZoom = clamp(Number(event.target.value), 30, 160);
+            syncCanvasView();
+        });
+        toggleGridButton.addEventListener('click', () => {
+            showEditorGrid = !showEditorGrid;
+            syncCanvasView();
+        });
+        toggleSnapButton.addEventListener('click', () => {
+            snapToGrid = !snapToGrid;
+            syncCanvasView();
+        });
         document.getElementById('canvas-bg-color').addEventListener('input', event => { getFaceState().backgroundColor = event.target.value; render(); });
         document.getElementById('canvas-bg-opacity').addEventListener('input', event => { getFaceState().backgroundOpacity = Number(event.target.value); render(); });
         document.getElementById('canvas-bg-curve').addEventListener('input', event => { getFaceState().backgroundCurve = Number(event.target.value); render(); });
@@ -2866,6 +2928,14 @@
             const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
             if (typing) return;
             if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId && !getSelectedElement()?.locked) removeElement(selectedId);
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key) && selectedId) {
+                event.preventDefault();
+                const step = event.shiftKey ? 10 : 1;
+                if (event.key === 'ArrowLeft') nudgeSelectedElement(-1, 0, step);
+                if (event.key === 'ArrowRight') nudgeSelectedElement(1, 0, step);
+                if (event.key === 'ArrowUp') nudgeSelectedElement(0, -1, step);
+                if (event.key === 'ArrowDown') nudgeSelectedElement(0, 1, step);
+            }
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') {
                 event.preventDefault();
                 duplicateSelectedElement();
@@ -2876,7 +2946,9 @@
         syncAiConfigInputs();
         bindRangeKeyboardAndWheelControls();
         renderBackgroundTemplates();
+        syncCanvasView();
         render();
+        window.addEventListener('resize', syncCanvasView);
         if (IS_PUBLIC_HOSTED) {
             presetStatusText.textContent = '공개 배포에서는 내장 프리셋, 이미지 편집, 저장/내보내기는 사용할 수 있지만 AI 추천과 AI 배경제거는 별도 서버 설정이 필요합니다.';
         }
