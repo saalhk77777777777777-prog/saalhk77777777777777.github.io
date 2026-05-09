@@ -17,6 +17,26 @@
         </div>
     </div>
 
+    <div id="layout-choice-modal" class="modal-backdrop layout-choice-modal">
+        <div class="panel-strong layout-choice-card rounded-[32px] w-full max-w-3xl overflow-hidden">
+            <div class="p-7 sm:p-9">
+                <div class="inline-flex items-center rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200">Skybox Studio</div>
+                <h2 class="mt-5 text-2xl sm:text-3xl font-black tracking-tight">어떤 화면으로 시작할까요?</h2>
+                <p class="mt-3 text-sm leading-6 text-slate-400">PC는 지금 쓰던 넓은 편집기를 그대로 쓰고, 모바일은 버튼과 패널을 세로형으로 크게 재배치해서 손가락으로 편하게 만질 수 있게 바꿉니다.</p>
+                <div class="mt-7 grid gap-3 sm:grid-cols-2">
+                    <button id="choose-pc-layout" type="button" class="layout-choice-button">
+                        <span class="text-lg font-black">PC 화면</span>
+                        <span class="text-sm text-slate-400">기존 레이아웃 그대로, 넓은 화면용</span>
+                    </button>
+                    <button id="choose-mobile-layout" type="button" class="layout-choice-button mobile">
+                        <span class="text-lg font-black">모바일 화면</span>
+                        <span class="text-sm text-slate-400">세로 스크롤, 큰 버튼, 작은 캔버스</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="cutout-modal" class="modal-backdrop">
         <div class="panel-strong rounded-[30px] w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col">
             <div class="px-6 py-5 border-b border-white/10 flex items-center justify-between gap-4">
@@ -142,6 +162,7 @@
                 <button id="delete-layer" class="tool-button danger">삭제</button>
                 <button id="save-project" class="tool-button success">작업 저장</button>
                 <button id="load-project" class="tool-button">기록 불러오기</button>
+                <button id="change-layout-mode" class="tool-button">화면 모드</button>
                 <button id="export-all" class="tool-button primary">전체 내보내기 ZIP</button>
             </div>
         </div>
@@ -278,7 +299,7 @@
             <div id="property-panel" class="flex-1 overflow-y-auto scrollbar p-5 space-y-4"></div>
         </aside>
     </main>
-    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.09.1</span></div>
+    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.09.2</span></div>
     <script src="./app.js"></script>
 </body>
 </html>

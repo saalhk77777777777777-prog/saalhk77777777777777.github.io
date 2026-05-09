@@ -18,6 +18,11 @@
         .tool-button.primary { background: linear-gradient(135deg, rgba(56,189,248,0.95), rgba(14,165,233,0.95)); color: #06111d; border-color: rgba(103,232,249,0.4); }
         .tool-button.danger { background: rgba(251,113,133,0.12); color: #fecdd3; border-color: rgba(251,113,133,0.2); }
         .tool-button.success { background: rgba(52,211,153,0.12); color: #bbf7d0; border-color: rgba(52,211,153,0.22); }
+        .layout-choice-modal { z-index: 130; }
+        .layout-choice-card { box-shadow: 0 38px 140px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06); }
+        .layout-choice-button { min-height: 150px; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 8px; border-radius: 26px; padding: 22px; text-align: left; border: 1px solid rgba(255,255,255,0.09); color: var(--text); background: radial-gradient(circle at top right, rgba(103,232,249,0.2), transparent 42%), rgba(255,255,255,0.035); transition: 180ms ease; }
+        .layout-choice-button:hover { transform: translateY(-3px); border-color: rgba(103,232,249,0.38); background-color: rgba(103,232,249,0.08); }
+        .layout-choice-button.mobile { background: radial-gradient(circle at top right, rgba(52,211,153,0.22), transparent 42%), rgba(255,255,255,0.035); }
         .canvas-stage { scroll-behavior: smooth; }
         .canvas-center { min-width: max-content; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 86px 96px; }
         .canvas-shell { width: max-content; height: max-content; }
@@ -35,3 +40,35 @@
         .modal-backdrop.visible { display: flex; }
         .loader { width: 46px; height: 46px; border-radius: 999px; border: 3px solid rgba(103, 232, 249, 0.35); border-top-color: rgba(103, 232, 249, 1); animation: spin 0.85s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        body.mobile-layout { height: auto; min-height: 100vh; overflow-y: auto; overflow-x: hidden; }
+        body.mobile-layout header { position: sticky; top: 0; z-index: 70; padding: 12px; background: rgba(3, 8, 16, 0.92); }
+        body.mobile-layout header > div { align-items: stretch; }
+        body.mobile-layout header > div > div:first-child { width: 100%; gap: 12px; }
+        body.mobile-layout header h1 { font-size: 16px; }
+        body.mobile-layout header p { font-size: 11px; }
+        body.mobile-layout header .tool-button { flex: 1 1 calc(50% - 8px); min-height: 42px; padding: 11px 10px; font-size: 11px; }
+        body.mobile-layout header label.tool-button { min-width: 0; }
+        body.mobile-layout #editor-workspace { min-height: auto; display: flex; flex-direction: column; overflow: visible; }
+        body.mobile-layout #editor-workspace > aside:first-child { width: 100%; max-height: none; border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.1); overflow: visible; }
+        body.mobile-layout #editor-workspace > aside:last-child { width: 100%; min-height: 420px; border-left: 0; border-top: 1px solid rgba(255,255,255,0.1); overflow: visible; }
+        body.mobile-layout #property-panel { max-height: none; overflow: visible; padding-bottom: 84px; }
+        body.mobile-layout .property-group { border-radius: 20px; padding: 15px; }
+        body.mobile-layout .canvas-stage { min-height: 72vh; width: 100%; flex: none; padding: 0; overflow: auto; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        body.mobile-layout .canvas-center { min-width: max-content; min-height: 72vh; padding: 86px 18px 116px; align-items: center; justify-content: center; }
+        body.mobile-layout #canvas-stage > .absolute.top-5 { position: sticky; top: 12px; left: 12px; transform: none; width: calc(100vw - 24px); margin: 12px; }
+        body.mobile-layout #canvas-stage > .absolute.top-5 .panel { border-radius: 22px; justify-content: center; gap: 8px; }
+        body.mobile-layout #canvas-stage > .absolute.top-5 .text-xs { display: none; }
+        body.mobile-layout #canvas-stage > .absolute.right-5 { position: sticky; right: auto; left: 12px; bottom: 12px; width: calc(100vw - 24px); margin: 12px; justify-content: space-between; }
+        body.mobile-layout #canvas-stage > .absolute.right-5 .w-40 { flex: 1; width: auto; }
+        body.mobile-layout .canvas-shell > .absolute.bottom-5 { position: fixed; left: 12px; right: 12px; bottom: 14px; transform: none; z-index: 75; justify-content: center; flex-wrap: wrap; padding: 12px; }
+        body.mobile-layout .canvas-shell > .absolute.bottom-5 .tool-button { flex: 1 1 30%; padding: 10px 8px; font-size: 11px; }
+        body.mobile-layout #preset-list { max-height: 240px; }
+        body.mobile-layout .version-badge { left: 12px; right: auto; bottom: 10px; z-index: 82; }
+        body.mobile-layout #cutout-modal .panel-strong,
+        body.mobile-layout #ai-modal .panel-strong { height: 94vh; border-radius: 24px; }
+        body.mobile-layout #cutout-modal .panel-strong > .flex-1,
+        body.mobile-layout #ai-modal .panel-strong > .flex-1 { display: flex; flex-direction: column; overflow-y: auto; }
+        body.mobile-layout #cutout-modal .w-\[320px\],
+        body.mobile-layout #ai-modal .grid-cols-\[360px_minmax\(0\,1fr\)\] > div:first-child { width: 100%; border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        body.mobile-layout #ai-modal .grid-cols-\[360px_minmax\(0\,1fr\)\] { grid-template-columns: 1fr; display: grid; }

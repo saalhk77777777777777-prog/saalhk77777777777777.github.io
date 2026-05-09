@@ -1,10 +1,11 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.09.1';
+        const APP_VERSION = 'v2026.05.09.2';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
         const FONT_OPTIONS = ['Pretendard', 'Arial', 'Georgia', 'Verdana', 'Trebuchet MS', 'Courier New'];
         const AI_CONFIG_STORAGE_KEY = 'skybox-ai-config-v1';
+        const LAYOUT_MODE_STORAGE_KEY = 'skybox-layout-mode-v1';
         const PROJECT_DB_NAME = 'skybox-studio-projects';
         const PROJECT_STORE_NAME = 'snapshots';
         const IS_PUBLIC_HOSTED = ['http:', 'https:'].includes(window.location.protocol)
@@ -23,6 +24,7 @@
         let canvasZoom = 74;
         let showEditorGrid = true;
         let snapToGrid = false;
+        let layoutMode = 'pc';
         const POSTER_BACKGROUND_COLOR = '#b88ae9';
         const POSTER_GRID_MODE = 'white';
 
@@ -69,6 +71,10 @@
         const presetCount = document.getElementById('preset-count');
         const presetStatusText = document.getElementById('preset-status-text');
         const appVersionBadge = document.getElementById('app-version');
+        const layoutChoiceModal = document.getElementById('layout-choice-modal');
+        const choosePcLayoutButton = document.getElementById('choose-pc-layout');
+        const chooseMobileLayoutButton = document.getElementById('choose-mobile-layout');
+        const changeLayoutModeButton = document.getElementById('change-layout-mode');
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
         const QUICK_BACKGROUND_COLORS = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#94a3b8', '#0f172a'];
@@ -1223,10 +1229,43 @@
             }
         }
 
+        function openLayoutChoice() {
+            if (layoutChoiceModal) layoutChoiceModal.classList.add('visible');
+        }
+
+        function applyLayoutMode(mode, options = {}) {
+            const { persist = true } = options;
+            layoutMode = mode === 'mobile' ? 'mobile' : 'pc';
+            document.body.classList.toggle('mobile-layout', layoutMode === 'mobile');
+            if (persist) localStorage.setItem(LAYOUT_MODE_STORAGE_KEY, layoutMode);
+            if (layoutChoiceModal) layoutChoiceModal.classList.remove('visible');
+            if (changeLayoutModeButton) changeLayoutModeButton.textContent = layoutMode === 'mobile' ? '모바일 모드' : 'PC 모드';
+
+            if (layoutMode === 'mobile') {
+                canvasZoom = Math.min(canvasZoom, 46);
+                requestAnimationFrame(fitCanvasToStage);
+                return;
+            }
+
+            canvasZoom = 74;
+            syncCanvasView();
+        }
+
+        function initLayoutMode() {
+            const savedMode = localStorage.getItem(LAYOUT_MODE_STORAGE_KEY);
+            if (savedMode === 'pc' || savedMode === 'mobile') {
+                applyLayoutMode(savedMode, { persist: false });
+                return;
+            }
+            syncCanvasView();
+            openLayoutChoice();
+        }
+
         function fitCanvasToStage() {
             if (!canvasStage) return;
             const rect = canvasStage.getBoundingClientRect();
-            const fit = Math.floor((Math.min(rect.width, rect.height) - 150) / CANVAS_SIZE * 100);
+            const margin = layoutMode === 'mobile' ? 72 : 150;
+            const fit = Math.floor((Math.min(rect.width, rect.height) - margin) / CANVAS_SIZE * 100);
             canvasZoom = clamp(fit, 30, 160);
             syncCanvasView();
         }
@@ -2895,6 +2934,9 @@
         document.getElementById('bring-front').addEventListener('click', () => moveElementOrder('front'));
         document.getElementById('send-back').addEventListener('click', () => moveElementOrder('back'));
         document.getElementById('center-layer').addEventListener('click', centerSelectedElement);
+        choosePcLayoutButton?.addEventListener('click', () => applyLayoutMode('pc'));
+        chooseMobileLayoutButton?.addEventListener('click', () => applyLayoutMode('mobile'));
+        changeLayoutModeButton?.addEventListener('click', openLayoutChoice);
         fitCanvasButton.addEventListener('click', fitCanvasToStage);
         canvasZoomInput.addEventListener('input', event => {
             canvasZoom = clamp(Number(event.target.value), 30, 160);
@@ -2946,9 +2988,12 @@
         syncAiConfigInputs();
         bindRangeKeyboardAndWheelControls();
         renderBackgroundTemplates();
-        syncCanvasView();
+        initLayoutMode();
         render();
-        window.addEventListener('resize', syncCanvasView);
+        window.addEventListener('resize', () => {
+            if (layoutMode === 'mobile') fitCanvasToStage();
+            else syncCanvasView();
+        });
         if (IS_PUBLIC_HOSTED) {
             presetStatusText.textContent = '공개 배포에서는 내장 프리셋, 이미지 편집, 저장/내보내기는 사용할 수 있지만 AI 추천과 AI 배경제거는 별도 서버 설정이 필요합니다.';
         }
