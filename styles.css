@@ -18,6 +18,7 @@
         .tool-button.primary { background: linear-gradient(135deg, rgba(56,189,248,0.95), rgba(14,165,233,0.95)); color: #06111d; border-color: rgba(103,232,249,0.4); }
         .tool-button.danger { background: rgba(251,113,133,0.12); color: #fecdd3; border-color: rgba(251,113,133,0.2); }
         .tool-button.success { background: rgba(52,211,153,0.12); color: #bbf7d0; border-color: rgba(52,211,153,0.22); }
+        .mobile-quick-action { display: none; }
         .layout-choice-modal { z-index: 130; }
         .layout-choice-card { box-shadow: 0 38px 140px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06); }
         .layout-choice-button { min-height: 150px; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 8px; border-radius: 26px; padding: 22px; text-align: left; border: 1px solid rgba(255,255,255,0.09); color: var(--text); background: radial-gradient(circle at top right, rgba(103,232,249,0.2), transparent 42%), rgba(255,255,255,0.035); transition: 180ms ease; }
@@ -68,6 +69,8 @@
         body.mobile-layout #canvas-stage > .absolute.right-5 { position: sticky; right: auto; left: 12px; bottom: 12px; width: calc(100vw - 24px); margin: 12px; justify-content: space-between; }
         body.mobile-layout #canvas-stage > .absolute.right-5 .w-40 { flex: 1; width: auto; }
         body.mobile-layout .canvas-shell > .absolute.bottom-5 { position: fixed; left: 12px; right: 12px; bottom: 14px; transform: none; z-index: 75; justify-content: center; flex-wrap: wrap; padding: 12px; }
+        body.mobile-layout .desktop-quick-action { display: none; }
+        body.mobile-layout .mobile-quick-action { display: inline-flex; }
         body.mobile-layout .canvas-shell > .absolute.bottom-5 .tool-button { flex: 1 1 30%; padding: 10px 8px; font-size: 11px; }
         body.mobile-layout #preset-list { max-height: 240px; }
         body.mobile-layout .version-badge { left: 12px; right: auto; bottom: 10px; z-index: 82; }

@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.10.1';
+        const APP_VERSION = 'v2026.05.10.2';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -2327,6 +2327,53 @@
             if (selected.locked) return;
             if (action === 'flip-x') selected.flipX = !selected.flipX;
             if (action === 'flip-y') selected.flipY = !selected.flipY;
+            if (action === 'mobile-quick-rotate') {
+                selected.rotation = ((selected.rotation + 15 + 180) % 360) - 180;
+            }
+            if (action === 'mobile-quick-border') {
+                if (selected.type === 'image') {
+                    if (!selected.outlineWidth) {
+                        selected.outlineWidth = 10;
+                        selected.outlineBlur = 0;
+                        selected.outlineStyle = 'solid';
+                        selected.outlineColor = selected.outlineColor || '#7c3aed';
+                    } else if (selected.outlineStyle !== 'blur') {
+                        selected.outlineWidth = 14;
+                        selected.outlineBlur = 18;
+                        selected.outlineStyle = 'blur';
+                    } else {
+                        selected.outlineWidth = 0;
+                        selected.outlineBlur = 8;
+                        selected.outlineStyle = 'solid';
+                    }
+                    await updateImageProcessing(selected);
+                } else {
+                    if (!selected.strokeWidth) {
+                        selected.strokeWidth = 6;
+                        selected.strokeBlur = 0;
+                        selected.strokeStyle = 'solid';
+                        selected.strokeColor = selected.strokeColor || '#ffffff';
+                    } else if (selected.strokeStyle !== 'blur') {
+                        selected.strokeWidth = 8;
+                        selected.strokeBlur = 14;
+                        selected.strokeStyle = 'blur';
+                    } else {
+                        selected.strokeWidth = 0;
+                        selected.strokeBlur = 8;
+                        selected.strokeStyle = 'solid';
+                    }
+                }
+            }
+            if (action === 'mobile-quick-shadow') {
+                const shadow = selected.shadow || defaultShadow();
+                if (!shadow.opacity || shadow.opacity <= 0.05) {
+                    selected.shadow = { ...shadow, blur: 34, offsetX: 14, offsetY: 18, opacity: 0.48, color: shadow.color || '#000000' };
+                } else if (shadow.blur < 60) {
+                    selected.shadow = { ...shadow, blur: 72, offsetX: 0, offsetY: 0, opacity: 0.82, color: shadow.color || '#ffffff' };
+                } else {
+                    selected.shadow = { ...shadow, blur: 0, offsetX: 0, offsetY: 0, opacity: 0 };
+                }
+            }
             if (action === 'shadow-off') {
                 selected.shadow = { ...selected.shadow, blur: 0, offsetX: 0, offsetY: 0, opacity: 0, color: selected.shadow.color || '#000000' };
             }
@@ -3063,6 +3110,11 @@
         document.getElementById('bring-front').addEventListener('click', () => moveElementOrder('front'));
         document.getElementById('send-back').addEventListener('click', () => moveElementOrder('back'));
         document.getElementById('center-layer').addEventListener('click', centerSelectedElement);
+        document.querySelectorAll('[data-quick-action]').forEach(button => {
+            button.addEventListener('click', async event => {
+                await applyElementAction(event.currentTarget.dataset.quickAction);
+            });
+        });
         choosePcLayoutButton?.addEventListener('click', () => applyLayoutMode('pc'));
         chooseMobileLayoutButton?.addEventListener('click', () => applyLayoutMode('mobile'));
         changeLayoutModeButton?.addEventListener('click', openLayoutChoice);
