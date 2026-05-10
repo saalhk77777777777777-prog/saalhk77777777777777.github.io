@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.09.3';
+        const APP_VERSION = 'v2026.05.10.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -25,6 +25,10 @@
         let showEditorGrid = true;
         let snapToGrid = false;
         let layoutMode = 'pc';
+        const canvasPointers = new Map();
+        let pinchState = null;
+        let sliderPreviewTimer = null;
+        let isSliderPreviewActive = false;
         const POSTER_BACKGROUND_COLOR = '#b88ae9';
         const POSTER_GRID_MODE = 'white';
 
@@ -75,6 +79,9 @@
         const choosePcLayoutButton = document.getElementById('choose-pc-layout');
         const chooseMobileLayoutButton = document.getElementById('choose-mobile-layout');
         const changeLayoutModeButton = document.getElementById('change-layout-mode');
+        const mobileSliderPreview = document.getElementById('mobile-slider-preview');
+        const mobileSliderPreviewCanvas = document.getElementById('mobile-slider-preview-canvas');
+        const mobileSliderPreviewCtx = mobileSliderPreviewCanvas?.getContext('2d');
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
         const QUICK_BACKGROUND_COLORS = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#94a3b8', '#0f172a'];
@@ -1211,6 +1218,60 @@
             };
         }
 
+        function distanceBetweenPoints(a, b) {
+            return Math.hypot(a.x - b.x, a.y - b.y);
+        }
+
+        function getCanvasPointerList() {
+            return [...canvasPointers.values()];
+        }
+
+        function startPinchScale() {
+            const selected = getSelectedElement();
+            const points = getCanvasPointerList();
+            if (!selected || selected.locked || points.length < 2) return;
+            pinchState = {
+                elementId: selected.id,
+                startDistance: Math.max(1, distanceBetweenPoints(points[0], points[1])),
+                startScale: selected.scale
+            };
+            isDragging = false;
+        }
+
+        function updatePinchScale() {
+            if (!pinchState) return;
+            const selected = getSelectedElement();
+            const points = getCanvasPointerList();
+            if (!selected || selected.id !== pinchState.elementId || points.length < 2) return;
+            const distance = Math.max(1, distanceBetweenPoints(points[0], points[1]));
+            selected.scale = clamp(pinchState.startScale * (distance / pinchState.startDistance), 0.05, 4);
+            render();
+        }
+
+        function refreshMobileSliderPreview() {
+            if (!mobileSliderPreviewCtx || !mobileSliderPreviewCanvas) return;
+            mobileSliderPreviewCtx.clearRect(0, 0, mobileSliderPreviewCanvas.width, mobileSliderPreviewCanvas.height);
+            mobileSliderPreviewCtx.drawImage(canvas, 0, 0, mobileSliderPreviewCanvas.width, mobileSliderPreviewCanvas.height);
+        }
+
+        function showMobileSliderPreview() {
+            if (!mobileSliderPreview) return;
+            if (layoutMode !== 'mobile') return;
+            isSliderPreviewActive = true;
+            window.clearTimeout(sliderPreviewTimer);
+            refreshMobileSliderPreview();
+            mobileSliderPreview.classList.add('visible');
+        }
+
+        function hideMobileSliderPreviewSoon() {
+            if (!mobileSliderPreview) return;
+            window.clearTimeout(sliderPreviewTimer);
+            sliderPreviewTimer = window.setTimeout(() => {
+                isSliderPreviewActive = false;
+                mobileSliderPreview.classList.remove('visible');
+            }, 180);
+        }
+
         function snapCanvasValue(value) {
             return snapToGrid ? Math.round(value / 16) * 16 : value;
         }
@@ -1240,6 +1301,7 @@
             if (persist) localStorage.setItem(LAYOUT_MODE_STORAGE_KEY, layoutMode);
             if (layoutChoiceModal) layoutChoiceModal.classList.remove('visible');
             if (changeLayoutModeButton) changeLayoutModeButton.textContent = layoutMode === 'mobile' ? '모바일 모드' : 'PC 모드';
+            if (layoutMode !== 'mobile' && mobileSliderPreview) mobileSliderPreview.classList.remove('visible');
 
             if (layoutMode === 'mobile') {
                 canvasZoom = Math.min(canvasZoom, 46);
@@ -2087,12 +2149,45 @@
         }
 
         function bindRangeKeyboardAndWheelControls() {
+            document.addEventListener('pointerdown', event => {
+                const input = event.target;
+                if (!(input instanceof HTMLInputElement) || input.type !== 'range') return;
+                showMobileSliderPreview();
+            }, true);
+
+            document.addEventListener('pointerup', event => {
+                const input = event.target;
+                if (!isSliderPreviewActive && (!(input instanceof HTMLInputElement) || input.type !== 'range')) return;
+                hideMobileSliderPreviewSoon();
+            }, true);
+
+            document.addEventListener('pointercancel', event => {
+                const input = event.target;
+                if (!isSliderPreviewActive && (!(input instanceof HTMLInputElement) || input.type !== 'range')) return;
+                hideMobileSliderPreviewSoon();
+            }, true);
+
+            document.addEventListener('input', event => {
+                const input = event.target;
+                if (!(input instanceof HTMLInputElement) || input.type !== 'range') return;
+                showMobileSliderPreview();
+                requestAnimationFrame(refreshMobileSliderPreview);
+            });
+
+            document.addEventListener('change', event => {
+                const input = event.target;
+                if (!(input instanceof HTMLInputElement) || input.type !== 'range') return;
+                hideMobileSliderPreviewSoon();
+            });
+
             document.addEventListener('wheel', event => {
                 const input = event.target;
                 if (!(input instanceof HTMLInputElement) || input.type !== 'range') return;
                 event.preventDefault();
                 const multiplier = event.shiftKey ? 10 : event.ctrlKey || event.metaKey ? 0.2 : 1;
                 stepRangeInput(input, event.deltaY > 0 ? -1 : 1, multiplier);
+                showMobileSliderPreview();
+                hideMobileSliderPreviewSoon();
             }, { passive: false });
 
             document.addEventListener('keydown', event => {
@@ -2102,28 +2197,38 @@
                 if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
                     event.preventDefault();
                     stepRangeInput(input, 1, multiplier);
+                    showMobileSliderPreview();
+                    hideMobileSliderPreviewSoon();
                 }
                 if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
                     event.preventDefault();
                     stepRangeInput(input, -1, multiplier);
+                    showMobileSliderPreview();
+                    hideMobileSliderPreviewSoon();
                 }
                 if (event.key === 'PageUp') {
                     event.preventDefault();
                     stepRangeInput(input, 1, 10);
+                    showMobileSliderPreview();
+                    hideMobileSliderPreviewSoon();
                 }
                 if (event.key === 'PageDown') {
                     event.preventDefault();
                     stepRangeInput(input, -1, 10);
+                    showMobileSliderPreview();
+                    hideMobileSliderPreviewSoon();
                 }
                 if (event.key === 'Home') {
                     event.preventDefault();
                     input.value = input.min || '0';
                     input.dispatchEvent(new Event('input', { bubbles: true }));
+                    hideMobileSliderPreviewSoon();
                 }
                 if (event.key === 'End') {
                     event.preventDefault();
                     input.value = input.max || '100';
                     input.dispatchEvent(new Event('input', { bubbles: true }));
+                    hideMobileSliderPreviewSoon();
                 }
             });
         }
@@ -2793,8 +2898,15 @@
             redrawCutoutCanvas();
         }
 
-        canvas.addEventListener('mousedown', event => {
+        canvas.addEventListener('pointerdown', event => {
+            event.preventDefault();
+            canvas.setPointerCapture?.(event.pointerId);
             const point = pointToCanvasPosition(event);
+            canvasPointers.set(event.pointerId, point);
+            if (canvasPointers.size >= 2) {
+                startPinchScale();
+                return;
+            }
             const target = findTopElementAt(point.x, point.y);
             if (!target) {
                 selectedId = null;
@@ -2810,17 +2922,34 @@
             render();
         });
 
-        window.addEventListener('mousemove', event => {
+        canvas.addEventListener('pointermove', event => {
+            if (!canvasPointers.has(event.pointerId)) return;
+            event.preventDefault();
+            const point = pointToCanvasPosition(event);
+            canvasPointers.set(event.pointerId, point);
+            if (canvasPointers.size >= 2) {
+                updatePinchScale();
+                return;
+            }
             if (!isDragging) return;
             const selected = getSelectedElement();
             if (!selected) return;
-            const point = pointToCanvasPosition(event);
             selected.x = clamp(snapCanvasValue(point.x - dragOffset.x), 0, CANVAS_SIZE);
             selected.y = clamp(snapCanvasValue(point.y - dragOffset.y), 0, CANVAS_SIZE);
             render();
         });
 
+        function stopCanvasPointer(event) {
+            if (event?.pointerId != null) canvasPointers.delete(event.pointerId);
+            if (canvasPointers.size < 2) pinchState = null;
+            isDragging = false;
+        }
+
+        canvas.addEventListener('pointerup', stopCanvasPointer);
+        canvas.addEventListener('pointercancel', stopCanvasPointer);
         window.addEventListener('mouseup', () => {
+            canvasPointers.clear();
+            pinchState = null;
             isDragging = false;
             cutoutState.isDrawing = false;
             cutoutState.lastPoint = null;
