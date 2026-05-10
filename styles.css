@@ -18,7 +18,7 @@
         .tool-button.primary { background: linear-gradient(135deg, rgba(56,189,248,0.95), rgba(14,165,233,0.95)); color: #06111d; border-color: rgba(103,232,249,0.4); }
         .tool-button.danger { background: rgba(251,113,133,0.12); color: #fecdd3; border-color: rgba(251,113,133,0.2); }
         .tool-button.success { background: rgba(52,211,153,0.12); color: #bbf7d0; border-color: rgba(52,211,153,0.22); }
-        .mobile-quick-action { display: none; }
+        .mobile-quick-panel { display: none; }
         .layout-choice-modal { z-index: 130; }
         .layout-choice-card { box-shadow: 0 38px 140px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06); }
         .layout-choice-button { min-height: 150px; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 8px; border-radius: 26px; padding: 22px; text-align: left; border: 1px solid rgba(255,255,255,0.09); color: var(--text); background: radial-gradient(circle at top right, rgba(103,232,249,0.2), transparent 42%), rgba(255,255,255,0.035); transition: 180ms ease; }
@@ -61,17 +61,26 @@
         body.mobile-layout #property-panel { max-height: none; overflow: visible; padding-bottom: 84px; }
         body.mobile-layout .property-group { border-radius: 20px; padding: 15px; }
         body.mobile-layout .canvas-stage { order: 1; min-height: calc(100dvh - 126px); width: 100%; flex: none; padding: 0; overflow: auto; border-bottom: 1px solid rgba(255,255,255,0.08); }
-        body.mobile-layout .canvas-center { min-width: max-content; min-height: calc(100dvh - 126px); padding: 78px 18px 112px; align-items: center; justify-content: center; }
+        body.mobile-layout .canvas-center { min-width: max-content; min-height: calc(100dvh - 126px); padding: 78px 18px 172px; align-items: center; justify-content: center; }
         body.mobile-layout .mobile-slider-preview { width: 20vw; top: 10px; right: 10px; border-radius: 18px; }
         body.mobile-layout #canvas-stage > .absolute.top-5 { position: sticky; top: 12px; left: 12px; transform: none; width: calc(100vw - 24px); margin: 12px; }
         body.mobile-layout #canvas-stage > .absolute.top-5 .panel { border-radius: 22px; justify-content: center; gap: 8px; }
         body.mobile-layout #canvas-stage > .absolute.top-5 .text-xs { display: none; }
         body.mobile-layout #canvas-stage > .absolute.right-5 { position: sticky; right: auto; left: 12px; bottom: 12px; width: calc(100vw - 24px); margin: 12px; justify-content: space-between; }
         body.mobile-layout #canvas-stage > .absolute.right-5 .w-40 { flex: 1; width: auto; }
-        body.mobile-layout .canvas-shell > .absolute.bottom-5 { position: fixed; left: 12px; right: 12px; bottom: 14px; transform: none; z-index: 75; justify-content: center; flex-wrap: wrap; padding: 12px; }
+        body.mobile-layout .canvas-shell > .absolute.bottom-5 { position: fixed; left: 10px; right: 10px; bottom: 12px; transform: none; z-index: 75; justify-content: center; flex-wrap: wrap; padding: 12px; }
+        body.mobile-layout .quick-bar { max-height: 150px; overflow-y: auto; }
         body.mobile-layout .desktop-quick-action { display: none; }
-        body.mobile-layout .mobile-quick-action { display: inline-flex; }
-        body.mobile-layout .canvas-shell > .absolute.bottom-5 .tool-button { flex: 1 1 30%; padding: 10px 8px; font-size: 11px; }
+        body.mobile-layout .mobile-quick-panel { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 54px; gap: 8px; align-items: end; }
+        body.mobile-layout .mobile-quick-field.rotate { grid-column: 1 / -1; }
+        body.mobile-layout .mobile-quick-field,
+        body.mobile-layout .mobile-quick-color { display: flex; flex-direction: column; gap: 5px; min-width: 0; color: rgba(214,230,255,0.82); font-size: 10px; font-weight: 900; }
+        body.mobile-layout .mobile-quick-field span,
+        body.mobile-layout .mobile-quick-color span { display: flex; justify-content: space-between; letter-spacing: 0.05em; }
+        body.mobile-layout .mobile-quick-field input[type="range"] { width: 100%; }
+        body.mobile-layout .mobile-quick-color input[type="color"] { height: 34px; border-radius: 999px; }
+        body.mobile-layout .mobile-quick-shadow-button { grid-column: 1 / -1; min-height: 34px; padding: 8px 9px; font-size: 10px; }
+        body.mobile-layout .canvas-shell > .absolute.bottom-5 .tool-button { flex: 0 0 auto; padding: 10px 8px; font-size: 11px; }
         body.mobile-layout #preset-list { max-height: 240px; }
         body.mobile-layout .version-badge { left: 12px; right: auto; bottom: 10px; z-index: 82; }
         body.mobile-layout #cutout-modal .panel-strong,

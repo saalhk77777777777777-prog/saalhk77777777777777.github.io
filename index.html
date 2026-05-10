@@ -273,14 +273,30 @@
             <div class="canvas-center">
                 <div class="relative canvas-shell">
                 <canvas id="main-canvas" width="1024" height="1024" class="editor-canvas rounded-[30px] border border-white/10 shadow-[0_40px_120px_rgba(0,0,0,0.45)] bg-black/40"></canvas>
-                <div class="absolute left-1/2 -translate-x-1/2 bottom-5 panel rounded-[26px] px-5 py-4 flex items-center gap-5">
+                <div class="absolute left-1/2 -translate-x-1/2 bottom-5 panel quick-bar rounded-[26px] px-5 py-4 flex items-center gap-5">
                     <div class="text-[11px] uppercase tracking-[0.2em] text-slate-400 font-black">Quick</div>
                     <button id="bring-front" class="tool-button desktop-quick-action !px-4 !py-2">맨 앞으로</button>
                     <button id="send-back" class="tool-button desktop-quick-action !px-4 !py-2">맨 뒤로</button>
                     <button id="center-layer" class="tool-button desktop-quick-action !px-4 !py-2">가운데 정렬</button>
-                    <button type="button" class="tool-button mobile-quick-action !px-4 !py-2" data-quick-action="mobile-quick-rotate">회전</button>
-                    <button type="button" class="tool-button mobile-quick-action !px-4 !py-2" data-quick-action="mobile-quick-border">테두리</button>
-                    <button type="button" class="tool-button mobile-quick-action !px-4 !py-2" data-quick-action="mobile-quick-shadow">그림자</button>
+                    <div class="mobile-quick-panel">
+                        <label class="mobile-quick-field rotate">
+                            <span>회전 <b id="mobile-quick-rotation-value">0</b></span>
+                            <input id="mobile-quick-rotation" type="range" min="-90" max="90" step="1" value="0">
+                        </label>
+                        <label class="mobile-quick-field">
+                            <span>테두리 두께</span>
+                            <input id="mobile-quick-border-width" type="range" min="0" max="50" step="1" value="0">
+                        </label>
+                        <label class="mobile-quick-field">
+                            <span>테두리 강도</span>
+                            <input id="mobile-quick-border-strength" type="range" min="0" max="80" step="1" value="0">
+                        </label>
+                        <label class="mobile-quick-color">
+                            <span>색깔</span>
+                            <input id="mobile-quick-border-color" type="color" value="#7c3aed">
+                        </label>
+                        <button type="button" class="tool-button mobile-quick-shadow-button !px-4 !py-2" data-quick-action="mobile-quick-shadow">선명 그림자</button>
+                    </div>
                 </div>
                 </div>
             </div>
@@ -306,7 +322,7 @@
         <canvas id="mobile-slider-preview-canvas" width="1024" height="1024"></canvas>
         <div class="mobile-slider-preview-label">미리보기</div>
     </div>
-    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.10.2</span></div>
+    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.11.1</span></div>
     <script src="./app.js"></script>
 </body>
 </html>

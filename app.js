@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.10.2';
+        const APP_VERSION = 'v2026.05.11.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -82,6 +82,11 @@
         const mobileSliderPreview = document.getElementById('mobile-slider-preview');
         const mobileSliderPreviewCanvas = document.getElementById('mobile-slider-preview-canvas');
         const mobileSliderPreviewCtx = mobileSliderPreviewCanvas?.getContext('2d');
+        const mobileQuickRotation = document.getElementById('mobile-quick-rotation');
+        const mobileQuickRotationValue = document.getElementById('mobile-quick-rotation-value');
+        const mobileQuickBorderWidth = document.getElementById('mobile-quick-border-width');
+        const mobileQuickBorderStrength = document.getElementById('mobile-quick-border-strength');
+        const mobileQuickBorderColor = document.getElementById('mobile-quick-border-color');
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
         const QUICK_BACKGROUND_COLORS = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#94a3b8', '#0f172a'];
@@ -2073,6 +2078,62 @@
             updateLayerList();
             updatePropertyPanel();
             updateCanvasSettingsUI();
+            updateMobileQuickControls();
+        }
+
+        function getLayerBorderValues(element) {
+            if (!element) return { width: 0, strength: 0, color: '#7c3aed' };
+            if (element.type === 'image') {
+                return {
+                    width: Number(element.outlineWidth || 0),
+                    strength: Number(element.outlineBlur || 0),
+                    color: element.outlineColor || '#7c3aed'
+                };
+            }
+            return {
+                width: Number(element.strokeWidth || 0),
+                strength: Number(element.strokeBlur || 0),
+                color: element.strokeColor || '#ffffff'
+            };
+        }
+
+        function updateMobileQuickControls() {
+            const selected = getSelectedElement();
+            const disabled = !selected || selected.locked;
+            const rotation = clamp(Number(selected?.rotation || 0), -90, 90);
+            const border = getLayerBorderValues(selected);
+            [
+                mobileQuickRotation,
+                mobileQuickBorderWidth,
+                mobileQuickBorderStrength,
+                mobileQuickBorderColor
+            ].forEach(input => { if (input) input.disabled = disabled; });
+            if (mobileQuickRotation && mobileQuickRotation !== document.activeElement) mobileQuickRotation.value = String(Math.round(rotation));
+            if (mobileQuickRotationValue) mobileQuickRotationValue.textContent = String(Math.round(rotation));
+            if (mobileQuickBorderWidth && mobileQuickBorderWidth !== document.activeElement) mobileQuickBorderWidth.value = String(Math.round(border.width));
+            if (mobileQuickBorderStrength && mobileQuickBorderStrength !== document.activeElement) mobileQuickBorderStrength.value = String(Math.round(border.strength));
+            if (mobileQuickBorderColor && mobileQuickBorderColor !== document.activeElement) mobileQuickBorderColor.value = border.color;
+        }
+
+        async function updateMobileQuickBorder() {
+            const selected = getSelectedElement();
+            if (!selected || selected.locked) return;
+            const width = Number(mobileQuickBorderWidth?.value || 0);
+            const strength = Number(mobileQuickBorderStrength?.value || 0);
+            const color = mobileQuickBorderColor?.value || (selected.type === 'image' ? '#7c3aed' : '#ffffff');
+            if (selected.type === 'image') {
+                selected.outlineWidth = width;
+                selected.outlineBlur = strength;
+                selected.outlineColor = color;
+                selected.outlineStyle = strength > 0 ? 'blur' : 'solid';
+                await updateImageProcessing(selected);
+            } else {
+                selected.strokeWidth = width;
+                selected.strokeBlur = strength;
+                selected.strokeColor = color;
+                selected.strokeStyle = strength > 0 ? 'blur' : 'solid';
+            }
+            render();
         }
 
         function updateLayerList() {
@@ -2327,52 +2388,8 @@
             if (selected.locked) return;
             if (action === 'flip-x') selected.flipX = !selected.flipX;
             if (action === 'flip-y') selected.flipY = !selected.flipY;
-            if (action === 'mobile-quick-rotate') {
-                selected.rotation = ((selected.rotation + 15 + 180) % 360) - 180;
-            }
-            if (action === 'mobile-quick-border') {
-                if (selected.type === 'image') {
-                    if (!selected.outlineWidth) {
-                        selected.outlineWidth = 10;
-                        selected.outlineBlur = 0;
-                        selected.outlineStyle = 'solid';
-                        selected.outlineColor = selected.outlineColor || '#7c3aed';
-                    } else if (selected.outlineStyle !== 'blur') {
-                        selected.outlineWidth = 14;
-                        selected.outlineBlur = 18;
-                        selected.outlineStyle = 'blur';
-                    } else {
-                        selected.outlineWidth = 0;
-                        selected.outlineBlur = 8;
-                        selected.outlineStyle = 'solid';
-                    }
-                    await updateImageProcessing(selected);
-                } else {
-                    if (!selected.strokeWidth) {
-                        selected.strokeWidth = 6;
-                        selected.strokeBlur = 0;
-                        selected.strokeStyle = 'solid';
-                        selected.strokeColor = selected.strokeColor || '#ffffff';
-                    } else if (selected.strokeStyle !== 'blur') {
-                        selected.strokeWidth = 8;
-                        selected.strokeBlur = 14;
-                        selected.strokeStyle = 'blur';
-                    } else {
-                        selected.strokeWidth = 0;
-                        selected.strokeBlur = 8;
-                        selected.strokeStyle = 'solid';
-                    }
-                }
-            }
             if (action === 'mobile-quick-shadow') {
-                const shadow = selected.shadow || defaultShadow();
-                if (!shadow.opacity || shadow.opacity <= 0.05) {
-                    selected.shadow = { ...shadow, blur: 34, offsetX: 14, offsetY: 18, opacity: 0.48, color: shadow.color || '#000000' };
-                } else if (shadow.blur < 60) {
-                    selected.shadow = { ...shadow, blur: 72, offsetX: 0, offsetY: 0, opacity: 0.82, color: shadow.color || '#ffffff' };
-                } else {
-                    selected.shadow = { ...shadow, blur: 0, offsetX: 0, offsetY: 0, opacity: 0 };
-                }
+                selected.shadow = { ...selected.shadow, blur: 0, offsetX: 18, offsetY: 18, opacity: 0.72, color: selected.shadow.color || '#000000' };
             }
             if (action === 'shadow-off') {
                 selected.shadow = { ...selected.shadow, blur: 0, offsetX: 0, offsetY: 0, opacity: 0, color: selected.shadow.color || '#000000' };
@@ -3115,6 +3132,15 @@
                 await applyElementAction(event.currentTarget.dataset.quickAction);
             });
         });
+        mobileQuickRotation?.addEventListener('input', event => {
+            const selected = getSelectedElement();
+            if (!selected || selected.locked) return;
+            selected.rotation = clamp(Number(event.target.value), -90, 90);
+            render();
+        });
+        mobileQuickBorderWidth?.addEventListener('input', updateMobileQuickBorder);
+        mobileQuickBorderStrength?.addEventListener('input', updateMobileQuickBorder);
+        mobileQuickBorderColor?.addEventListener('input', updateMobileQuickBorder);
         choosePcLayoutButton?.addEventListener('click', () => applyLayoutMode('pc'));
         chooseMobileLayoutButton?.addEventListener('click', () => applyLayoutMode('mobile'));
         changeLayoutModeButton?.addEventListener('click', openLayoutChoice);
