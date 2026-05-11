@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.11.4';
+        const APP_VERSION = 'v2026.05.11.5';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -1610,7 +1610,25 @@
             showLoading('포스터용 이미지를 빠르게 배치하는 중이에요.');
             const created = [];
             try {
-                for (const file of files) {
+                const fileList = Array.from(files);
+                const [mainFile, ...subFiles] = fileList;
+                if (!mainFile) return;
+
+                try {
+                    showLoading(`메인 이미지 AI 배경제거 중...\n${mainFile.name}`);
+                    const resultBlob = await removeBackgroundViaAPI(mainFile);
+                    const image = await blobToImage(resultBlob);
+                    const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
+                    const mainElement = createImageElement(mainFile.name.replace(/\.[^.]+$/, ''), baseCanvas);
+                    mainElement.name = `${mainElement.name} 메인 AI제거`;
+                    created.push(mainElement);
+                    getFaceState().elements.push(mainElement);
+                } catch (error) {
+                    alert(`포스터 빠른 추가는 첫 번째 메인 이미지 AI 배경제거가 반드시 필요해요.\n${mainFile.name}\n${getErrorMessage(error)}`);
+                    return;
+                }
+
+                for (const file of subFiles) {
                     showLoading(`포스터용 이미지 추가 중...\n${file.name}`);
                     try {
                         const image = await fileToImage(file);
