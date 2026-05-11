@@ -169,8 +169,8 @@
     </header>
 
     <main id="editor-workspace" class="flex-1 min-h-0 flex">
-        <aside class="w-[300px] shrink-0 border-r border-white/10 bg-black/25 panel-strong overflow-y-auto scrollbar">
-            <div class="px-5 py-5 border-b border-white/10">
+        <aside class="mobile-left-rail w-[300px] shrink-0 border-r border-white/10 bg-black/25 panel-strong overflow-y-auto scrollbar">
+            <div class="mobile-face-switch px-5 py-5 border-b border-white/10">
                 <div class="property-label">Face Switch</div>
                 <div class="grid grid-cols-3 gap-2 mt-3">
                     <button class="face-tab tool-button active" data-face="ft">FT</button>
@@ -182,7 +182,7 @@
                 </div>
                 <p class="text-xs text-slate-400 mt-4 leading-5">파일명에 `ft`, `bk`, `lf`, `rt`, `up`, `dn` 이 들어가면 자동으로 해당 면 배경으로 들어갑니다.</p>
             </div>
-            <div class="px-5 py-5 border-b border-white/10 space-y-3">
+            <div class="mobile-background-tools px-5 py-5 border-b border-white/10 space-y-3">
                 <div class="flex items-center justify-between">
                     <div class="property-label">Canvas</div>
                     <button id="clear-face" class="text-xs font-bold text-rose-300 hover:text-rose-200 transition-colors">현재 면 초기화</button>
@@ -233,11 +233,11 @@
                     <div id="background-upload-log" class="text-xs text-slate-400 leading-5 whitespace-pre-wrap">아직 업로드 기록이 없습니다.</div>
                 </div>
             </div>
-            <div class="px-5 pt-5 pb-3 flex items-center justify-between">
+            <div class="mobile-layer-heading px-5 pt-5 pb-3 flex items-center justify-between">
                 <div class="property-label">Layers</div>
                 <div class="text-[11px] text-slate-500" id="layer-count">0 items</div>
             </div>
-            <div class="px-4 pb-4">
+            <div class="mobile-preset-tools px-4 pb-4">
                 <div class="property-group space-y-3">
                     <div class="flex items-center justify-between">
                         <div class="property-label">Skybox Presets</div>
@@ -256,7 +256,7 @@
                     <div class="text-xs text-slate-400 leading-5">첫 번째 이미지는 메인, 나머지는 주변 카드처럼 자동 정리됩니다.</div>
                 </div>
             </div>
-            <div id="layer-list" class="px-4 pb-5 space-y-2"></div>
+            <div id="layer-list" class="mobile-layer-list px-4 pb-5 space-y-2"></div>
         </aside>
 
         <section id="canvas-stage" class="canvas-stage flex-1 min-w-0 relative grid-bg overflow-auto p-6">
@@ -309,7 +309,7 @@
             </div>
         </section>
 
-        <aside class="w-[360px] shrink-0 border-l border-white/10 bg-black/25 panel-strong flex flex-col">
+        <aside class="mobile-property-tools w-[360px] shrink-0 border-l border-white/10 bg-black/25 panel-strong flex flex-col">
             <div class="px-6 py-5 border-b border-white/10">
                 <div class="property-label">Selection</div>
                 <h2 id="selection-title" class="text-lg font-black mt-2">선택된 레이어 없음</h2>
@@ -322,7 +322,7 @@
         <canvas id="mobile-slider-preview-canvas" width="1024" height="1024"></canvas>
         <div class="mobile-slider-preview-label">미리보기</div>
     </div>
-    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.11.1</span></div>
+    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.11.2</span></div>
     <script src="./app.js"></script>
 </body>
 </html>
