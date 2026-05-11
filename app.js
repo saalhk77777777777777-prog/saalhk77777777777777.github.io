@@ -1,11 +1,15 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.11.5';
+        const APP_VERSION = 'v2026.05.11.6';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
         const FONT_OPTIONS = ['Pretendard', 'Arial', 'Georgia', 'Verdana', 'Trebuchet MS', 'Courier New'];
         const AI_CONFIG_STORAGE_KEY = 'skybox-ai-config-v1';
         const LAYOUT_MODE_STORAGE_KEY = 'skybox-layout-mode-v1';
+        const BG_QUOTA_STORAGE_KEY = 'skybox-remove-bg-quota-v1';
+        const BG_QUOTA_MONTHLY_LIMIT = 50;
+        const BG_QUOTA_INITIAL_REMAINING = 13;
+        const BG_QUOTA_INITIAL_RESET_DATE = '2026-05-21';
         const PROJECT_DB_NAME = 'skybox-studio-projects';
         const PROJECT_STORE_NAME = 'snapshots';
         const IS_PUBLIC_HOSTED = ['http:', 'https:'].includes(window.location.protocol)
@@ -29,6 +33,7 @@
         let pinchState = null;
         let sliderPreviewTimer = null;
         let isSliderPreviewActive = false;
+        let localBgRemovalModulePromise = null;
         const POSTER_BACKGROUND_COLOR = '#b88ae9';
         const POSTER_GRID_MODE = 'white';
 
@@ -87,6 +92,7 @@
         const mobileQuickBorderWidth = document.getElementById('mobile-quick-border-width');
         const mobileQuickBorderStrength = document.getElementById('mobile-quick-border-strength');
         const mobileQuickBorderColor = document.getElementById('mobile-quick-border-color');
+        const bgQuotaStatus = document.getElementById('bg-quota-status');
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
         const QUICK_BACKGROUND_COLORS = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#94a3b8', '#0f172a'];
@@ -1040,6 +1046,10 @@
         }
 
         async function removeBackgroundViaAPI(file) {
+            const quota = getBackgroundRemovalQuota();
+            if (quota.remaining <= 0) {
+                throw new Error('remove.bg 이번 달 사용량을 다 썼습니다. 로컬 AI 모델로 전환합니다.');
+            }
             const formData = new FormData();
             formData.append('image_file', file);
             formData.append('size', 'auto');
@@ -1052,7 +1062,82 @@
                 const errorText = await response.text().catch(() => '');
                 throw new Error(errorText || `remove.bg API Error (${response.status})`);
             }
+            consumeBackgroundRemovalCredit();
             return await response.blob();
+        }
+
+        function addOneMonth(dateString) {
+            const date = new Date(`${dateString}T00:00:00`);
+            date.setMonth(date.getMonth() + 1);
+            return date.toISOString().slice(0, 10);
+        }
+
+        function normalizeBackgroundRemovalQuota(state) {
+            const today = new Date().toISOString().slice(0, 10);
+            const normalized = {
+                limit: Number(state?.limit || BG_QUOTA_MONTHLY_LIMIT),
+                remaining: Number(state?.remaining ?? BG_QUOTA_INITIAL_REMAINING),
+                resetDate: state?.resetDate || BG_QUOTA_INITIAL_RESET_DATE
+            };
+            while (today >= normalized.resetDate) {
+                normalized.remaining = normalized.limit;
+                normalized.resetDate = addOneMonth(normalized.resetDate);
+            }
+            normalized.remaining = clamp(Math.floor(normalized.remaining), 0, normalized.limit);
+            return normalized;
+        }
+
+        function getBackgroundRemovalQuota() {
+            let saved = null;
+            try {
+                saved = JSON.parse(localStorage.getItem(BG_QUOTA_STORAGE_KEY) || 'null');
+            } catch {
+                saved = null;
+            }
+            const state = normalizeBackgroundRemovalQuota(saved);
+            localStorage.setItem(BG_QUOTA_STORAGE_KEY, JSON.stringify(state));
+            updateBackgroundRemovalQuotaUI(state);
+            return state;
+        }
+
+        function updateBackgroundRemovalQuotaUI(state = getBackgroundRemovalQuota()) {
+            if (!bgQuotaStatus) return;
+            bgQuotaStatus.textContent = `remove.bg ${state.remaining}/${state.limit}`;
+            bgQuotaStatus.title = `${state.resetDate}에 ${state.limit}개로 갱신됩니다. 0개가 되면 로컬 AI 모델을 사용합니다.`;
+            bgQuotaStatus.classList.toggle('danger', state.remaining <= 3);
+            bgQuotaStatus.classList.toggle('success', state.remaining > 3);
+        }
+
+        function consumeBackgroundRemovalCredit() {
+            const state = getBackgroundRemovalQuota();
+            state.remaining = clamp(state.remaining - 1, 0, state.limit);
+            localStorage.setItem(BG_QUOTA_STORAGE_KEY, JSON.stringify(state));
+            updateBackgroundRemovalQuotaUI(state);
+        }
+
+        async function removeBackgroundViaLocalModel(file) {
+            if (!localBgRemovalModulePromise) {
+                localBgRemovalModulePromise = import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm');
+            }
+            const module = await localBgRemovalModulePromise;
+            if (typeof module.removeBackground !== 'function') {
+                throw new Error('로컬 배경제거 모델을 불러오지 못했습니다.');
+            }
+            return await module.removeBackground(file, {
+                publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/',
+                model: 'medium'
+            });
+        }
+
+        async function removeBackgroundWithBestEngine(file) {
+            try {
+                const blob = await removeBackgroundViaAPI(file);
+                return { blob, engine: 'remove.bg' };
+            } catch (error) {
+                showLoading(`remove.bg 대신 로컬 AI 모델로 배경제거 중...\n${file.name}`);
+                const blob = await removeBackgroundViaLocalModel(file);
+                return { blob, engine: 'local' };
+            }
         }
 
         function sampleSolidBackgroundColor(sourceCanvas) {
@@ -1616,15 +1701,15 @@
 
                 try {
                     showLoading(`메인 이미지 AI 배경제거 중...\n${mainFile.name}`);
-                    const resultBlob = await removeBackgroundViaAPI(mainFile);
+                    const { blob: resultBlob, engine } = await removeBackgroundWithBestEngine(mainFile);
                     const image = await blobToImage(resultBlob);
                     const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
                     const mainElement = createImageElement(mainFile.name.replace(/\.[^.]+$/, ''), baseCanvas);
-                    mainElement.name = `${mainElement.name} 메인 AI제거`;
+                    mainElement.name = `${mainElement.name} 메인 ${engine === 'local' ? '로컬AI제거' : 'AI제거'}`;
                     created.push(mainElement);
                     getFaceState().elements.push(mainElement);
                 } catch (error) {
-                    alert(`포스터 빠른 추가는 첫 번째 메인 이미지 AI 배경제거가 반드시 필요해요.\n${mainFile.name}\n${getErrorMessage(error)}`);
+                    alert(`포스터 빠른 추가는 첫 번째 메인 이미지 AI 배경제거가 반드시 필요해요.\nremove.bg와 로컬 모델이 모두 실패했습니다.\n${mainFile.name}\n${getErrorMessage(error)}`);
                     return;
                 }
 
@@ -1657,10 +1742,11 @@
                 for (const file of files) {
                     showLoading(`AI 배경제거 중...\n${file.name}`);
                     try {
-                        const resultBlob = await removeBackgroundViaAPI(file);
-                        const image = await loadImageFromURL(URL.createObjectURL(resultBlob));
+                        const { blob: resultBlob, engine } = await removeBackgroundWithBestEngine(file);
+                        const image = await blobToImage(resultBlob);
                         const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
                         const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
+                        if (engine === 'local') element.name = `${element.name} 로컬AI제거`;
                         await updateImageProcessing(element);
                         getFaceState().elements.push(element);
                         selectedId = element.id;
@@ -3384,6 +3470,7 @@
         loadAiConfig();
         syncAiConfigInputs();
         bindRangeKeyboardAndWheelControls();
+        getBackgroundRemovalQuota();
         renderBackgroundTemplates();
         initLayoutMode();
         render();
