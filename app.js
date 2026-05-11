@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.11.7';
+        const APP_VERSION = 'v2026.05.11.8';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -172,6 +172,11 @@
             const g = parseInt(raw.slice(2, 4), 16);
             const b = parseInt(raw.slice(4, 6), 16);
             return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        }
+        function normalizeHex(hex, fallback = '#ff1f8f') {
+            const safeHex = String(hex || fallback).trim().replace('#', '');
+            const raw = safeHex.length === 3 ? safeHex.split('').map(ch => ch + ch).join('') : safeHex.padEnd(6, '0').slice(0, 6);
+            return `#${raw}`;
         }
         function rgbToHex(r, g, b) {
             return `#${[r, g, b].map(value => clamp(Math.round(value), 0, 255).toString(16).padStart(2, '0')).join('')}`;
@@ -484,16 +489,37 @@
             element.tintStrength = 0;
             element.cornerRadius = role === 'main' ? 0 : 10;
             element.outlineColor = role === 'main' ? '#ffffff' : recommended;
-            element.outlineStyle = role === 'main' ? 'blur' : 'solid';
-            element.outlineWidth = role === 'main' ? 10 : 8;
-            element.outlineBlur = role === 'main' ? 6 : 4;
+            element.outlineStyle = role === 'main' ? 'neon' : 'solid';
+            element.outlineWidth = role === 'main' ? 9 : 8;
+            element.outlineBlur = role === 'main' ? 10 : 4;
             element.doubleOutlineColor = recommended;
-            element.doubleOutlineWidth = role === 'main' ? 7 : 0;
-            element.doubleOutlineBlur = 0;
+            element.doubleOutlineWidth = role === 'main' ? 8 : 0;
+            element.doubleOutlineBlur = role === 'main' ? 18 : 0;
             element.shadow = role === 'main'
-                ? { color: recommended, blur: 26, offsetX: 0, offsetY: 0, opacity: 0.62 }
+                ? { color: recommended, blur: 54, offsetX: 0, offsetY: 0, opacity: 0.78 }
                 : { color: recommended, blur: 12, offsetX: 0, offsetY: 0, opacity: 0.4 };
             await updateImageProcessing(element);
+        }
+
+        async function applyNeonSignPreset(element, color = '#ff1f8f') {
+            const neonColor = normalizeHex(color);
+            if (element.type === 'image') {
+                element.outlineColor = '#ffffff';
+                element.outlineStyle = 'neon';
+                element.outlineWidth = Math.max(Number(element.outlineWidth || 0), 8);
+                element.outlineBlur = Math.max(Number(element.outlineBlur || 0), 12);
+                element.doubleOutlineColor = neonColor;
+                element.doubleOutlineWidth = Math.max(Number(element.doubleOutlineWidth || 0), 8);
+                element.doubleOutlineBlur = Math.max(Number(element.doubleOutlineBlur || 0), 22);
+                element.shadow = { ...element.shadow, color: neonColor, blur: 72, offsetX: 0, offsetY: 0, opacity: 0.88 };
+                await updateImageProcessing(element);
+            } else if (element.type === 'text') {
+                element.color = '#ffffff';
+                element.strokeColor = neonColor;
+                element.strokeWidth = Math.max(Number(element.strokeWidth || 0), 3);
+                element.strokeBlur = Math.max(Number(element.strokeBlur || 0), 26);
+                element.shadow = { ...element.shadow, color: neonColor, blur: 64, offsetX: 0, offsetY: 0, opacity: 0.86 };
+            }
         }
 
         function applyPosterImageStyle(element, role = 'sub', index = 0) {
@@ -1675,16 +1701,25 @@
                     outlineCtx.restore();
                 } else if (style === 'neon') {
                     outlineCtx.save();
-                    outlineCtx.filter = `blur(${Math.max(0, blur * 2.4)}px)`;
+                    outlineCtx.globalCompositeOperation = 'lighter';
+                    outlineCtx.filter = `blur(${Math.max(10, blur * 3.6)}px) saturate(240%)`;
+                    outlineCtx.globalAlpha = 0.9;
+                    outlineCtx.drawImage(maskCanvas, 0, 0);
+                    outlineCtx.restore();
+                    outlineCtx.save();
+                    outlineCtx.globalCompositeOperation = 'lighter';
+                    outlineCtx.filter = `blur(${Math.max(4, blur * 1.7)}px) saturate(220%)`;
                     outlineCtx.globalAlpha = 1;
                     outlineCtx.drawImage(maskCanvas, 0, 0);
                     outlineCtx.restore();
                     outlineCtx.save();
-                    outlineCtx.filter = `blur(${blur}px)`;
-                    outlineCtx.globalAlpha = 0.95;
+                    outlineCtx.globalCompositeOperation = 'screen';
+                    outlineCtx.filter = `blur(${Math.max(1, blur * 0.55)}px)`;
+                    outlineCtx.globalAlpha = 0.9;
                     outlineCtx.drawImage(maskCanvas, 0, 0);
                     outlineCtx.restore();
                     outlineCtx.globalAlpha = 1;
+                    outlineCtx.globalCompositeOperation = 'source-over';
                     outlineCtx.drawImage(maskCanvas, 0, 0);
                 } else if (style === 'soft') {
                     outlineCtx.save();
@@ -1702,7 +1737,7 @@
                 output,
                 Number(element.doubleOutlineWidth || 0),
                 element.doubleOutlineColor || '#ff1f2d',
-                'solid',
+                Number(element.doubleOutlineBlur || 0) > 0 ? 'neon' : 'solid',
                 Number(element.doubleOutlineBlur || 0)
             );
             const inner = makeOutlineLayer(
@@ -2717,6 +2752,15 @@
                 if (selected.outlineBlur == null) selected.outlineBlur = 8;
                 await updateImageProcessing(selected);
             }
+            if (action?.startsWith('neon-sign-')) {
+                const neonColors = {
+                    pink: '#ff2bd6',
+                    blue: '#24d5ff',
+                    red: '#ff1f2d',
+                    mint: '#2dffb8'
+                };
+                await applyNeonSignPreset(selected, neonColors[action.replace('neon-sign-', '')] || '#ff2bd6');
+            }
             if (action === 'mobile-quick-shadow') {
                 selected.shadow = { ...selected.shadow, blur: 0, offsetX: 18, offsetY: 18, opacity: 0.72, color: selected.shadow.color || '#000000' };
             }
@@ -2873,8 +2917,14 @@
                     ${colorField({ label: '아웃라인 색상', key: 'outlineColor', value: selected.outlineColor })}
                     <button type="button" class="tool-button success w-full !rounded-2xl" data-action="recommend-outline-color">추천색 적용</button>
                     ${rangeField({ label: '더블 외곽선', key: 'doubleOutlineWidth', min: 0, max: 40, step: 1, value: selected.doubleOutlineWidth || 0, unit: 'px' })}
-                    ${rangeField({ label: '더블 외곽선 블러', key: 'doubleOutlineBlur', min: 0, max: 60, step: 1, value: selected.doubleOutlineBlur || 0, unit: 'px' })}
+                    ${rangeField({ label: '더블 외곽선 블러/발광', key: 'doubleOutlineBlur', min: 0, max: 80, step: 1, value: selected.doubleOutlineBlur || 0, unit: 'px' })}
                     ${colorField({ label: '더블 외곽선 색상', key: 'doubleOutlineColor', value: selected.doubleOutlineColor || '#ff1f2d' })}
+                    <div class="grid grid-cols-4 gap-2">
+                        <button type="button" class="tool-button !rounded-2xl" data-action="neon-sign-pink">네온핑크</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="neon-sign-blue">네온블루</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="neon-sign-red">네온레드</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="neon-sign-mint">네온민트</button>
+                    </div>
                     ${selectField({ label: '아웃라인 스타일', key: 'outlineStyle', value: selected.outlineStyle || 'solid', options: [
                         { value: 'solid', label: '기본' },
                         { value: 'dashed', label: '점선' },
