@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.11.6';
+        const APP_VERSION = 'v2026.05.11.7';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -93,6 +93,10 @@
         const mobileQuickBorderStrength = document.getElementById('mobile-quick-border-strength');
         const mobileQuickBorderColor = document.getElementById('mobile-quick-border-color');
         const bgQuotaStatus = document.getElementById('bg-quota-status');
+        const posterOptionsModal = document.getElementById('poster-options-modal');
+        const posterAccentColor = document.getElementById('poster-accent-color');
+        const posterOptionsApply = document.getElementById('poster-options-apply');
+        const posterOptionsCancel = document.getElementById('poster-options-cancel');
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
         const QUICK_BACKGROUND_COLORS = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#94a3b8', '#0f172a'];
@@ -473,19 +477,22 @@
             return source ? source.width / Math.max(1, source.height) : 1;
         }
 
-        async function applyRecommendedFrameStyle(element, role = 'sub') {
-            const recommended = estimateRecommendedOutlineColor(element);
+        async function applyRecommendedFrameStyle(element, role = 'sub', accentColor = '') {
+            const recommended = accentColor || estimateRecommendedOutlineColor(element);
             element.opacity = 1;
             element.blendMode = 'source-over';
             element.tintStrength = 0;
             element.cornerRadius = role === 'main' ? 0 : 10;
-            element.outlineColor = recommended;
+            element.outlineColor = role === 'main' ? '#ffffff' : recommended;
             element.outlineStyle = role === 'main' ? 'blur' : 'solid';
-            element.outlineWidth = role === 'main' ? 12 : 8;
-            element.outlineBlur = role === 'main' ? 18 : 4;
+            element.outlineWidth = role === 'main' ? 10 : 8;
+            element.outlineBlur = role === 'main' ? 6 : 4;
+            element.doubleOutlineColor = recommended;
+            element.doubleOutlineWidth = role === 'main' ? 7 : 0;
+            element.doubleOutlineBlur = 0;
             element.shadow = role === 'main'
-                ? { color: recommended, blur: 46, offsetX: 0, offsetY: 0, opacity: 0.78 }
-                : { color: recommended, blur: 18, offsetX: 0, offsetY: 0, opacity: 0.5 };
+                ? { color: recommended, blur: 26, offsetX: 0, offsetY: 0, opacity: 0.62 }
+                : { color: recommended, blur: 12, offsetX: 0, offsetY: 0, opacity: 0.4 };
             await updateImageProcessing(element);
         }
 
@@ -555,6 +562,24 @@
             });
         }
 
+        function requestPosterOptions() {
+            if (!posterOptionsModal || !posterAccentColor) return Promise.resolve({ accentColor: '#ff1f2d' });
+            posterAccentColor.value = posterAccentColor.value || '#ff1f2d';
+            posterOptionsModal.classList.add('visible');
+            return new Promise(resolve => {
+                const cleanup = result => {
+                    posterOptionsModal.classList.remove('visible');
+                    posterOptionsApply.removeEventListener('click', apply);
+                    posterOptionsCancel.removeEventListener('click', cancel);
+                    resolve(result);
+                };
+                const apply = () => cleanup({ accentColor: posterAccentColor.value || '#ff1f2d' });
+                const cancel = () => cleanup(null);
+                posterOptionsApply.addEventListener('click', apply);
+                posterOptionsCancel.addEventListener('click', cancel);
+            });
+        }
+
         function layoutPosterElements(elements) {
             if (!elements.length) return;
             const [main, ...subs] = elements;
@@ -591,23 +616,30 @@
             layoutPosterElements(elements);
         }
 
-        async function arrangeFrameTemplateForElements(elements, template = 'hero') {
+        async function arrangeFrameTemplateForElements(elements, template = 'hero', accentColor = '') {
             if (!elements.length) return;
-            applyPosterBackgroundPreset();
+            if (accentColor) {
+                backgroundTemplateColor.value = accentColor;
+                backgroundGridMode = template === 'hero' ? 'none' : 'white';
+                applyCustomGridBackground();
+                renderBackgroundTemplates();
+            } else {
+                applyPosterBackgroundPreset();
+            }
             const limited = elements.slice(0, 4);
             const [main, ...subs] = limited;
             if (main) {
                 main.maskCanvas = removeSolidBackgroundFromCanvas(main.originalCanvas);
-                await applyRecommendedFrameStyle(main, 'main');
+                await applyRecommendedFrameStyle(main, 'main', accentColor);
             }
             for (const element of subs) {
                 element.maskCanvas = copyCanvas(element.originalCanvas);
-                await applyRecommendedFrameStyle(element, 'sub');
+                await applyRecommendedFrameStyle(element, 'sub', accentColor);
             }
             layoutFrameTemplateElements(limited, template);
         }
 
-        async function arrangeFrameTemplateForCurrentFace(template = 'hero') {
+        async function arrangeFrameTemplateForCurrentFace(template = 'hero', accentColor = '') {
             const imageElements = getFaceState().elements.filter(element => element.type === 'image');
             if (!imageElements.length) {
                 alert('템플릿에는 이미지 레이어가 필요해요.\n이미지를 3~4장 넣고 다시 눌러 주세요.');
@@ -615,7 +647,7 @@
             }
             showLoading('추천색 템플릿을 적용하는 중이에요.');
             try {
-                await arrangeFrameTemplateForElements(imageElements, template);
+                await arrangeFrameTemplateForElements(imageElements, template, accentColor);
                 selectedId = imageElements[0]?.id || null;
                 render();
             } finally {
@@ -1324,6 +1356,9 @@
                 outlineColor: '#ffffff',
                 outlineStyle: 'solid',
                 outlineBlur: 8,
+                doubleOutlineWidth: 0,
+                doubleOutlineColor: '#ff1f2d',
+                doubleOutlineBlur: 0,
                 shadow: defaultShadow(),
                 originalCanvas: copyCanvas(baseCanvas),
                 maskCanvas: copyCanvas(baseCanvas),
@@ -1607,27 +1642,26 @@
                 outputCtx.restore();
             }
 
-            if (element.outlineWidth > 0) {
-                const style = element.outlineStyle || 'solid';
-                const outlineBlur = Math.max(0, Number(element.outlineBlur ?? 8));
+            const makeOutlineLayer = (base, width, color, style = 'solid', blur = 0) => {
+                if (width <= 0) return null;
                 const pad = Math.ceil(Math.max(
-                    element.outlineWidth * (style === 'neon' ? 6 : style === 'blur' ? 4 : 2),
-                    outlineBlur * (style === 'neon' ? 3 : 2),
+                    width * (style === 'neon' ? 6 : style === 'blur' ? 4 : 2),
+                    blur * (style === 'neon' ? 3 : 2),
                     4
                 ));
-                const maskCanvas = createEmptyCanvas(output.width + pad * 2, output.height + pad * 2);
+                const maskCanvas = createEmptyCanvas(base.width + pad * 2, base.height + pad * 2);
                 const maskCtx = maskCanvas.getContext('2d');
                 const step = style === 'dashed' ? 28 : style === 'soft' ? 18 : 12;
-                const radius = element.outlineWidth * (style === 'neon' ? 1.2 : 1);
+                const radius = width * (style === 'neon' ? 1.2 : 1);
 
                 for (let angle = 0, index = 0; angle < 360; angle += step, index++) {
                     if (style === 'dashed' && index % 2 === 1) continue;
                     const rad = degToRad(angle);
-                    maskCtx.drawImage(output, pad + Math.cos(rad) * radius, pad + Math.sin(rad) * radius);
+                    maskCtx.drawImage(base, pad + Math.cos(rad) * radius, pad + Math.sin(rad) * radius);
                 }
 
                 maskCtx.globalCompositeOperation = 'source-in';
-                maskCtx.fillStyle = element.outlineColor;
+                maskCtx.fillStyle = color;
                 maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
                 maskCtx.globalCompositeOperation = 'source-over';
 
@@ -1636,17 +1670,17 @@
 
                 if (style === 'blur') {
                     outlineCtx.save();
-                    outlineCtx.filter = `blur(${outlineBlur}px)`;
+                    outlineCtx.filter = `blur(${blur}px)`;
                     outlineCtx.drawImage(maskCanvas, 0, 0);
                     outlineCtx.restore();
                 } else if (style === 'neon') {
                     outlineCtx.save();
-                    outlineCtx.filter = `blur(${Math.max(0, outlineBlur * 2.4)}px)`;
+                    outlineCtx.filter = `blur(${Math.max(0, blur * 2.4)}px)`;
                     outlineCtx.globalAlpha = 1;
                     outlineCtx.drawImage(maskCanvas, 0, 0);
                     outlineCtx.restore();
                     outlineCtx.save();
-                    outlineCtx.filter = `blur(${outlineBlur}px)`;
+                    outlineCtx.filter = `blur(${blur}px)`;
                     outlineCtx.globalAlpha = 0.95;
                     outlineCtx.drawImage(maskCanvas, 0, 0);
                     outlineCtx.restore();
@@ -1654,18 +1688,40 @@
                     outlineCtx.drawImage(maskCanvas, 0, 0);
                 } else if (style === 'soft') {
                     outlineCtx.save();
-                    outlineCtx.filter = `blur(${outlineBlur}px)`;
+                    outlineCtx.filter = `blur(${blur}px)`;
                     outlineCtx.drawImage(maskCanvas, 0, 0);
                     outlineCtx.restore();
                 } else {
                     outlineCtx.drawImage(maskCanvas, 0, 0);
                 }
+                return { outline, pad };
+            };
 
-                outlineCtx.drawImage(output, pad, pad);
-                element.processedCanvas = outline;
-            } else {
-                element.processedCanvas = output;
+            let processed = output;
+            const outer = makeOutlineLayer(
+                output,
+                Number(element.doubleOutlineWidth || 0),
+                element.doubleOutlineColor || '#ff1f2d',
+                'solid',
+                Number(element.doubleOutlineBlur || 0)
+            );
+            const inner = makeOutlineLayer(
+                output,
+                Number(element.outlineWidth || 0),
+                element.outlineColor || '#ffffff',
+                element.outlineStyle || 'solid',
+                Math.max(0, Number(element.outlineBlur ?? 8))
+            );
+            if (outer || inner) {
+                const leftPad = Math.max(outer?.pad || 0, inner?.pad || 0);
+                const combined = createEmptyCanvas(output.width + leftPad * 2, output.height + leftPad * 2);
+                const combinedCtx = combined.getContext('2d');
+                if (outer) combinedCtx.drawImage(outer.outline, leftPad - outer.pad, leftPad - outer.pad);
+                if (inner) combinedCtx.drawImage(inner.outline, leftPad - inner.pad, leftPad - inner.pad);
+                combinedCtx.drawImage(output, leftPad, leftPad);
+                processed = combined;
             }
+            element.processedCanvas = processed;
             element.previewUrl = element.processedCanvas.toDataURL('image/png');
         }
 
@@ -1698,6 +1754,9 @@
                 const fileList = Array.from(files);
                 const [mainFile, ...subFiles] = fileList;
                 if (!mainFile) return;
+                hideLoading();
+                const options = await requestPosterOptions();
+                if (!options) return;
 
                 try {
                     showLoading(`메인 이미지 AI 배경제거 중...\n${mainFile.name}`);
@@ -1726,7 +1785,7 @@
                     }
                 }
                 if (!created.length) return;
-                await arrangeFrameTemplateForElements(created, 'hero');
+                await arrangeFrameTemplateForElements(created, 'hero', options.accentColor);
                 selectedId = created[0].id;
                 render();
             } finally {
@@ -2579,7 +2638,7 @@
         }
 
         function needsImageRefresh(key) {
-            return ['brightness', 'contrast', 'saturation', 'hue', 'blur', 'outlineWidth', 'outlineColor', 'outlineStyle', 'outlineBlur', 'tintStrength', 'tintColor'].includes(key);
+            return ['brightness', 'contrast', 'saturation', 'hue', 'blur', 'outlineWidth', 'outlineColor', 'outlineStyle', 'outlineBlur', 'doubleOutlineWidth', 'doubleOutlineColor', 'doubleOutlineBlur', 'tintStrength', 'tintColor'].includes(key);
         }
 
         function setBoundValue(target, keyPath, rawValue, inputType) {
@@ -2618,7 +2677,7 @@
                 const suffix =
                     key === 'brightness' || key === 'contrast' || key === 'saturation' || key === 'tintStrength' ? '%' :
                     key === 'hue' ? 'deg' :
-                    key === 'outlineWidth' || key === 'outlineBlur' || key === 'strokeWidth' || key === 'strokeBlur' || key === 'paddingX' || key === 'paddingY' || key === 'letterSpacing' || key === 'shadow.blur' || key === 'shadow.offsetX' || key === 'shadow.offsetY' || key === 'blur' || key === 'cornerRadius' ? 'px' :
+                    key === 'outlineWidth' || key === 'outlineBlur' || key === 'doubleOutlineWidth' || key === 'doubleOutlineBlur' || key === 'strokeWidth' || key === 'strokeBlur' || key === 'paddingX' || key === 'paddingY' || key === 'letterSpacing' || key === 'shadow.blur' || key === 'shadow.offsetX' || key === 'shadow.offsetY' || key === 'blur' || key === 'cornerRadius' ? 'px' :
                     '';
                 label.textContent = `${formatBoundValue(key, raw)}${suffix}`;
             });
@@ -2813,6 +2872,9 @@
                     ${rangeField({ label: '아웃라인 블러 강도', key: 'outlineBlur', min: 0, max: 80, step: 1, value: selected.outlineBlur ?? 8, unit: 'px' })}
                     ${colorField({ label: '아웃라인 색상', key: 'outlineColor', value: selected.outlineColor })}
                     <button type="button" class="tool-button success w-full !rounded-2xl" data-action="recommend-outline-color">추천색 적용</button>
+                    ${rangeField({ label: '더블 외곽선', key: 'doubleOutlineWidth', min: 0, max: 40, step: 1, value: selected.doubleOutlineWidth || 0, unit: 'px' })}
+                    ${rangeField({ label: '더블 외곽선 블러', key: 'doubleOutlineBlur', min: 0, max: 60, step: 1, value: selected.doubleOutlineBlur || 0, unit: 'px' })}
+                    ${colorField({ label: '더블 외곽선 색상', key: 'doubleOutlineColor', value: selected.doubleOutlineColor || '#ff1f2d' })}
                     ${selectField({ label: '아웃라인 스타일', key: 'outlineStyle', value: selected.outlineStyle || 'solid', options: [
                         { value: 'solid', label: '기본' },
                         { value: 'dashed', label: '점선' },
@@ -3405,7 +3467,14 @@
         });
         document.querySelectorAll('[data-frame-template]').forEach(button => {
             button.addEventListener('click', async event => {
-                await arrangeFrameTemplateForCurrentFace(event.currentTarget.dataset.frameTemplate);
+                const options = await requestPosterOptions();
+                if (!options) return;
+                await arrangeFrameTemplateForCurrentFace(event.currentTarget.dataset.frameTemplate, options.accentColor);
+            });
+        });
+        document.querySelectorAll('[data-poster-color]').forEach(button => {
+            button.addEventListener('click', event => {
+                if (posterAccentColor) posterAccentColor.value = event.currentTarget.dataset.posterColor;
             });
         });
         mobileQuickRotation?.addEventListener('input', event => {

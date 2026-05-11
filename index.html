@@ -37,6 +37,33 @@
         </div>
     </div>
 
+    <div id="poster-options-modal" class="modal-backdrop">
+        <div class="panel-strong rounded-[30px] w-full max-w-md overflow-hidden">
+            <div class="p-6 border-b border-white/10">
+                <div class="property-label">Poster Quick</div>
+                <h2 class="text-xl font-black mt-2">포스터 색 고르기</h2>
+                <p class="text-sm text-slate-400 mt-2 leading-6">메인 더블 외곽선, 서브 카드 테두리, 배경색에 쓸 강조색을 골라 주세요.</p>
+            </div>
+            <div class="p-6 space-y-4">
+                <label class="block">
+                    <div class="text-[11px] font-bold text-slate-400 mb-2">강조색</div>
+                    <input id="poster-accent-color" type="color" value="#ff1f2d">
+                </label>
+                <div class="grid grid-cols-5 gap-2">
+                    <button type="button" class="h-9 rounded-2xl border border-white/10 bg-[#ff1f2d]" data-poster-color="#ff1f2d"></button>
+                    <button type="button" class="h-9 rounded-2xl border border-white/10 bg-[#7c3aed]" data-poster-color="#7c3aed"></button>
+                    <button type="button" class="h-9 rounded-2xl border border-white/10 bg-[#2563eb]" data-poster-color="#2563eb"></button>
+                    <button type="button" class="h-9 rounded-2xl border border-white/10 bg-[#ec4899]" data-poster-color="#ec4899"></button>
+                    <button type="button" class="h-9 rounded-2xl border border-white/10 bg-[#111827]" data-poster-color="#111827"></button>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button id="poster-options-cancel" type="button" class="tool-button">취소</button>
+                    <button id="poster-options-apply" type="button" class="tool-button primary">이 색으로 만들기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="cutout-modal" class="modal-backdrop">
         <div class="panel-strong rounded-[30px] w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col">
             <div class="px-6 py-5 border-b border-white/10 flex items-center justify-between gap-4">
@@ -329,7 +356,7 @@
         <canvas id="mobile-slider-preview-canvas" width="1024" height="1024"></canvas>
         <div class="mobile-slider-preview-label">미리보기</div>
     </div>
-    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.11.6</span></div>
+    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.11.7</span></div>
     <script src="./app.js"></script>
 </body>
 </html>
