@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.11.3';
+        const APP_VERSION = 'v2026.05.11.4';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -166,94 +166,65 @@
         function rgbToHex(r, g, b) {
             return `#${[r, g, b].map(value => clamp(Math.round(value), 0, 255).toString(16).padStart(2, '0')).join('')}`;
         }
-        function rgbToHsl(r, g, b) {
-            r /= 255; g /= 255; b /= 255;
-            const max = Math.max(r, g, b);
-            const min = Math.min(r, g, b);
-            let h = 0;
-            let s = 0;
-            const l = (max + min) / 2;
-            if (max !== min) {
-                const d = max - min;
-                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-                if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
-                else if (max === g) h = (b - r) / d + 2;
-                else h = (r - g) / d + 4;
-                h *= 60;
+
+        function representativeColorByBitDown(source) {
+            const startSize = 512;
+            const sample = createEmptyCanvas(startSize, startSize);
+            const sampleCtx = sample.getContext('2d', { willReadFrequently: true });
+            sampleCtx.clearRect(0, 0, startSize, startSize);
+            sampleCtx.drawImage(source, 0, 0, startSize, startSize);
+            let width = startSize;
+            let height = startSize;
+            let pixels = sampleCtx.getImageData(0, 0, width, height).data;
+
+            while (width > 1 || height > 1) {
+                const nextWidth = Math.max(1, Math.ceil(width / 2));
+                const nextHeight = Math.max(1, Math.ceil(height / 2));
+                const nextPixels = new Uint8ClampedArray(nextWidth * nextHeight * 4);
+
+                for (let y = 0; y < nextHeight; y++) {
+                    for (let x = 0; x < nextWidth; x++) {
+                        let r = 0, g = 0, b = 0, a = 0;
+                        let weight = 0;
+                        for (let yy = 0; yy < 2; yy++) {
+                            for (let xx = 0; xx < 2; xx++) {
+                                const sx = x * 2 + xx;
+                                const sy = y * 2 + yy;
+                                if (sx >= width || sy >= height) continue;
+                                const offset = (sy * width + sx) * 4;
+                                const alpha = pixels[offset + 3] / 255;
+                                if (alpha <= 0.03) continue;
+                                r += pixels[offset] * alpha;
+                                g += pixels[offset + 1] * alpha;
+                                b += pixels[offset + 2] * alpha;
+                                a += pixels[offset + 3];
+                                weight += alpha;
+                            }
+                        }
+                        const nextOffset = (y * nextWidth + x) * 4;
+                        if (weight > 0) {
+                            nextPixels[nextOffset] = r / weight;
+                            nextPixels[nextOffset + 1] = g / weight;
+                            nextPixels[nextOffset + 2] = b / weight;
+                            nextPixels[nextOffset + 3] = clamp(a / 4, 0, 255);
+                        }
+                    }
+                }
+
+                width = nextWidth;
+                height = nextHeight;
+                pixels = nextPixels;
             }
-            return { h, s, l };
+
+            if (pixels[3] <= 8) return null;
+            return { r: pixels[0], g: pixels[1], b: pixels[2] };
         }
-        function hslToRgb(h, s, l) {
-            h = ((h % 360) + 360) % 360 / 360;
-            const hueToRgb = (p, q, t) => {
-                if (t < 0) t += 1;
-                if (t > 1) t -= 1;
-                if (t < 1 / 6) return p + (q - p) * 6 * t;
-                if (t < 1 / 2) return q;
-                if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-                return p;
-            };
-            if (s === 0) {
-                const gray = l * 255;
-                return { r: gray, g: gray, b: gray };
-            }
-            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-            const p = 2 * l - q;
-            return {
-                r: hueToRgb(p, q, h + 1 / 3) * 255,
-                g: hueToRgb(p, q, h) * 255,
-                b: hueToRgb(p, q, h - 1 / 3) * 255
-            };
-        }
-        function colorLuminance({ r, g, b }) {
-            return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-        }
+
         function estimateRecommendedOutlineColor(element) {
             const source = element.maskCanvas || element.originalCanvas || element.processedCanvas;
             if (!source) return '#7c3aed';
-            const sampleSize = 96;
-            const sample = createEmptyCanvas(sampleSize, sampleSize);
-            const sampleCtx = sample.getContext('2d', { willReadFrequently: true });
-            sampleCtx.drawImage(source, 0, 0, sampleSize, sampleSize);
-            const data = sampleCtx.getImageData(0, 0, sampleSize, sampleSize).data;
-            const buckets = new Map();
-            let avg = { r: 0, g: 0, b: 0 };
-            let count = 0;
-            for (let i = 0; i < data.length; i += 16) {
-                if (data[i + 3] < 40) continue;
-                const r = data[i], g = data[i + 1], b = data[i + 2];
-                const hsl = rgbToHsl(r, g, b);
-                if (hsl.l < 0.04 || hsl.l > 0.97) continue;
-                const key = `${r >> 4},${g >> 4},${b >> 4}`;
-                const bucket = buckets.get(key) || { r: 0, g: 0, b: 0, count: 0, sat: 0 };
-                bucket.r += r; bucket.g += g; bucket.b += b; bucket.count += 1; bucket.sat += hsl.s;
-                buckets.set(key, bucket);
-                avg.r += r; avg.g += g; avg.b += b; count += 1;
-            }
-            if (!count || buckets.size === 0) return '#7c3aed';
-            avg = { r: avg.r / count, g: avg.g / count, b: avg.b / count };
-            const avgLum = colorLuminance(avg);
-            const dominant = [...buckets.values()]
-                .map(bucket => ({ r: bucket.r / bucket.count, g: bucket.g / bucket.count, b: bucket.b / bucket.count, count: bucket.count, sat: bucket.sat / bucket.count }))
-                .sort((a, b) => (b.count * (0.7 + b.sat)) - (a.count * (0.7 + a.sat)))
-                .slice(0, 7);
-            const candidates = [];
-            dominant.forEach(color => {
-                const hsl = rgbToHsl(color.r, color.g, color.b);
-                [0, 28, -28, 165, 180, 205].forEach(offset => {
-                    const l = avgLum < 0.42 ? 0.68 : 0.36;
-                    const s = clamp(Math.max(0.58, hsl.s + 0.18), 0.45, 0.92);
-                    candidates.push(hslToRgb(hsl.h + offset, s, l));
-                });
-            });
-            const best = candidates
-                .map(color => {
-                    const hsl = rgbToHsl(color.r, color.g, color.b);
-                    const contrast = Math.abs(colorLuminance(color) - avgLum);
-                    return { color, score: contrast * 2.2 + hsl.s * 0.75 + (hsl.l > 0.18 && hsl.l < 0.82 ? 0.25 : 0) };
-                })
-                .sort((a, b) => b.score - a.score)[0]?.color;
-            return best ? rgbToHex(best.r, best.g, best.b) : '#7c3aed';
+            const color = representativeColorByBitDown(source);
+            return color ? rgbToHex(color.r, color.g, color.b) : '#7c3aed';
         }
         function applyShadow(renderCtx, shadow) {
             renderCtx.shadowColor = rgbaWithOpacity(shadow.color, shadow.opacity);
