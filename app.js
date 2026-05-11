@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.11.8';
+        const APP_VERSION = 'v2026.05.11.9';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -93,10 +93,15 @@
         const mobileQuickBorderStrength = document.getElementById('mobile-quick-border-strength');
         const mobileQuickBorderColor = document.getElementById('mobile-quick-border-color');
         const bgQuotaStatus = document.getElementById('bg-quota-status');
+        const posterCountModal = document.getElementById('poster-count-modal');
+        const posterCountCancel = document.getElementById('poster-count-cancel');
+        const posterQuickStart = document.getElementById('poster-quick-start');
+        const posterQuickInput = document.getElementById('poster-quick-input');
         const posterOptionsModal = document.getElementById('poster-options-modal');
         const posterAccentColor = document.getElementById('poster-accent-color');
         const posterOptionsApply = document.getElementById('poster-options-apply');
         const posterOptionsCancel = document.getElementById('poster-options-cancel');
+        let posterExpectedFileCount = 0;
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
         const QUICK_BACKGROUND_COLORS = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#94a3b8', '#0f172a'];
@@ -562,21 +567,24 @@
                 hero: [
                     { x: 0.25, y: 0.23, w: 0.34, h: 0.2, r: -8 },
                     { x: 0.78, y: 0.25, w: 0.32, h: 0.22, r: 8 },
-                    { x: 0.31, y: 0.78, w: 0.36, h: 0.22, r: -7 }
+                    { x: 0.31, y: 0.78, w: 0.36, h: 0.22, r: -7 },
+                    { x: 0.79, y: 0.73, w: 0.31, h: 0.2, r: 11 }
                 ],
                 gallery: [
                     { x: 0.22, y: 0.28, w: 0.28, h: 0.24, r: -10 },
                     { x: 0.78, y: 0.28, w: 0.28, h: 0.24, r: 9 },
-                    { x: 0.28, y: 0.76, w: 0.34, h: 0.2, r: -8 }
+                    { x: 0.28, y: 0.76, w: 0.34, h: 0.2, r: -8 },
+                    { x: 0.76, y: 0.75, w: 0.3, h: 0.2, r: 10 }
                 ],
                 split: [
                     { x: 0.24, y: 0.24, w: 0.36, h: 0.22, r: -7 },
                     { x: 0.24, y: 0.74, w: 0.36, h: 0.22, r: 8 },
-                    { x: 0.8, y: 0.23, w: 0.27, h: 0.23, r: 9 }
+                    { x: 0.8, y: 0.23, w: 0.27, h: 0.23, r: 9 },
+                    { x: 0.79, y: 0.74, w: 0.28, h: 0.2, r: -8 }
                 ]
             };
             const slots = slotSets[template] || slotSets.hero;
-            subs.slice(0, 3).forEach((element, index) => {
+            subs.slice(0, 4).forEach((element, index) => {
                 const slot = slots[index % slots.length];
                 const aspect = getElementAspect(element);
                 const widthFactor = aspect >= 1 ? slot.w : slot.w * 0.72;
@@ -585,6 +593,23 @@
                 element.x = CANVAS_SIZE * slot.x;
                 element.y = CANVAS_SIZE * slot.y;
                 element.rotation = slot.r + (aspect < 0.85 ? (slot.r > 0 ? 3 : -3) : 0);
+            });
+        }
+
+        function requestPosterFileCount() {
+            if (!posterCountModal) return Promise.resolve(5);
+            posterCountModal.classList.add('visible');
+            return new Promise(resolve => {
+                const cleanup = result => {
+                    posterCountModal.classList.remove('visible');
+                    posterCountModal.querySelectorAll('[data-poster-count]').forEach(button => button.removeEventListener('click', pick));
+                    posterCountCancel?.removeEventListener('click', cancel);
+                    resolve(result);
+                };
+                const pick = event => cleanup(clamp(Number(event.currentTarget.dataset.posterCount || 1), 1, 5));
+                const cancel = () => cleanup(null);
+                posterCountModal.querySelectorAll('[data-poster-count]').forEach(button => button.addEventListener('click', pick));
+                posterCountCancel?.addEventListener('click', cancel);
             });
         }
 
@@ -652,7 +677,7 @@
             } else {
                 applyPosterBackgroundPreset();
             }
-            const limited = elements.slice(0, 4);
+            const limited = elements.slice(0, 5);
             const [main, ...subs] = limited;
             if (main) {
                 main.maskCanvas = removeSolidBackgroundFromCanvas(main.originalCanvas);
@@ -1782,11 +1807,18 @@
             }
         }
 
-        async function addPosterQuickPack(files) {
+        async function addPosterQuickPack(files, expectedCount = 0) {
             showLoading('포스터용 이미지를 빠르게 배치하는 중이에요.');
             const created = [];
             try {
-                const fileList = Array.from(files);
+                const requestedCount = clamp(Number(expectedCount || files.length || 1), 1, 5);
+                const originalFiles = Array.from(files).slice(0, 5);
+                if (originalFiles.length > requestedCount) {
+                    alert(`사진 ${requestedCount}장으로 설정되어 있어서 앞에서부터 ${requestedCount}장만 사용할게요.`);
+                } else if (originalFiles.length < requestedCount) {
+                    alert(`설정한 ${requestedCount}장보다 적게 선택됐어요.\n선택한 ${originalFiles.length}장으로 포스터를 만들게요.`);
+                }
+                const fileList = originalFiles.slice(0, requestedCount);
                 const [mainFile, ...subFiles] = fileList;
                 if (!mainFile) return;
                 hideLoading();
@@ -3455,9 +3487,18 @@
             if (files.length) await addImages(files);
             event.target.value = '';
         });
-        document.getElementById('poster-quick-input').addEventListener('change', async event => {
+        posterQuickStart?.addEventListener('click', async () => {
+            const count = await requestPosterFileCount();
+            if (!count || !posterQuickInput) return;
+            posterExpectedFileCount = count;
+            posterQuickInput.multiple = count > 1;
+            posterQuickInput.value = '';
+            posterQuickInput.click();
+        });
+        posterQuickInput?.addEventListener('change', async event => {
             const files = Array.from(event.target.files || []);
-            if (files.length) await addPosterQuickPack(files);
+            if (files.length) await addPosterQuickPack(files, posterExpectedFileCount || files.length);
+            posterExpectedFileCount = 0;
             event.target.value = '';
         });
         document.getElementById('asset-bulk-ai').addEventListener('change', async event => {

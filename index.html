@@ -37,6 +37,28 @@
         </div>
     </div>
 
+    <div id="poster-count-modal" class="modal-backdrop">
+        <div class="panel-strong rounded-[30px] w-full max-w-md overflow-hidden">
+            <div class="p-6 border-b border-white/10">
+                <div class="property-label">Poster Quick</div>
+                <h2 class="text-xl font-black mt-2">사진 몇 장 넣을까요?</h2>
+                <p class="text-sm text-slate-400 mt-2 leading-6">첫 번째 사진은 메인으로 AI 배경제거되고, 나머지는 뒤쪽 카드로 자동 배치됩니다. 최대 5장까지 가능합니다.</p>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-5 gap-2">
+                    <button type="button" class="tool-button primary !rounded-2xl" data-poster-count="1">1장</button>
+                    <button type="button" class="tool-button !rounded-2xl" data-poster-count="2">2장</button>
+                    <button type="button" class="tool-button !rounded-2xl" data-poster-count="3">3장</button>
+                    <button type="button" class="tool-button !rounded-2xl" data-poster-count="4">4장</button>
+                    <button type="button" class="tool-button !rounded-2xl" data-poster-count="5">5장</button>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button id="poster-count-cancel" type="button" class="tool-button">취소</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="poster-options-modal" class="modal-backdrop">
         <div class="panel-strong rounded-[30px] w-full max-w-md overflow-hidden">
             <div class="p-6 border-b border-white/10">
@@ -179,7 +201,8 @@
                 <button id="preset-folder-button" class="tool-button">외부 폴더 가져오기</button>
                 <input type="file" id="preset-folder-input" class="hidden" webkitdirectory directory multiple>
                 <label class="tool-button cursor-pointer">이미지 추가<input type="file" id="asset-bulk" class="hidden" accept="image/*" multiple></label>
-                <label class="tool-button cursor-pointer">포스터 빠른 추가<input type="file" id="poster-quick-input" class="hidden" accept="image/*" multiple></label>
+                <button type="button" id="poster-quick-start" class="tool-button">포스터 빠른 추가</button>
+                <input type="file" id="poster-quick-input" class="hidden" accept="image/*" multiple>
                 <label class="tool-button cursor-pointer">AI 배경제거 추가<input type="file" id="asset-bulk-ai" class="hidden" accept="image/*" multiple></label>
                 <div id="bg-quota-status" class="tool-button success">remove.bg 13개</div>
                 <label class="tool-button cursor-pointer">단색배경 제거 추가<input type="file" id="asset-bulk-solid" class="hidden" accept="image/*" multiple></label>
@@ -356,7 +379,7 @@
         <canvas id="mobile-slider-preview-canvas" width="1024" height="1024"></canvas>
         <div class="mobile-slider-preview-label">미리보기</div>
     </div>
-    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.11.8</span></div>
+    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.11.9</span></div>
     <script src="./app.js"></script>
 </body>
 </html>
