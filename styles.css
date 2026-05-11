@@ -84,7 +84,9 @@
         body.mobile-layout .mobile-quick-color span { display: flex; justify-content: space-between; letter-spacing: 0.05em; }
         body.mobile-layout .mobile-quick-field input[type="range"] { width: 100%; }
         body.mobile-layout .mobile-quick-color input[type="color"] { height: 34px; border-radius: 999px; }
-        body.mobile-layout .mobile-quick-shadow-button { grid-column: 1 / -1; min-height: 34px; padding: 8px 9px; font-size: 10px; }
+        body.mobile-layout .mobile-quick-recommend-button,
+        body.mobile-layout .mobile-quick-shadow-button { min-height: 34px; padding: 8px 9px; font-size: 10px; }
+        body.mobile-layout .mobile-quick-shadow-button { grid-column: span 2; }
         body.mobile-layout .canvas-shell > .absolute.bottom-5 .tool-button { flex: 0 0 auto; padding: 10px 8px; font-size: 11px; }
         body.mobile-layout #preset-list { max-height: 240px; }
         body.mobile-layout .version-badge { left: 12px; right: auto; bottom: 10px; z-index: 82; }

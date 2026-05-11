@@ -253,7 +253,12 @@
                     </div>
                     <button id="apply-poster-background" type="button" class="tool-button w-full">보라 격자 배경</button>
                     <button id="arrange-poster-layout" type="button" class="tool-button primary w-full">현재 면 포스터 배치</button>
-                    <div class="text-xs text-slate-400 leading-5">첫 번째 이미지는 메인, 나머지는 주변 카드처럼 자동 정리됩니다.</div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" class="tool-button !px-2 !py-2" data-frame-template="hero">히어로</button>
+                        <button type="button" class="tool-button !px-2 !py-2" data-frame-template="gallery">갤러리</button>
+                        <button type="button" class="tool-button !px-2 !py-2" data-frame-template="split">분할</button>
+                    </div>
+                    <div class="text-xs text-slate-400 leading-5">첫 이미지는 배경제거 메인, 다음 2~3장은 가로/세로 비율에 맞춰 회전 카드로 자동 정리됩니다.</div>
                 </div>
             </div>
             <div id="layer-list" class="mobile-layer-list px-4 pb-5 space-y-2"></div>
@@ -295,6 +300,7 @@
                             <span>색깔</span>
                             <input id="mobile-quick-border-color" type="color" value="#7c3aed">
                         </label>
+                        <button type="button" class="tool-button mobile-quick-recommend-button !px-4 !py-2" data-quick-action="recommend-outline-color">추천색</button>
                         <button type="button" class="tool-button mobile-quick-shadow-button !px-4 !py-2" data-quick-action="mobile-quick-shadow">선명 그림자</button>
                     </div>
                 </div>
@@ -322,7 +328,7 @@
         <canvas id="mobile-slider-preview-canvas" width="1024" height="1024"></canvas>
         <div class="mobile-slider-preview-label">미리보기</div>
     </div>
-    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.11.2</span></div>
+    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.11.3</span></div>
     <script src="./app.js"></script>
 </body>
 </html>

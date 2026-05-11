@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.11.2';
+        const APP_VERSION = 'v2026.05.11.3';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -162,6 +162,98 @@
             const g = parseInt(raw.slice(2, 4), 16);
             const b = parseInt(raw.slice(4, 6), 16);
             return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        }
+        function rgbToHex(r, g, b) {
+            return `#${[r, g, b].map(value => clamp(Math.round(value), 0, 255).toString(16).padStart(2, '0')).join('')}`;
+        }
+        function rgbToHsl(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            let h = 0;
+            let s = 0;
+            const l = (max + min) / 2;
+            if (max !== min) {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+                else if (max === g) h = (b - r) / d + 2;
+                else h = (r - g) / d + 4;
+                h *= 60;
+            }
+            return { h, s, l };
+        }
+        function hslToRgb(h, s, l) {
+            h = ((h % 360) + 360) % 360 / 360;
+            const hueToRgb = (p, q, t) => {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1 / 6) return p + (q - p) * 6 * t;
+                if (t < 1 / 2) return q;
+                if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                return p;
+            };
+            if (s === 0) {
+                const gray = l * 255;
+                return { r: gray, g: gray, b: gray };
+            }
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            return {
+                r: hueToRgb(p, q, h + 1 / 3) * 255,
+                g: hueToRgb(p, q, h) * 255,
+                b: hueToRgb(p, q, h - 1 / 3) * 255
+            };
+        }
+        function colorLuminance({ r, g, b }) {
+            return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+        }
+        function estimateRecommendedOutlineColor(element) {
+            const source = element.maskCanvas || element.originalCanvas || element.processedCanvas;
+            if (!source) return '#7c3aed';
+            const sampleSize = 96;
+            const sample = createEmptyCanvas(sampleSize, sampleSize);
+            const sampleCtx = sample.getContext('2d', { willReadFrequently: true });
+            sampleCtx.drawImage(source, 0, 0, sampleSize, sampleSize);
+            const data = sampleCtx.getImageData(0, 0, sampleSize, sampleSize).data;
+            const buckets = new Map();
+            let avg = { r: 0, g: 0, b: 0 };
+            let count = 0;
+            for (let i = 0; i < data.length; i += 16) {
+                if (data[i + 3] < 40) continue;
+                const r = data[i], g = data[i + 1], b = data[i + 2];
+                const hsl = rgbToHsl(r, g, b);
+                if (hsl.l < 0.04 || hsl.l > 0.97) continue;
+                const key = `${r >> 4},${g >> 4},${b >> 4}`;
+                const bucket = buckets.get(key) || { r: 0, g: 0, b: 0, count: 0, sat: 0 };
+                bucket.r += r; bucket.g += g; bucket.b += b; bucket.count += 1; bucket.sat += hsl.s;
+                buckets.set(key, bucket);
+                avg.r += r; avg.g += g; avg.b += b; count += 1;
+            }
+            if (!count || buckets.size === 0) return '#7c3aed';
+            avg = { r: avg.r / count, g: avg.g / count, b: avg.b / count };
+            const avgLum = colorLuminance(avg);
+            const dominant = [...buckets.values()]
+                .map(bucket => ({ r: bucket.r / bucket.count, g: bucket.g / bucket.count, b: bucket.b / bucket.count, count: bucket.count, sat: bucket.sat / bucket.count }))
+                .sort((a, b) => (b.count * (0.7 + b.sat)) - (a.count * (0.7 + a.sat)))
+                .slice(0, 7);
+            const candidates = [];
+            dominant.forEach(color => {
+                const hsl = rgbToHsl(color.r, color.g, color.b);
+                [0, 28, -28, 165, 180, 205].forEach(offset => {
+                    const l = avgLum < 0.42 ? 0.68 : 0.36;
+                    const s = clamp(Math.max(0.58, hsl.s + 0.18), 0.45, 0.92);
+                    candidates.push(hslToRgb(hsl.h + offset, s, l));
+                });
+            });
+            const best = candidates
+                .map(color => {
+                    const hsl = rgbToHsl(color.r, color.g, color.b);
+                    const contrast = Math.abs(colorLuminance(color) - avgLum);
+                    return { color, score: contrast * 2.2 + hsl.s * 0.75 + (hsl.l > 0.18 && hsl.l < 0.82 ? 0.25 : 0) };
+                })
+                .sort((a, b) => b.score - a.score)[0]?.color;
+            return best ? rgbToHex(best.r, best.g, best.b) : '#7c3aed';
         }
         function applyShadow(renderCtx, shadow) {
             renderCtx.shadowColor = rgbaWithOpacity(shadow.color, shadow.opacity);
@@ -399,6 +491,27 @@
             element.scale = Math.min(boxWidth / source.width, boxHeight / source.height);
         }
 
+        function getElementAspect(element) {
+            const source = element.originalCanvas || element.processedCanvas || element.maskCanvas;
+            return source ? source.width / Math.max(1, source.height) : 1;
+        }
+
+        async function applyRecommendedFrameStyle(element, role = 'sub') {
+            const recommended = estimateRecommendedOutlineColor(element);
+            element.opacity = 1;
+            element.blendMode = 'source-over';
+            element.tintStrength = 0;
+            element.cornerRadius = role === 'main' ? 0 : 10;
+            element.outlineColor = recommended;
+            element.outlineStyle = role === 'main' ? 'blur' : 'solid';
+            element.outlineWidth = role === 'main' ? 12 : 8;
+            element.outlineBlur = role === 'main' ? 18 : 4;
+            element.shadow = role === 'main'
+                ? { color: recommended, blur: 46, offsetX: 0, offsetY: 0, opacity: 0.78 }
+                : { color: recommended, blur: 18, offsetX: 0, offsetY: 0, opacity: 0.5 };
+            await updateImageProcessing(element);
+        }
+
         function applyPosterImageStyle(element, role = 'sub', index = 0) {
             element.opacity = 1;
             element.blendMode = 'source-over';
@@ -419,6 +532,50 @@
                 element.shadow = { color: '#ffffff', blur: 18, offsetX: 0, offsetY: 0, opacity: 0.82 };
                 element.rotation = [-12, 10, -8, 12, -6, 7][index % 6];
             }
+        }
+
+        function layoutFrameTemplateElements(elements, template = 'hero') {
+            if (!elements.length) return;
+            const [main, ...subs] = elements;
+            const mainAspect = getElementAspect(main);
+            const mainBox = template === 'split'
+                ? { x: 0.58, y: 0.5, w: mainAspect > 1.05 ? 0.55 : 0.42, h: 0.78, r: 0 }
+                : template === 'gallery'
+                    ? { x: 0.52, y: 0.46, w: mainAspect > 1.05 ? 0.58 : 0.43, h: 0.72, r: 0 }
+                    : { x: 0.52, y: 0.48, w: mainAspect > 1.05 ? 0.58 : 0.46, h: 0.76, r: 0 };
+            fitElementToBox(main, CANVAS_SIZE * mainBox.w, CANVAS_SIZE * mainBox.h);
+            main.x = CANVAS_SIZE * mainBox.x;
+            main.y = CANVAS_SIZE * mainBox.y;
+            main.rotation = mainBox.r;
+
+            const slotSets = {
+                hero: [
+                    { x: 0.25, y: 0.23, w: 0.34, h: 0.2, r: -8 },
+                    { x: 0.78, y: 0.25, w: 0.32, h: 0.22, r: 8 },
+                    { x: 0.31, y: 0.78, w: 0.36, h: 0.22, r: -7 }
+                ],
+                gallery: [
+                    { x: 0.22, y: 0.28, w: 0.28, h: 0.24, r: -10 },
+                    { x: 0.78, y: 0.28, w: 0.28, h: 0.24, r: 9 },
+                    { x: 0.28, y: 0.76, w: 0.34, h: 0.2, r: -8 }
+                ],
+                split: [
+                    { x: 0.24, y: 0.24, w: 0.36, h: 0.22, r: -7 },
+                    { x: 0.24, y: 0.74, w: 0.36, h: 0.22, r: 8 },
+                    { x: 0.8, y: 0.23, w: 0.27, h: 0.23, r: 9 }
+                ]
+            };
+            const slots = slotSets[template] || slotSets.hero;
+            subs.slice(0, 3).forEach((element, index) => {
+                const slot = slots[index % slots.length];
+                const aspect = getElementAspect(element);
+                const widthFactor = aspect >= 1 ? slot.w : slot.w * 0.72;
+                const heightFactor = aspect >= 1 ? slot.h : slot.h * 1.3;
+                fitElementToBox(element, CANVAS_SIZE * widthFactor, CANVAS_SIZE * heightFactor);
+                element.x = CANVAS_SIZE * slot.x;
+                element.y = CANVAS_SIZE * slot.y;
+                element.rotation = slot.r + (aspect < 0.85 ? (slot.r > 0 ? 3 : -3) : 0);
+            });
         }
 
         function layoutPosterElements(elements) {
@@ -455,6 +612,38 @@
                 await updateImageProcessing(element);
             }
             layoutPosterElements(elements);
+        }
+
+        async function arrangeFrameTemplateForElements(elements, template = 'hero') {
+            if (!elements.length) return;
+            applyPosterBackgroundPreset();
+            const limited = elements.slice(0, 4);
+            const [main, ...subs] = limited;
+            if (main) {
+                main.maskCanvas = removeSolidBackgroundFromCanvas(main.originalCanvas);
+                await applyRecommendedFrameStyle(main, 'main');
+            }
+            for (const element of subs) {
+                element.maskCanvas = copyCanvas(element.originalCanvas);
+                await applyRecommendedFrameStyle(element, 'sub');
+            }
+            layoutFrameTemplateElements(limited, template);
+        }
+
+        async function arrangeFrameTemplateForCurrentFace(template = 'hero') {
+            const imageElements = getFaceState().elements.filter(element => element.type === 'image');
+            if (!imageElements.length) {
+                alert('템플릿에는 이미지 레이어가 필요해요.\n이미지를 3~4장 넣고 다시 눌러 주세요.');
+                return;
+            }
+            showLoading('추천색 템플릿을 적용하는 중이에요.');
+            try {
+                await arrangeFrameTemplateForElements(imageElements, template);
+                selectedId = imageElements[0]?.id || null;
+                render();
+            } finally {
+                hideLoading();
+            }
         }
 
         async function arrangePosterLayoutForCurrentFace() {
@@ -1463,7 +1652,7 @@
                     }
                 }
                 if (!created.length) return;
-                await arrangePosterLayoutForElements(created);
+                await arrangeFrameTemplateForElements(created, 'hero');
                 selectedId = created[0].id;
                 render();
             } finally {
@@ -2388,6 +2577,12 @@
             if (selected.locked) return;
             if (action === 'flip-x') selected.flipX = !selected.flipX;
             if (action === 'flip-y') selected.flipY = !selected.flipY;
+            if (action === 'recommend-outline-color' && selected.type === 'image') {
+                selected.outlineColor = estimateRecommendedOutlineColor(selected);
+                if (!selected.outlineWidth) selected.outlineWidth = 10;
+                if (selected.outlineBlur == null) selected.outlineBlur = 8;
+                await updateImageProcessing(selected);
+            }
             if (action === 'mobile-quick-shadow') {
                 selected.shadow = { ...selected.shadow, blur: 0, offsetX: 18, offsetY: 18, opacity: 0.72, color: selected.shadow.color || '#000000' };
             }
@@ -2542,6 +2737,7 @@
                     ${rangeField({ label: '아웃라인', key: 'outlineWidth', min: 0, max: 40, step: 1, value: selected.outlineWidth, unit: 'px' })}
                     ${rangeField({ label: '아웃라인 블러 강도', key: 'outlineBlur', min: 0, max: 80, step: 1, value: selected.outlineBlur ?? 8, unit: 'px' })}
                     ${colorField({ label: '아웃라인 색상', key: 'outlineColor', value: selected.outlineColor })}
+                    <button type="button" class="tool-button success w-full !rounded-2xl" data-action="recommend-outline-color">추천색 적용</button>
                     ${selectField({ label: '아웃라인 스타일', key: 'outlineStyle', value: selected.outlineStyle || 'solid', options: [
                         { value: 'solid', label: '기본' },
                         { value: 'dashed', label: '점선' },
@@ -3130,6 +3326,11 @@
         document.querySelectorAll('[data-quick-action]').forEach(button => {
             button.addEventListener('click', async event => {
                 await applyElementAction(event.currentTarget.dataset.quickAction);
+            });
+        });
+        document.querySelectorAll('[data-frame-template]').forEach(button => {
+            button.addEventListener('click', async event => {
+                await arrangeFrameTemplateForCurrentFace(event.currentTarget.dataset.frameTemplate);
             });
         });
         mobileQuickRotation?.addEventListener('input', event => {
