@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.11.9';
+        const APP_VERSION = 'v2026.05.14.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -135,6 +135,12 @@
         function degToRad(deg) { return deg * Math.PI / 180; }
         function createEmptyCanvas(width, height) { const c = document.createElement('canvas'); c.width = width; c.height = height; return c; }
         function copyCanvas(source) { const copied = createEmptyCanvas(source.width, source.height); copied.getContext('2d').drawImage(source, 0, 0); return copied; }
+        function resizeCanvasTo(source, width, height) {
+            if (source.width === width && source.height === height) return copyCanvas(source);
+            const resized = createEmptyCanvas(width, height);
+            resized.getContext('2d').drawImage(source, 0, 0, width, height);
+            return resized;
+        }
         function imageToCanvas(img, maxDimension = 0) {
             const width = img.width || 1;
             const height = img.height || 1;
@@ -1206,10 +1212,15 @@
             if (typeof module.removeBackground !== 'function') {
                 throw new Error('로컬 배경제거 모델을 불러오지 못했습니다.');
             }
-            return await module.removeBackground(file, {
-                publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/',
-                model: 'medium'
-            });
+            const baseConfig = {
+                publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/'
+            };
+            try {
+                return await module.removeBackground(file, { ...baseConfig, model: 'isnet' });
+            } catch (error) {
+                console.warn('isnet local removal failed, retrying fp16 model.', error);
+                return await module.removeBackground(file, { ...baseConfig, model: 'isnet_fp16' });
+            }
         }
 
         async function removeBackgroundWithBestEngine(file) {
@@ -1828,10 +1839,13 @@
                 try {
                     showLoading(`메인 이미지 AI 배경제거 중...\n${mainFile.name}`);
                     const { blob: resultBlob, engine } = await removeBackgroundWithBestEngine(mainFile);
+                    const originalImage = await fileToImage(mainFile);
+                    const originalCanvas = imageToCanvas(originalImage, MAX_IMAGE_IMPORT_SIZE);
                     const image = await blobToImage(resultBlob);
-                    const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
-                    const mainElement = createImageElement(mainFile.name.replace(/\.[^.]+$/, ''), baseCanvas);
-                    mainElement.name = `${mainElement.name} 메인 ${engine === 'local' ? '로컬AI제거' : 'AI제거'}`;
+                    const cutoutCanvas = resizeCanvasTo(imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE), originalCanvas.width, originalCanvas.height);
+                    const mainElement = createImageElement(mainFile.name.replace(/\.[^.]+$/, ''), originalCanvas);
+                    mainElement.maskCanvas = cutoutCanvas;
+                    mainElement.name = `${mainElement.name} 메인 ${engine === 'local' ? '로컬AI제거 복구가능' : 'AI제거 복구가능'}`;
                     created.push(mainElement);
                     getFaceState().elements.push(mainElement);
                 } catch (error) {
@@ -1869,10 +1883,13 @@
                     showLoading(`AI 배경제거 중...\n${file.name}`);
                     try {
                         const { blob: resultBlob, engine } = await removeBackgroundWithBestEngine(file);
+                        const originalImage = await fileToImage(file);
+                        const originalCanvas = imageToCanvas(originalImage, MAX_IMAGE_IMPORT_SIZE);
                         const image = await blobToImage(resultBlob);
-                        const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
-                        const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
-                        if (engine === 'local') element.name = `${element.name} 로컬AI제거`;
+                        const cutoutCanvas = resizeCanvasTo(imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE), originalCanvas.width, originalCanvas.height);
+                        const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), originalCanvas);
+                        element.maskCanvas = cutoutCanvas;
+                        element.name = `${element.name} ${engine === 'local' ? '로컬AI제거' : 'AI제거'} 복구가능`;
                         await updateImageProcessing(element);
                         getFaceState().elements.push(element);
                         selectedId = element.id;
