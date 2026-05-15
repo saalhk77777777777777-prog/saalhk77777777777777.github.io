@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.14.1';
+        const APP_VERSION = 'v2026.05.15.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -101,6 +101,11 @@
         const posterAccentColor = document.getElementById('poster-accent-color');
         const posterOptionsApply = document.getElementById('poster-options-apply');
         const posterOptionsCancel = document.getElementById('poster-options-cancel');
+        const canvaBgModal = document.getElementById('canva-bg-modal');
+        const openCanvaHelperButton = document.getElementById('open-canva-helper');
+        const openCanvaBgButton = document.getElementById('open-canva-bg');
+        const closeCanvaBgButton = document.getElementById('canva-bg-close');
+        const canvaResultInput = document.getElementById('canva-result-input');
         let posterExpectedFileCount = 0;
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
@@ -1818,6 +1823,18 @@
             }
         }
 
+        function openCanvaBackgroundHelper() {
+            canvaBgModal?.classList.add('visible');
+        }
+
+        function closeCanvaBackgroundHelper() {
+            canvaBgModal?.classList.remove('visible');
+        }
+
+        function openCanvaBackgroundRemover() {
+            window.open('https://www.canva.com/features/background-remover/', '_blank', 'noopener,noreferrer');
+        }
+
         async function addPosterQuickPack(files, expectedCount = 0) {
             showLoading('포스터용 이미지를 빠르게 배치하는 중이에요.');
             const created = [];
@@ -3521,6 +3538,17 @@
         document.getElementById('asset-bulk-ai').addEventListener('change', async event => {
             const files = Array.from(event.target.files || []);
             if (files.length) await addImagesWithAiCutout(files);
+            event.target.value = '';
+        });
+        openCanvaHelperButton?.addEventListener('click', openCanvaBackgroundHelper);
+        closeCanvaBgButton?.addEventListener('click', closeCanvaBackgroundHelper);
+        openCanvaBgButton?.addEventListener('click', openCanvaBackgroundRemover);
+        canvaResultInput?.addEventListener('change', async event => {
+            const files = Array.from(event.target.files || []);
+            if (files.length) {
+                await addImages(files);
+                closeCanvaBackgroundHelper();
+            }
             event.target.value = '';
         });
         document.getElementById('asset-bulk-solid').addEventListener('change', async event => {
