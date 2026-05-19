@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.15.1';
+        const APP_VERSION = 'v2026.05.19.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -44,6 +44,7 @@
             backgroundOpacity: 1,
             backgroundCurve: 0,
             backgroundSeam: 0,
+            backgroundDiagonal: 0,
             elements: []
         }]));
 
@@ -481,6 +482,7 @@
                 if (faceState.background) {
                     faceState.backgroundSeam = 72;
                     faceState.backgroundCurve = 18;
+                    faceState.backgroundDiagonal = 36;
                 }
             });
             lastBackgroundUploadReport = '[로블록스 이음새 보정]\n6면 배경의 가장자리를 서로 섞고 안쪽으로 늘리는 보정을 켰습니다.';
@@ -895,6 +897,7 @@
                     backgroundOpacity: faceState.backgroundOpacity,
                     backgroundCurve: faceState.backgroundCurve,
                     backgroundSeam: faceState.backgroundSeam,
+                    backgroundDiagonal: faceState.backgroundDiagonal,
                     elements: faceState.elements.map(serializeElement)
                 };
             });
@@ -944,6 +947,7 @@
                     faceState.backgroundOpacity = Number(savedFace.backgroundOpacity ?? 1);
                     faceState.backgroundCurve = Number(savedFace.backgroundCurve ?? 0);
                     faceState.backgroundSeam = Number(savedFace.backgroundSeam ?? 0);
+                    faceState.backgroundDiagonal = Number(savedFace.backgroundDiagonal ?? 0);
                     faceState.elements = [];
                     for (const element of savedFace.elements || []) {
                         faceState.elements.push(await restoreElement(element));
@@ -1996,7 +2000,7 @@
             renderCtx.fillStyle = rgbaWithOpacity(faceState.backgroundColor, faceState.backgroundOpacity);
             renderCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
             if (faceState.background) {
-                const backgroundCanvas = createRobloxSeamCanvas(faceKey, faceState.background, faceState.backgroundSeam);
+                const backgroundCanvas = createRobloxSeamCanvas(faceKey, faceState.background, faceState.backgroundSeam, faceState.backgroundDiagonal);
                 const curve = Number(faceState.backgroundCurve || 0);
                 if (Math.abs(curve) > 0.01) {
                     renderCtx.save();
@@ -2102,9 +2106,30 @@
             return { x: clamp(x, 0, width - 1), y: clamp(y, 0, height - 1) };
         }
 
-        function createRobloxSeamCanvas(faceKey, baseCanvas, strength) {
+        function getCornerEdges(corner) {
+            return {
+                topLeft: ['top', 'left'],
+                topRight: ['top', 'right'],
+                bottomLeft: ['bottom', 'left'],
+                bottomRight: ['bottom', 'right']
+            }[corner] || ['top', 'left'];
+        }
+
+        function getCornerEndpoint(edge, corner) {
+            if (edge === 'top' || edge === 'bottom') return corner.endsWith('Left') ? 0 : 1;
+            return corner.startsWith('top') ? 0 : 1;
+        }
+
+        function getCornerPoint(corner, distanceX, distanceY, width, height) {
+            const x = corner.endsWith('Left') ? distanceX : width - 1 - distanceX;
+            const y = corner.startsWith('top') ? distanceY : height - 1 - distanceY;
+            return { x: clamp(x, 0, width - 1), y: clamp(y, 0, height - 1) };
+        }
+
+        function createRobloxSeamCanvas(faceKey, baseCanvas, strength, diagonalStrength = 0) {
             const amount = clamp(Number(strength || 0), 0, 100) / 100;
-            if (!baseCanvas || amount <= 0) return baseCanvas;
+            const diagonalAmount = clamp(Number(diagonalStrength || 0), 0, 100) / 100;
+            if (!baseCanvas || (amount <= 0 && diagonalAmount <= 0)) return baseCanvas;
             const width = baseCanvas.width;
             const height = baseCanvas.height;
             const output = copyCanvas(baseCanvas);
@@ -2145,6 +2170,40 @@
                     }
                 }
             });
+
+            if (diagonalAmount > 0) {
+                const corners = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'];
+                const cornerSize = Math.max(12, Math.round(Math.min(width, height) * (0.045 + diagonalAmount * 0.14)));
+                corners.forEach(corner => {
+                    const edges = getCornerEdges(corner);
+                    const samples = [sampleEdgePixel(baseData, edges[0], getCornerEndpoint(edges[0], corner))];
+                    edges.forEach(edge => {
+                        const link = links[edge];
+                        const neighbor = link ? getFaceState(link.face).background : null;
+                        if (!neighbor) return;
+                        const neighborCanvas = neighbor.width === width && neighbor.height === height ? neighbor : resizeCanvasTo(neighbor, width, height);
+                        const neighborCtx = neighborCanvas.getContext('2d', { willReadFrequently: true });
+                        const neighborData = neighborCtx.getImageData(0, 0, neighborCanvas.width, neighborCanvas.height);
+                        samples.push(sampleEdgePixel(neighborData, link.edge, getCornerEndpoint(edge, corner), Boolean(link.reverse)));
+                    });
+                    if (samples.length < 2) return;
+                    const target = [0, 1, 2, 3].map(channel => samples.reduce((sum, color) => sum + color[channel], 0) / samples.length);
+
+                    for (let y = 0; y < cornerSize; y++) {
+                        for (let x = 0; x < cornerSize; x++) {
+                            const diagonalDistance = (x + y) / Math.max(1, cornerSize * 1.42);
+                            if (diagonalDistance > 1) continue;
+                            const point = getCornerPoint(corner, x, y, width, height);
+                            const index = (point.y * width + point.x) * 4;
+                            const weight = Math.pow(1 - diagonalDistance, 1.8) * diagonalAmount;
+                            outputData.data[index] = outputData.data[index] * (1 - weight) + target[0] * weight;
+                            outputData.data[index + 1] = outputData.data[index + 1] * (1 - weight) + target[1] * weight;
+                            outputData.data[index + 2] = outputData.data[index + 2] * (1 - weight) + target[2] * weight;
+                            outputData.data[index + 3] = outputData.data[index + 3] * (1 - weight) + target[3] * weight;
+                        }
+                    }
+                });
+            }
 
             outputCtx.putImageData(outputData, 0, 0);
             return output;
@@ -2487,10 +2546,14 @@
             const curveLabel = document.getElementById('canvas-bg-curve-value');
             const seamInput = document.getElementById('canvas-bg-seam');
             const seamLabel = document.getElementById('canvas-bg-seam-value');
+            const diagonalInput = document.getElementById('canvas-bg-diagonal');
+            const diagonalLabel = document.getElementById('canvas-bg-diagonal-value');
             if (curveInput && curveInput !== document.activeElement) curveInput.value = Number(face.backgroundCurve || 0);
             if (curveLabel) curveLabel.textContent = String(Number(face.backgroundCurve || 0));
             if (seamInput && seamInput !== document.activeElement) seamInput.value = Number(face.backgroundSeam || 0);
             if (seamLabel) seamLabel.textContent = String(Number(face.backgroundSeam || 0));
+            if (diagonalInput && diagonalInput !== document.activeElement) diagonalInput.value = Number(face.backgroundDiagonal || 0);
+            if (diagonalLabel) diagonalLabel.textContent = String(Number(face.backgroundDiagonal || 0));
             document.getElementById('layer-count').textContent = `${face.elements.length} items`;
             updateBackgroundStatusUI();
         }
@@ -3162,6 +3225,9 @@
             const face = getFaceState();
             face.background = null;
             face.backgroundName = '';
+            face.backgroundDiagonal = 0;
+            face.backgroundSeam = 0;
+            face.backgroundCurve = 0;
             face.elements = [];
             selectedId = null;
             lastBackgroundUploadReport = `${activeFace.toUpperCase()} 면을 초기화했습니다.`;
@@ -3642,6 +3708,7 @@
         document.getElementById('canvas-bg-opacity').addEventListener('input', event => { getFaceState().backgroundOpacity = Number(event.target.value); render(); });
         document.getElementById('canvas-bg-curve').addEventListener('input', event => { getFaceState().backgroundCurve = Number(event.target.value); render(); });
         document.getElementById('canvas-bg-seam').addEventListener('input', event => { getFaceState().backgroundSeam = Number(event.target.value); render(); });
+        document.getElementById('canvas-bg-diagonal').addEventListener('input', event => { getFaceState().backgroundDiagonal = Number(event.target.value); render(); });
         document.getElementById('apply-roblox-seam').addEventListener('click', applyRobloxSeamPreset);
         backgroundTemplateColor.addEventListener('input', updateAndApplyCustomGridBackground);
         applyBackgroundTemplateButton.addEventListener('click', applyCustomGridBackground);

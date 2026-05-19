@@ -277,6 +277,11 @@
                         <div class="flex justify-between text-[11px] font-bold text-slate-400 mb-2"><span>로블록스 이음새</span><span id="canvas-bg-seam-value">0</span></div>
                         <input id="canvas-bg-seam" type="range" min="0" max="100" step="1" value="0">
                     </div>
+                    <div>
+                        <div class="flex justify-between text-[11px] font-bold text-amber-200 mb-2"><span>BETA 대각선 코너</span><span id="canvas-bg-diagonal-value">0</span></div>
+                        <input id="canvas-bg-diagonal" type="range" min="0" max="100" step="1" value="0">
+                        <p class="text-[11px] text-slate-500 mt-2 leading-5">면과 면, 면과 면과 면이 만나는 꼭짓점 쪽을 삼각형으로 섞어 인게임 대각선 찢김을 줄입니다.</p>
+                    </div>
                     <button id="apply-roblox-seam" type="button" class="tool-button success w-full">6면 로블록스식 이어붙이기</button>
                 </div>
                 <div class="property-group space-y-3">
@@ -405,7 +410,7 @@
         <canvas id="mobile-slider-preview-canvas" width="1024" height="1024"></canvas>
         <div class="mobile-slider-preview-label">미리보기</div>
     </div>
-    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.15.1</span></div>
+    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.19.1</span></div>
     <script src="./app.js"></script>
 </body>
 </html>
