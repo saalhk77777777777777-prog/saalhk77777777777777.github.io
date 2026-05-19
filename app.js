@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.19.1';
+        const APP_VERSION = 'v2026.05.19.2';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -20,6 +20,7 @@
         let isDragging = false;
         let dragOffset = { x: 0, y: 0 };
         let idCounter = 1;
+        let selectedFacePair = '';
         let aiLastPreview = '';
         let lastBackgroundUploadReport = '아직 업로드 기록이 없습니다.';
         let importedPresetSets = [];
@@ -2536,6 +2537,11 @@
             document.querySelectorAll('.face-tab').forEach(button => {
                 button.classList.toggle('active', button.dataset.face === activeFace);
             });
+            document.querySelectorAll('.face-pair-tab').forEach(button => {
+                const pair = button.dataset.facePair || '';
+                const faces = pair.split('/');
+                button.classList.toggle('active', pair === selectedFacePair && faces.includes(activeFace));
+            });
         }
 
         function updateCanvasSettingsUI() {
@@ -3350,8 +3356,19 @@
         }
 
         function setActiveFace(face) {
+            selectedFacePair = '';
             activeFace = face;
             if (!getFaceState().elements.some(element => element.id === selectedId)) selectedId = null;
+            render();
+        }
+
+        function setActiveFacePair(pair) {
+            const faces = String(pair || '').split('/').filter(face => FACES.includes(face));
+            if (faces.length !== 2) return;
+            selectedFacePair = faces.join('/');
+            activeFace = activeFace === faces[0] ? faces[1] : faces[0];
+            if (!getFaceState().elements.some(element => element.id === selectedId)) selectedId = null;
+            lastBackgroundUploadReport = `[BETA 면 사이 보기]\n${faces[0].toUpperCase()} / ${faces[1].toUpperCase()} 사이를 토글 중입니다. 같은 버튼을 다시 누르면 반대 면으로 이동합니다.`;
             render();
         }
 
@@ -3719,6 +3736,7 @@
             });
         });
         document.querySelectorAll('.face-tab').forEach(button => button.addEventListener('click', () => setActiveFace(button.dataset.face)));
+        document.querySelectorAll('.face-pair-tab').forEach(button => button.addEventListener('click', () => setActiveFacePair(button.dataset.facePair)));
 
         window.addEventListener('keydown', event => {
             const tag = document.activeElement?.tagName;
