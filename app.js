@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.19.2';
+        const APP_VERSION = 'v2026.05.19.3';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -108,6 +108,7 @@
         const openCanvaBgButton = document.getElementById('open-canva-bg');
         const closeCanvaBgButton = document.getElementById('canva-bg-close');
         const canvaResultInput = document.getElementById('canva-result-input');
+        const addPairTestGridButton = document.getElementById('add-pair-test-grid');
         let posterExpectedFileCount = 0;
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
@@ -1806,7 +1807,125 @@
             element.previewUrl = element.processedCanvas.toDataURL('image/png');
         }
 
+        function createPairSplitCanvases(sourceCanvas) {
+            const pairWidth = CANVAS_SIZE * 2;
+            const pairHeight = CANVAS_SIZE;
+            const pairCanvas = createEmptyCanvas(pairWidth, pairHeight);
+            const pairCtx = pairCanvas.getContext('2d');
+            const fit = Math.min(pairWidth * 0.72 / sourceCanvas.width, pairHeight * 0.82 / sourceCanvas.height);
+            const drawWidth = sourceCanvas.width * fit;
+            const drawHeight = sourceCanvas.height * fit;
+            pairCtx.drawImage(sourceCanvas, (pairWidth - drawWidth) / 2, (pairHeight - drawHeight) / 2, drawWidth, drawHeight);
+
+            return [0, CANVAS_SIZE].map(offsetX => {
+                const faceCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
+                faceCanvas.getContext('2d').drawImage(pairCanvas, offsetX, 0, CANVAS_SIZE, CANVAS_SIZE, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                return faceCanvas;
+            });
+        }
+
+        function createPairDistortionGrid() {
+            const grid = createEmptyCanvas(CANVAS_SIZE * 2, CANVAS_SIZE);
+            const gridCtx = grid.getContext('2d');
+            const gradient = gridCtx.createLinearGradient(0, 0, grid.width, grid.height);
+            gradient.addColorStop(0, '#07111f');
+            gradient.addColorStop(0.5, '#111827');
+            gradient.addColorStop(1, '#0f172a');
+            gridCtx.fillStyle = gradient;
+            gridCtx.fillRect(0, 0, grid.width, grid.height);
+
+            for (let x = 0; x <= grid.width; x += 64) {
+                gridCtx.strokeStyle = x === CANVAS_SIZE ? '#fbbf24' : x % 256 === 0 ? 'rgba(103,232,249,0.78)' : 'rgba(148,163,184,0.34)';
+                gridCtx.lineWidth = x === CANVAS_SIZE ? 8 : x % 256 === 0 ? 3 : 1;
+                gridCtx.beginPath();
+                gridCtx.moveTo(x, 0);
+                gridCtx.lineTo(x, grid.height);
+                gridCtx.stroke();
+            }
+            for (let y = 0; y <= grid.height; y += 64) {
+                gridCtx.strokeStyle = y % 256 === 0 ? 'rgba(236,72,153,0.72)' : 'rgba(148,163,184,0.3)';
+                gridCtx.lineWidth = y % 256 === 0 ? 3 : 1;
+                gridCtx.beginPath();
+                gridCtx.moveTo(0, y);
+                gridCtx.lineTo(grid.width, y);
+                gridCtx.stroke();
+            }
+
+            gridCtx.font = '900 64px Arial';
+            gridCtx.textAlign = 'center';
+            gridCtx.textBaseline = 'middle';
+            gridCtx.fillStyle = 'rgba(255,255,255,0.94)';
+            gridCtx.fillText('LEFT FACE', CANVAS_SIZE / 2, 110);
+            gridCtx.fillText('RIGHT FACE', CANVAS_SIZE * 1.5, 110);
+            gridCtx.font = '900 46px Arial';
+            gridCtx.fillStyle = '#fbbf24';
+            gridCtx.fillText('SEAM', CANVAS_SIZE, CANVAS_SIZE / 2);
+            gridCtx.font = '800 28px Arial';
+            gridCtx.fillStyle = 'rgba(255,255,255,0.72)';
+            for (let x = 128; x < grid.width; x += 256) {
+                for (let y = 192; y < grid.height; y += 256) {
+                    gridCtx.fillText(`${Math.round(x / 64)},${Math.round(y / 64)}`, x, y);
+                }
+            }
+            return grid;
+        }
+
+        async function addImagesToFacePair(files) {
+            const faces = getActivePairFaces();
+            if (faces.length !== 2) return false;
+            showLoading(`${faces[0].toUpperCase()}/${faces[1].toUpperCase()} 면 사이에 이미지를 분할 배치하는 중이에요.`);
+            try {
+                for (const file of files) {
+                    showLoading(`면 사이 이미지 분할 중...\n${file.name}`);
+                    const image = await fileToImage(file);
+                    const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
+                    const splitCanvases = createPairSplitCanvases(baseCanvas);
+                    splitCanvases.forEach((partCanvas, index) => {
+                        const element = createImageElement(`${file.name.replace(/\.[^.]+$/, '')} ${faces[index].toUpperCase()}-pair`, partCanvas);
+                        element.x = CANVAS_SIZE / 2;
+                        element.y = CANVAS_SIZE / 2;
+                        element.scale = 1;
+                        element.name = `${element.name} BETA면사이`;
+                        getFaceState(faces[index]).elements.push(element);
+                        if (faces[index] === activeFace) selectedId = element.id;
+                    });
+                }
+                lastBackgroundUploadReport = `[BETA 면 사이 편집]\n${faces[0].toUpperCase()} / ${faces[1].toUpperCase()} 사이에 이미지를 분할 배치했습니다. 내보내면 각 면 파일로 따로 저장됩니다.`;
+                render();
+                return true;
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function addPairDistortionGrid() {
+            const faces = getActivePairFaces();
+            if (faces.length !== 2) {
+                alert('먼저 FT/RT 같은 BETA Edge Pair 버튼을 눌러 주세요.');
+                return;
+            }
+            const grid = createPairDistortionGrid();
+            const splitCanvases = [
+                (() => { const c = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE); c.getContext('2d').drawImage(grid, 0, 0, CANVAS_SIZE, CANVAS_SIZE, 0, 0, CANVAS_SIZE, CANVAS_SIZE); return c; })(),
+                (() => { const c = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE); c.getContext('2d').drawImage(grid, CANVAS_SIZE, 0, CANVAS_SIZE, CANVAS_SIZE, 0, 0, CANVAS_SIZE, CANVAS_SIZE); return c; })()
+            ];
+            faces.forEach((face, index) => {
+                const element = createImageElement(`BETA 왜곡 그리드 ${faces[0].toUpperCase()}-${faces[1].toUpperCase()} ${face.toUpperCase()}`, splitCanvases[index]);
+                element.scale = 1;
+                element.x = CANVAS_SIZE / 2;
+                element.y = CANVAS_SIZE / 2;
+                element.locked = true;
+                getFaceState(face).elements.push(element);
+            });
+            lastBackgroundUploadReport = `[BETA 왜곡 테스트]\n${faces[0].toUpperCase()} / ${faces[1].toUpperCase()} 페어에 테스트 그리드를 넣었습니다. 노란 SEAM 선이 인게임에서 얼마나 휘는지 확인해 주세요.`;
+            render();
+        }
+
         async function addImages(files) {
+            if (isFacePairMode()) {
+                await addImagesToFacePair(files);
+                return;
+            }
             showLoading('이미지를 레이어로 추가하고 있어요.');
             try {
                 for (const file of files) {
@@ -2488,6 +2607,47 @@
             });
         }
 
+        function getActivePairFaces() {
+            return String(selectedFacePair || '').split('/').filter(face => FACES.includes(face)).slice(0, 2);
+        }
+
+        function isFacePairMode() {
+            return getActivePairFaces().length === 2;
+        }
+
+        function drawFacePairScene(renderCtx) {
+            const faces = getActivePairFaces();
+            if (faces.length !== 2) return drawScene(activeFace, renderCtx, true);
+            renderCtx.save();
+            renderCtx.fillStyle = '#05070d';
+            renderCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            faces.forEach((face, index) => {
+                const tempCanvas = renderFaceToCanvas(face);
+                renderCtx.drawImage(tempCanvas, index * CANVAS_SIZE / 2, CANVAS_SIZE / 4, CANVAS_SIZE / 2, CANVAS_SIZE / 2);
+                renderCtx.fillStyle = 'rgba(103, 232, 249, 0.92)';
+                renderCtx.font = '800 22px Arial';
+                renderCtx.textAlign = 'center';
+                renderCtx.fillText(face.toUpperCase(), index * CANVAS_SIZE / 2 + CANVAS_SIZE / 4, CANVAS_SIZE / 4 - 22);
+            });
+            renderCtx.strokeStyle = 'rgba(255,255,255,0.18)';
+            renderCtx.lineWidth = 2;
+            renderCtx.strokeRect(0, CANVAS_SIZE / 4, CANVAS_SIZE, CANVAS_SIZE / 2);
+            renderCtx.strokeStyle = 'rgba(251, 191, 36, 0.95)';
+            renderCtx.setLineDash([12, 10]);
+            renderCtx.beginPath();
+            renderCtx.moveTo(CANVAS_SIZE / 2, CANVAS_SIZE / 4);
+            renderCtx.lineTo(CANVAS_SIZE / 2, CANVAS_SIZE * 0.75);
+            renderCtx.stroke();
+            renderCtx.setLineDash([]);
+            renderCtx.fillStyle = 'rgba(251, 191, 36, 0.95)';
+            renderCtx.font = '800 18px Arial';
+            renderCtx.fillText('BETA EDGE EDIT', CANVAS_SIZE / 2, CANVAS_SIZE * 0.79);
+            renderCtx.fillStyle = 'rgba(203, 213, 225, 0.78)';
+            renderCtx.font = '600 14px Arial';
+            renderCtx.fillText('이미지 추가 시 이 경계 기준으로 두 면에 자동 분할됩니다.', CANVAS_SIZE / 2, CANVAS_SIZE * 0.82);
+            renderCtx.restore();
+        }
+
         function renderFaceToDataURL(faceKey = activeFace) {
             const tempCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
             const tempCtx = tempCanvas.getContext('2d');
@@ -2566,7 +2726,8 @@
 
         function render() {
             ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            drawScene(activeFace, ctx, true);
+            if (isFacePairMode()) drawFacePairScene(ctx);
+            else drawScene(activeFace, ctx, true);
             updateFaceButtons();
             updateLayerList();
             updatePropertyPanel();
@@ -3737,6 +3898,7 @@
         });
         document.querySelectorAll('.face-tab').forEach(button => button.addEventListener('click', () => setActiveFace(button.dataset.face)));
         document.querySelectorAll('.face-pair-tab').forEach(button => button.addEventListener('click', () => setActiveFacePair(button.dataset.facePair)));
+        addPairTestGridButton?.addEventListener('click', addPairDistortionGrid);
 
         window.addEventListener('keydown', event => {
             const tag = document.activeElement?.tagName;
