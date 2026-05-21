@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.19.3';
+        const APP_VERSION = 'v2026.05.21.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -1868,6 +1868,131 @@
                 }
             }
             return grid;
+        }
+
+        function drawBetaGridBase(renderCtx, width, height, faceLabel) {
+            const gradient = renderCtx.createLinearGradient(0, 0, width, height);
+            gradient.addColorStop(0, '#06111f');
+            gradient.addColorStop(0.5, '#111827');
+            gradient.addColorStop(1, '#170b24');
+            renderCtx.fillStyle = gradient;
+            renderCtx.fillRect(0, 0, width, height);
+
+            for (let x = 0; x <= width; x += 64) {
+                renderCtx.strokeStyle = x === width / 2 ? '#fbbf24' : x % 256 === 0 ? 'rgba(103,232,249,0.86)' : 'rgba(148,163,184,0.34)';
+                renderCtx.lineWidth = x === width / 2 ? 5 : x % 256 === 0 ? 3 : 1;
+                renderCtx.beginPath();
+                renderCtx.moveTo(x, 0);
+                renderCtx.lineTo(x, height);
+                renderCtx.stroke();
+            }
+            for (let y = 0; y <= height; y += 64) {
+                renderCtx.strokeStyle = y === height / 2 ? '#fbbf24' : y % 256 === 0 ? 'rgba(236,72,153,0.78)' : 'rgba(148,163,184,0.3)';
+                renderCtx.lineWidth = y === height / 2 ? 5 : y % 256 === 0 ? 3 : 1;
+                renderCtx.beginPath();
+                renderCtx.moveTo(0, y);
+                renderCtx.lineTo(width, y);
+                renderCtx.stroke();
+            }
+
+            renderCtx.strokeStyle = 'rgba(255,255,255,0.75)';
+            renderCtx.lineWidth = 10;
+            renderCtx.strokeRect(5, 5, width - 10, height - 10);
+            renderCtx.font = '900 112px Arial';
+            renderCtx.textAlign = 'center';
+            renderCtx.textBaseline = 'middle';
+            renderCtx.fillStyle = 'rgba(255,255,255,0.95)';
+            renderCtx.fillText(faceLabel.toUpperCase(), width / 2, height / 2 - 58);
+            renderCtx.font = '800 32px Arial';
+            renderCtx.fillStyle = 'rgba(251,191,36,0.95)';
+            renderCtx.fillText('BETA DISTORTION GRID', width / 2, height / 2 + 42);
+        }
+
+        function createBetaSkyboxGridFace(face) {
+            const faceCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
+            const faceCtx = faceCanvas.getContext('2d');
+            drawBetaGridBase(faceCtx, CANVAS_SIZE, CANVAS_SIZE, face);
+            const links = getCubeEdgeLinks(face);
+            const edgeLabels = {
+                top: links.top ? `${links.top.face.toUpperCase()} ${links.top.edge}` : 'NONE',
+                bottom: links.bottom ? `${links.bottom.face.toUpperCase()} ${links.bottom.edge}` : 'NONE',
+                left: links.left ? `${links.left.face.toUpperCase()} ${links.left.edge}` : 'NONE',
+                right: links.right ? `${links.right.face.toUpperCase()} ${links.right.edge}` : 'NONE'
+            };
+
+            faceCtx.save();
+            faceCtx.font = '900 34px Arial';
+            faceCtx.textAlign = 'center';
+            faceCtx.textBaseline = 'middle';
+            faceCtx.fillStyle = '#67e8f9';
+            faceCtx.fillText(`TOP -> ${edgeLabels.top}`, CANVAS_SIZE / 2, 42);
+            faceCtx.fillText(`BOTTOM -> ${edgeLabels.bottom}`, CANVAS_SIZE / 2, CANVAS_SIZE - 42);
+            faceCtx.translate(42, CANVAS_SIZE / 2);
+            faceCtx.rotate(-Math.PI / 2);
+            faceCtx.fillText(`LEFT -> ${edgeLabels.left}`, 0, 0);
+            faceCtx.restore();
+
+            faceCtx.save();
+            faceCtx.font = '900 34px Arial';
+            faceCtx.textAlign = 'center';
+            faceCtx.textBaseline = 'middle';
+            faceCtx.fillStyle = '#67e8f9';
+            faceCtx.translate(CANVAS_SIZE - 42, CANVAS_SIZE / 2);
+            faceCtx.rotate(Math.PI / 2);
+            faceCtx.fillText(`RIGHT -> ${edgeLabels.right}`, 0, 0);
+            faceCtx.restore();
+
+            faceCtx.font = '900 24px Arial';
+            faceCtx.fillStyle = '#f472b6';
+            faceCtx.textAlign = 'left';
+            faceCtx.fillText('TL', 28, 84);
+            faceCtx.fillText('BL', 28, CANVAS_SIZE - 86);
+            faceCtx.textAlign = 'right';
+            faceCtx.fillText('TR', CANVAS_SIZE - 28, 84);
+            faceCtx.fillText('BR', CANVAS_SIZE - 28, CANVAS_SIZE - 86);
+
+            faceCtx.strokeStyle = '#f472b6';
+            faceCtx.lineWidth = 4;
+            faceCtx.setLineDash([18, 12]);
+            faceCtx.beginPath();
+            faceCtx.moveTo(0, 0);
+            faceCtx.lineTo(CANVAS_SIZE, CANVAS_SIZE);
+            faceCtx.moveTo(CANVAS_SIZE, 0);
+            faceCtx.lineTo(0, CANVAS_SIZE);
+            faceCtx.stroke();
+            faceCtx.setLineDash([]);
+            return faceCanvas;
+        }
+
+        async function downloadBetaSkyboxGridPack() {
+            showLoading('BETA 전체 테스트 스카이박스를 만드는 중이에요.');
+            try {
+                const renderedFaces = FACES.map(face => {
+                    const canvas = createBetaSkyboxGridFace(face);
+                    return { face, canvas, base64: canvas.toDataURL('image/png').split(',')[1] };
+                });
+
+                if (typeof JSZip === 'undefined') {
+                    alert('ZIP 라이브러리를 불러오지 못해서 파일별로 내보냅니다.');
+                    for (const item of renderedFaces) {
+                        const blob = await canvasToBlob(item.canvas);
+                        downloadBlob(blob, `sky512_${item.face}.tex`);
+                    }
+                    return;
+                }
+
+                const zip = new JSZip();
+                renderedFaces.forEach(item => {
+                    zip.file(`sky512_${item.face}.tex`, item.base64, { base64: true });
+                    zip.file(`preview_${item.face}.png`, item.base64, { base64: true });
+                });
+                const blob = await zip.generateAsync({ type: 'blob' });
+                downloadBlob(blob, 'skybox_beta_distortion_grid.zip');
+            } catch (error) {
+                alert(`BETA 테스트 스카이박스 생성 실패\n${getErrorMessage(error)}`);
+            } finally {
+                hideLoading();
+            }
         }
 
         async function addImagesToFacePair(files) {
@@ -3898,7 +4023,7 @@
         });
         document.querySelectorAll('.face-tab').forEach(button => button.addEventListener('click', () => setActiveFace(button.dataset.face)));
         document.querySelectorAll('.face-pair-tab').forEach(button => button.addEventListener('click', () => setActiveFacePair(button.dataset.facePair)));
-        addPairTestGridButton?.addEventListener('click', addPairDistortionGrid);
+        addPairTestGridButton?.addEventListener('click', downloadBetaSkyboxGridPack);
 
         window.addEventListener('keydown', event => {
             const tag = document.activeElement?.tagName;
