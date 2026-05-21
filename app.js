@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.21.3';
+        const APP_VERSION = 'v2026.05.21.4';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -1807,7 +1807,7 @@
             element.previewUrl = element.processedCanvas.toDataURL('image/png');
         }
 
-        function createPairSplitCanvases(sourceCanvas) {
+        function createLinearPairSplitCanvases(sourceCanvas) {
             const pairWidth = CANVAS_SIZE * 2;
             const pairHeight = CANVAS_SIZE;
             const pairCanvas = createEmptyCanvas(pairWidth, pairHeight);
@@ -1822,6 +1822,122 @@
                 faceCanvas.getContext('2d').drawImage(pairCanvas, offsetX, 0, CANVAS_SIZE, CANVAS_SIZE, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
                 return faceCanvas;
             });
+        }
+
+        function findSharedPairEdges(faceA, faceB) {
+            const linksA = getCubeEdgeLinks(faceA);
+            const linksB = getCubeEdgeLinks(faceB);
+            const edgeA = Object.entries(linksA).find(([, link]) => link.face === faceB)?.[0] || '';
+            const edgeB = Object.entries(linksB).find(([, link]) => link.face === faceA)?.[0] || '';
+            return edgeA && edgeB ? { edgeA, edgeB } : null;
+        }
+
+        function isHorizontalEdge(edge) {
+            return edge === 'left' || edge === 'right';
+        }
+
+        function isInSeamHalf(edge, x, y) {
+            if (edge === 'right') return x >= CANVAS_SIZE / 2;
+            if (edge === 'left') return x < CANVAS_SIZE / 2;
+            if (edge === 'bottom') return y >= CANVAS_SIZE / 2;
+            if (edge === 'top') return y < CANVAS_SIZE / 2;
+            return false;
+        }
+
+        function getCenterToSeamProgress(edge, x, y) {
+            const half = CANVAS_SIZE / 2;
+            if (edge === 'right') return clamp((x - half) / half, 0, 1);
+            if (edge === 'left') return clamp((half - 1 - x) / half, 0, 1);
+            if (edge === 'bottom') return clamp((y - half) / half, 0, 1);
+            if (edge === 'top') return clamp((half - 1 - y) / half, 0, 1);
+            return 0;
+        }
+
+        function getAngular01(value) {
+            return clamp(Math.atan(clamp(value, 0, 1)) / (Math.PI / 4), 0, 1);
+        }
+
+        function getFoldAlong01(edge, x, y) {
+            const raw = isHorizontalEdge(edge) ? y / (CANVAS_SIZE - 1) : x / (CANVAS_SIZE - 1);
+            const centered = raw * 2 - 1;
+            return clamp((Math.atan(centered) / (Math.PI / 4) + 1) / 2, 0, 1);
+        }
+
+        function sampleImageDataBilinear(imageData, u, v) {
+            const { width, height, data } = imageData;
+            const px = clamp(u, 0, 1) * (width - 1);
+            const py = clamp(v, 0, 1) * (height - 1);
+            const x0 = Math.floor(px);
+            const y0 = Math.floor(py);
+            const x1 = Math.min(width - 1, x0 + 1);
+            const y1 = Math.min(height - 1, y0 + 1);
+            const tx = px - x0;
+            const ty = py - y0;
+            const out = [0, 0, 0, 0];
+            const blend = (x, y, weight) => {
+                const index = (y * width + x) * 4;
+                out[0] += data[index] * weight;
+                out[1] += data[index + 1] * weight;
+                out[2] += data[index + 2] * weight;
+                out[3] += data[index + 3] * weight;
+            };
+            blend(x0, y0, (1 - tx) * (1 - ty));
+            blend(x1, y0, tx * (1 - ty));
+            blend(x0, y1, (1 - tx) * ty);
+            blend(x1, y1, tx * ty);
+            return out;
+        }
+
+        function createFoldSourceCanvas(sourceCanvas) {
+            const foldCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
+            const foldCtx = foldCanvas.getContext('2d');
+            const fit = Math.min(CANVAS_SIZE * 0.92 / sourceCanvas.width, CANVAS_SIZE * 0.86 / sourceCanvas.height);
+            const drawWidth = sourceCanvas.width * fit;
+            const drawHeight = sourceCanvas.height * fit;
+            foldCtx.drawImage(sourceCanvas, (CANVAS_SIZE - drawWidth) / 2, (CANVAS_SIZE - drawHeight) / 2, drawWidth, drawHeight);
+            return foldCanvas;
+        }
+
+        function createFoldedPairCanvases(sourceCanvas, faces) {
+            const [faceA, faceB] = faces || [];
+            const shared = findSharedPairEdges(faceA, faceB);
+            if (!shared) return createLinearPairSplitCanvases(sourceCanvas);
+
+            const foldCanvas = createFoldSourceCanvas(sourceCanvas);
+            const foldData = foldCanvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, foldCanvas.width, foldCanvas.height);
+            const outputs = [createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE), createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE)];
+            const outputData = outputs.map(canvas => canvas.getContext('2d', { willReadFrequently: true }).createImageData(CANVAS_SIZE, CANVAS_SIZE));
+            const configs = [
+                { edge: shared.edgeA, firstHalf: true },
+                { edge: shared.edgeB, firstHalf: false }
+            ];
+
+            configs.forEach((config, faceIndex) => {
+                const data = outputData[faceIndex].data;
+                for (let y = 0; y < CANVAS_SIZE; y++) {
+                    for (let x = 0; x < CANVAS_SIZE; x++) {
+                        if (!isInSeamHalf(config.edge, x, y)) continue;
+                        const bend = getAngular01(getCenterToSeamProgress(config.edge, x, y));
+                        const along = getFoldAlong01(config.edge, x, y);
+                        const across = config.firstHalf ? bend * 0.5 : 1 - bend * 0.5;
+                        const sourceU = isHorizontalEdge(config.edge) ? across : along;
+                        const sourceV = isHorizontalEdge(config.edge) ? along : across;
+                        const color = sampleImageDataBilinear(foldData, sourceU, sourceV);
+                        const index = (y * CANVAS_SIZE + x) * 4;
+                        data[index] = color[0];
+                        data[index + 1] = color[1];
+                        data[index + 2] = color[2];
+                        data[index + 3] = color[3];
+                    }
+                }
+                outputs[faceIndex].getContext('2d').putImageData(outputData[faceIndex], 0, 0);
+            });
+
+            return outputs;
+        }
+
+        function createPairSplitCanvases(sourceCanvas, faces = []) {
+            return createFoldedPairCanvases(sourceCanvas, faces);
         }
 
         function createPairDistortionGrid() {
@@ -2004,7 +2120,7 @@
                     showLoading(`면 사이 이미지 분할 중...\n${file.name}`);
                     const image = await fileToImage(file);
                     const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
-                    const splitCanvases = createPairSplitCanvases(baseCanvas);
+                    const splitCanvases = createPairSplitCanvases(baseCanvas, faces);
                     splitCanvases.forEach((partCanvas, index) => {
                         const element = createImageElement(`${file.name.replace(/\.[^.]+$/, '')} ${faces[index].toUpperCase()}-pair`, partCanvas);
                         element.x = CANVAS_SIZE / 2;
@@ -2015,7 +2131,7 @@
                         if (faces[index] === activeFace) selectedId = element.id;
                     });
                 }
-                lastBackgroundUploadReport = `[BETA 면 사이 편집]\n${faces[0].toUpperCase()} / ${faces[1].toUpperCase()} 사이에 이미지를 분할 배치했습니다. 내보내면 각 면 파일로 따로 저장됩니다.`;
+                lastBackgroundUploadReport = `[BETA 면 사이 편집]\n${faces[0].toUpperCase()} / ${faces[1].toUpperCase()} 사이에 이미지를 큐브 모서리처럼 접어서 배치했습니다. 내보내면 각 면 파일로 따로 저장됩니다.`;
                 render();
                 return true;
             } finally {
@@ -2769,7 +2885,7 @@
             renderCtx.fillText('BETA EDGE EDIT', CANVAS_SIZE / 2, CANVAS_SIZE * 0.79);
             renderCtx.fillStyle = 'rgba(203, 213, 225, 0.78)';
             renderCtx.font = '600 14px Arial';
-            renderCtx.fillText('이미지 추가 시 이 경계 기준으로 두 면에 자동 분할됩니다.', CANVAS_SIZE / 2, CANVAS_SIZE * 0.82);
+            renderCtx.fillText('이미지 추가 시 경계 기준으로 반씩 접힌 큐브 보정이 들어갑니다.', CANVAS_SIZE / 2, CANVAS_SIZE * 0.82);
             renderCtx.restore();
         }
 
