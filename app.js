@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.21.4';
+        const APP_VERSION = 'v2026.05.26.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -880,8 +880,10 @@
             if (element.type === 'image') {
                 serialized.originalCanvasData = canvasToDataURL(element.originalCanvas);
                 serialized.maskCanvasData = canvasToDataURL(element.maskCanvas);
+                serialized.pairSourceCanvasData = canvasToDataURL(element.pairSourceCanvas);
                 delete serialized.originalCanvas;
                 delete serialized.maskCanvas;
+                delete serialized.pairSourceCanvas;
                 delete serialized.processedCanvas;
                 delete serialized.previewUrl;
             }
@@ -921,6 +923,7 @@
             const element = { ...serialized };
             element.originalCanvas = await canvasFromDataURL(serialized.originalCanvasData);
             element.maskCanvas = await canvasFromDataURL(serialized.maskCanvasData || serialized.originalCanvasData);
+            element.pairSourceCanvas = await canvasFromDataURL(serialized.pairSourceCanvasData || '');
             if (!element.originalCanvas || !element.maskCanvas) {
                 throw new Error(`${serialized.name || '이미지'} 레이어 복원 실패`);
             }
@@ -932,6 +935,7 @@
             element.previewUrl = '';
             delete element.originalCanvasData;
             delete element.maskCanvasData;
+            delete element.pairSourceCanvasData;
             await updateImageProcessing(element);
             return element;
         }
@@ -2114,24 +2118,31 @@
         async function addImagesToFacePair(files) {
             const faces = getActivePairFaces();
             if (faces.length !== 2) return false;
-            showLoading(`${faces[0].toUpperCase()}/${faces[1].toUpperCase()} 면 사이에 이미지를 분할 배치하는 중이에요.`);
+            showLoading(`${faces[0].toUpperCase()}/${faces[1].toUpperCase()} 면 사이 기록을 만드는 중이에요.`);
             try {
                 for (const file of files) {
-                    showLoading(`면 사이 이미지 분할 중...\n${file.name}`);
+                    showLoading(`면 사이 자동 왜곡 기록 중...\n${file.name}`);
                     const image = await fileToImage(file);
                     const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
                     const splitCanvases = createPairSplitCanvases(baseCanvas, faces);
+                    const pairWarpId = generateId();
                     splitCanvases.forEach((partCanvas, index) => {
                         const element = createImageElement(`${file.name.replace(/\.[^.]+$/, '')} ${faces[index].toUpperCase()}-pair`, partCanvas);
                         element.x = CANVAS_SIZE / 2;
                         element.y = CANVAS_SIZE / 2;
                         element.scale = 1;
-                        element.name = `${element.name} BETA면사이`;
+                        element.name = `${element.name} 자동왜곡`;
+                        element.autoPairWarp = true;
+                        element.pairWarpId = pairWarpId;
+                        element.pairFaces = [...faces];
+                        element.pairIndex = index;
+                        element.pairSourceName = file.name;
+                        element.pairSourceCanvas = copyCanvas(baseCanvas);
                         getFaceState(faces[index]).elements.push(element);
                         if (faces[index] === activeFace) selectedId = element.id;
                     });
                 }
-                lastBackgroundUploadReport = `[BETA 면 사이 편집]\n${faces[0].toUpperCase()} / ${faces[1].toUpperCase()} 사이에 이미지를 큐브 모서리처럼 접어서 배치했습니다. 내보내면 각 면 파일로 따로 저장됩니다.`;
+                lastBackgroundUploadReport = `[자동 왜곡 기록]\n${faces[0].toUpperCase()} / ${faces[1].toUpperCase()} 사이에 원본 이미지를 기록했습니다. 전체 내보내기 때 로블록스 큐브 원근으로 자동 변환됩니다.`;
                 render();
                 return true;
             } finally {
@@ -2361,22 +2372,7 @@
             renderCtx.fillStyle = rgbaWithOpacity(faceState.backgroundColor, faceState.backgroundOpacity);
             renderCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
             if (faceState.background) {
-                const backgroundCanvas = createRobloxSeamCanvas(faceKey, faceState.background, faceState.backgroundSeam, faceState.backgroundDiagonal);
-                const curve = Number(faceState.backgroundCurve || 0);
-                if (Math.abs(curve) > 0.01) {
-                    renderCtx.save();
-                    renderCtx.translate(CANVAS_SIZE / 2, CANVAS_SIZE / 2);
-                    drawPerspectiveImage(renderCtx, backgroundCanvas, CANVAS_SIZE, CANVAS_SIZE, {
-                        perspectiveX: 0,
-                        perspectiveY: 0,
-                        perspectiveBend: 0,
-                        perspectiveCurve: curve,
-                        shadow: { color: '#000000', blur: 0, offsetX: 0, offsetY: 0, opacity: 0 }
-                    });
-                    renderCtx.restore();
-                } else {
-                    renderCtx.drawImage(backgroundCanvas, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
-                }
+                renderCtx.drawImage(faceState.background, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
             }
             renderCtx.restore();
         }
@@ -2848,6 +2844,37 @@
             });
         }
 
+        async function createExportImageElement(element, pairWarpCache) {
+            if (!element.autoPairWarp || !element.pairSourceCanvas || !Array.isArray(element.pairFaces)) return element;
+            const cacheKey = element.pairWarpId || `${element.pairFaces.join('/')}:${element.pairSourceName || element.name}`;
+            if (!pairWarpCache.has(cacheKey)) {
+                pairWarpCache.set(cacheKey, createPairSplitCanvases(element.pairSourceCanvas, element.pairFaces));
+            }
+            const warpedCanvas = pairWarpCache.get(cacheKey)[Number(element.pairIndex || 0)] || element.originalCanvas;
+            const exportElement = {
+                ...element,
+                originalCanvas: copyCanvas(warpedCanvas),
+                maskCanvas: copyCanvas(warpedCanvas),
+                processedCanvas: copyCanvas(warpedCanvas),
+                previewUrl: ''
+            };
+            await updateImageProcessing(exportElement);
+            return exportElement;
+        }
+
+        async function drawSceneForExport(faceKey, renderCtx, pairWarpCache) {
+            const faceState = getFaceState(faceKey);
+            drawBackground(faceState, renderCtx, faceKey);
+            for (const element of faceState.elements) {
+                if (!element.visible) continue;
+                if (element.type === 'image') {
+                    const exportElement = await createExportImageElement(element, pairWarpCache);
+                    drawImageElement(exportElement, renderCtx, false);
+                }
+                if (element.type === 'text') drawTextElement(element, renderCtx, false);
+            }
+        }
+
         function getActivePairFaces() {
             return String(selectedFacePair || '').split('/').filter(face => FACES.includes(face)).slice(0, 2);
         }
@@ -2949,18 +2976,6 @@
             const face = getFaceState();
             document.getElementById('canvas-bg-color').value = face.backgroundColor;
             document.getElementById('canvas-bg-opacity').value = face.backgroundOpacity;
-            const curveInput = document.getElementById('canvas-bg-curve');
-            const curveLabel = document.getElementById('canvas-bg-curve-value');
-            const seamInput = document.getElementById('canvas-bg-seam');
-            const seamLabel = document.getElementById('canvas-bg-seam-value');
-            const diagonalInput = document.getElementById('canvas-bg-diagonal');
-            const diagonalLabel = document.getElementById('canvas-bg-diagonal-value');
-            if (curveInput && curveInput !== document.activeElement) curveInput.value = Number(face.backgroundCurve || 0);
-            if (curveLabel) curveLabel.textContent = String(Number(face.backgroundCurve || 0));
-            if (seamInput && seamInput !== document.activeElement) seamInput.value = Number(face.backgroundSeam || 0);
-            if (seamLabel) seamLabel.textContent = String(Number(face.backgroundSeam || 0));
-            if (diagonalInput && diagonalInput !== document.activeElement) diagonalInput.value = Number(face.backgroundDiagonal || 0);
-            if (diagonalLabel) diagonalLabel.textContent = String(Number(face.backgroundDiagonal || 0));
             document.getElementById('layer-count').textContent = `${face.elements.length} items`;
             updateBackgroundStatusUI();
         }
@@ -3590,6 +3605,7 @@
                     originalCanvas: copyCanvas(selected.originalCanvas),
                     maskCanvas: copyCanvas(selected.maskCanvas),
                     processedCanvas: copyCanvas(selected.processedCanvas),
+                    pairSourceCanvas: selected.pairSourceCanvas ? copyCanvas(selected.pairSourceCanvas) : null,
                     previewUrl: ''
                 }
                 : {
@@ -3646,12 +3662,13 @@
             showLoading('내보내기 전 작업 기록을 자동 저장하는 중이에요.');
             try {
                 await saveCurrentProject(`전체 내보내기 자동 저장 ${new Date().toLocaleString('ko-KR')}`, { silent: true });
-                showLoading('각 면을 렌더링해서 ZIP으로 묶는 중이에요.');
+                showLoading('면 사이 기록을 로블록스 원근으로 자동 변환하는 중이에요.');
                 const renderedFaces = [];
+                const pairWarpCache = new Map();
                 for (const face of FACES) {
                     const tempCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
                     const tempCtx = tempCanvas.getContext('2d');
-                    drawScene(face, tempCtx, false);
+                    await drawSceneForExport(face, tempCtx, pairWarpCache);
                     renderedFaces.push({
                         face,
                         canvas: tempCanvas,
@@ -4125,10 +4142,6 @@
         });
         document.getElementById('canvas-bg-color').addEventListener('input', event => { getFaceState().backgroundColor = event.target.value; render(); });
         document.getElementById('canvas-bg-opacity').addEventListener('input', event => { getFaceState().backgroundOpacity = Number(event.target.value); render(); });
-        document.getElementById('canvas-bg-curve').addEventListener('input', event => { getFaceState().backgroundCurve = Number(event.target.value); render(); });
-        document.getElementById('canvas-bg-seam').addEventListener('input', event => { getFaceState().backgroundSeam = Number(event.target.value); render(); });
-        document.getElementById('canvas-bg-diagonal').addEventListener('input', event => { getFaceState().backgroundDiagonal = Number(event.target.value); render(); });
-        document.getElementById('apply-roblox-seam').addEventListener('click', applyRobloxSeamPreset);
         backgroundTemplateColor.addEventListener('input', updateAndApplyCustomGridBackground);
         applyBackgroundTemplateButton.addEventListener('click', applyCustomGridBackground);
         document.querySelectorAll('[data-grid-mode]').forEach(button => {
