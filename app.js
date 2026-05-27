@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.26.1';
+        const APP_VERSION = 'v2026.05.27.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -103,6 +103,12 @@
         const posterAccentColor = document.getElementById('poster-accent-color');
         const posterOptionsApply = document.getElementById('poster-options-apply');
         const posterOptionsCancel = document.getElementById('poster-options-cancel');
+        const projectHistoryModal = document.getElementById('project-history-modal');
+        const projectHistoryList = document.getElementById('project-history-list');
+        const projectHistoryClose = document.getElementById('project-history-close');
+        const projectHistoryRefresh = document.getElementById('project-history-refresh');
+        const projectHistoryExport = document.getElementById('project-history-export');
+        const projectHistoryImport = document.getElementById('project-history-import');
         const canvaBgModal = document.getElementById('canva-bg-modal');
         const openCanvaHelperButton = document.getElementById('open-canva-helper');
         const openCanvaBgButton = document.getElementById('open-canva-bg');
@@ -875,6 +881,10 @@
             return runProjectStore('readonly', store => store.getAll());
         }
 
+        function deleteProjectSnapshot(id) {
+            return runProjectStore('readwrite', store => store.delete(id));
+        }
+
         function serializeElement(element) {
             const serialized = { ...element };
             if (element.type === 'image') {
@@ -985,33 +995,176 @@
                 const title = `작업 ${new Date().toLocaleString('ko-KR')}`;
                 const snapshot = await saveCurrentProject(title);
                 alert(`작업을 저장했습니다.\n${snapshot.title}`);
+                if (projectHistoryModal?.classList.contains('visible')) await refreshProjectHistoryList();
             } catch (error) {
                 alert(`작업 저장 실패\n${getErrorMessage(error)}`);
             }
         }
 
-        async function handleLoadProject() {
+        function formatSnapshotDate(value) {
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return '날짜 없음';
+            return date.toLocaleString('ko-KR');
+        }
+
+        function getSnapshotStats(snapshot) {
+            const faces = snapshot?.state || {};
+            let layers = 0;
+            let images = 0;
+            let texts = 0;
+            let backgrounds = 0;
+            FACES.forEach(face => {
+                const faceState = faces[face] || {};
+                const elements = Array.isArray(faceState.elements) ? faceState.elements : [];
+                layers += elements.length;
+                images += elements.filter(element => element.type === 'image').length;
+                texts += elements.filter(element => element.type === 'text').length;
+                if (faceState.backgroundData || faceState.backgroundName) backgrounds += 1;
+            });
+            return { layers, images, texts, backgrounds };
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, ch => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[ch]));
+        }
+
+        function normalizeImportedSnapshot(snapshot, index = 0) {
+            if (!snapshot || typeof snapshot !== 'object' || !snapshot.state) return null;
+            return {
+                ...snapshot,
+                id: snapshot.id && typeof snapshot.id === 'string' ? snapshot.id : `snapshot-imported-${Date.now()}-${index}`,
+                title: snapshot.title || `가져온 작업 ${index + 1}`,
+                savedAt: snapshot.savedAt || new Date().toISOString()
+            };
+        }
+
+        async function refreshProjectHistoryList() {
+            if (!projectHistoryList) return;
+            projectHistoryList.innerHTML = '<div class="text-sm text-slate-400">작업 기록을 읽는 중이에요.</div>';
+            const snapshots = (await getProjectSnapshots())
+                .filter(snapshot => snapshot?.state)
+                .sort((a, b) => new Date(b.savedAt || 0) - new Date(a.savedAt || 0));
+
+            if (snapshots.length === 0) {
+                projectHistoryList.innerHTML = `
+                    <div class="rounded-[24px] border border-white/10 bg-white/[0.04] p-6 text-sm text-slate-400 leading-6">
+                        아직 저장된 작업 기록이 없습니다. 위쪽의 <b class="text-white">작업 저장</b>을 먼저 눌러 주세요.
+                    </div>
+                `;
+                return;
+            }
+
+            projectHistoryList.innerHTML = snapshots.map(snapshot => {
+                const stats = getSnapshotStats(snapshot);
+                const isAuto = snapshot.id === 'snapshot-autosave';
+                return `
+                    <div class="project-history-card" data-snapshot-id="${escapeHtml(snapshot.id)}">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <div class="text-base font-black text-white truncate">${escapeHtml(snapshot.title || '작업 기록')}</div>
+                                    ${isAuto ? '<span class="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-1 text-[10px] font-black text-cyan-200">AUTO</span>' : ''}
+                                </div>
+                                <div class="project-history-meta mt-2">
+                                    저장: ${escapeHtml(formatSnapshotDate(snapshot.savedAt))} · 면: ${(snapshot.activeFace || 'ft').toUpperCase()} · 레이어 ${stats.layers}개 · 이미지 ${stats.images}개 · 텍스트 ${stats.texts}개 · 배경 ${stats.backgrounds}/6
+                                </div>
+                            </div>
+                            <div class="flex shrink-0 gap-2">
+                                <button type="button" class="tool-button primary" data-history-action="load">불러오기</button>
+                                <button type="button" class="tool-button danger" data-history-action="delete">삭제</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function openProjectHistoryModal() {
+            projectHistoryModal?.classList.add('visible');
             try {
-                const snapshots = (await getProjectSnapshots())
-                    .filter(snapshot => snapshot.id !== 'snapshot-autosave')
-                    .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
-                if (snapshots.length === 0) {
-                    const autoSaveSnapshot = await getProjectSnapshot('snapshot-autosave');
-                    if (!autoSaveSnapshot) {
-                        alert('아직 저장된 작업 기록이 없습니다.');
-                        return;
-                    }
-                    showLoading('자동 저장된 작업을 불러오는 중이에요.');
-                    await restoreProjectSnapshot(autoSaveSnapshot);
-                    alert('자동 저장된 최근 작업을 불러왔습니다.');
+                await refreshProjectHistoryList();
+            } catch (error) {
+                if (projectHistoryList) projectHistoryList.innerHTML = `<div class="text-sm text-rose-300">작업 기록을 읽지 못했습니다: ${escapeHtml(getErrorMessage(error))}</div>`;
+            }
+        }
+
+        function closeProjectHistoryModal() {
+            projectHistoryModal?.classList.remove('visible');
+        }
+
+        async function handleProjectHistoryClick(event) {
+            const button = event.target.closest('[data-history-action]');
+            if (!button) return;
+            const card = button.closest('[data-snapshot-id]');
+            const snapshotId = card?.dataset.snapshotId;
+            if (!snapshotId) return;
+            const action = button.dataset.historyAction;
+            try {
+                if (action === 'load') {
+                    showLoading('선택한 작업 기록을 불러오는 중이에요.');
+                    const snapshot = await getProjectSnapshot(snapshotId);
+                    await restoreProjectSnapshot(snapshot);
+                    closeProjectHistoryModal();
+                    alert(`작업 기록을 불러왔습니다.\n${snapshot.title || snapshotId}`);
                     return;
                 }
-                showLoading('작업 기록을 불러오는 중이에요.');
-                const latestSnapshot = await getProjectSnapshot(snapshots[0].id);
-                await restoreProjectSnapshot(latestSnapshot);
-                alert(`가장 최근 작업을 불러왔습니다.\n${snapshots[0].title}`);
+                if (action === 'delete') {
+                    if (!confirm('이 작업 기록을 삭제할까요?')) return;
+                    await deleteProjectSnapshot(snapshotId);
+                    await refreshProjectHistoryList();
+                }
             } catch (error) {
-                alert(`작업 불러오기 실패\n${getErrorMessage(error)}`);
+                alert(`작업 기록 처리 실패\n${getErrorMessage(error)}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function exportProjectHistoryFile() {
+            try {
+                showLoading('작업 기록 파일을 만드는 중이에요.');
+                const snapshots = (await getProjectSnapshots()).filter(snapshot => snapshot?.state);
+                if (snapshots.length === 0) {
+                    alert('내보낼 작업 기록이 없습니다.');
+                    return;
+                }
+                const payload = {
+                    schema: 'skybox-studio-project-history',
+                    version: APP_VERSION,
+                    exportedAt: new Date().toISOString(),
+                    snapshots
+                };
+                const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+                downloadBlob(blob, `skybox_project_history_${Date.now()}.json`);
+            } catch (error) {
+                alert(`작업 기록 내보내기 실패\n${getErrorMessage(error)}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function importProjectHistoryFile(file) {
+            if (!file) return;
+            try {
+                showLoading('작업 기록 파일을 가져오는 중이에요.');
+                const payload = JSON.parse(await file.text());
+                const rawSnapshots = Array.isArray(payload) ? payload : payload.snapshots;
+                if (!Array.isArray(rawSnapshots)) throw new Error('작업 기록 JSON 형식이 아닙니다.');
+                const snapshots = rawSnapshots.map(normalizeImportedSnapshot).filter(Boolean);
+                if (snapshots.length === 0) throw new Error('가져올 수 있는 작업 기록이 없습니다.');
+                for (const snapshot of snapshots) {
+                    await putProjectSnapshot(snapshot);
+                }
+                await refreshProjectHistoryList();
+                alert(`작업 기록 ${snapshots.length}개를 가져왔습니다.`);
+            } catch (error) {
+                alert(`작업 기록 가져오기 실패\n${getErrorMessage(error)}`);
             } finally {
                 hideLoading();
             }
@@ -4090,7 +4243,15 @@
         document.getElementById('open-cutout').addEventListener('click', openCutoutEditor);
         document.getElementById('delete-layer').addEventListener('click', () => { if (selectedId) removeElement(selectedId); });
         document.getElementById('save-project').addEventListener('click', handleManualSave);
-        document.getElementById('load-project').addEventListener('click', handleLoadProject);
+        document.getElementById('load-project').addEventListener('click', openProjectHistoryModal);
+        projectHistoryClose?.addEventListener('click', closeProjectHistoryModal);
+        projectHistoryRefresh?.addEventListener('click', refreshProjectHistoryList);
+        projectHistoryExport?.addEventListener('click', exportProjectHistoryFile);
+        projectHistoryList?.addEventListener('click', handleProjectHistoryClick);
+        projectHistoryImport?.addEventListener('change', async event => {
+            await importProjectHistoryFile(event.target.files?.[0]);
+            event.target.value = '';
+        });
         document.getElementById('apply-poster-background').addEventListener('click', applyPosterBackgroundPreset);
         document.getElementById('arrange-poster-layout').addEventListener('click', arrangePosterLayoutForCurrentFace);
         document.getElementById('export-all').addEventListener('click', exportAll);
