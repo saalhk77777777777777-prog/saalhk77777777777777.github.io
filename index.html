@@ -107,6 +107,42 @@
         </div>
     </div>
 
+    <div id="cloud-sync-modal" class="modal-backdrop">
+        <div class="panel-strong rounded-[30px] w-full max-w-2xl overflow-hidden">
+            <div class="p-6 border-b border-white/10 flex items-start justify-between gap-4">
+                <div>
+                    <div class="property-label">Site Cloud Storage</div>
+                    <h2 class="text-xl font-black mt-2">사이트 자체 기록 동기화</h2>
+                    <p class="text-sm text-slate-400 mt-2 leading-6">Supabase 무료 DB를 붙이면 같은 방 키를 쓰는 기기끼리 작업 기록을 공유할 수 있습니다.</p>
+                </div>
+                <button id="cloud-sync-close" type="button" class="tool-button">닫기</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <label class="block">
+                    <div class="text-[11px] font-bold text-slate-400 mb-2">Supabase Project URL</div>
+                    <input id="cloud-supabase-url" class="text-input" placeholder="https://xxxx.supabase.co">
+                </label>
+                <label class="block">
+                    <div class="text-[11px] font-bold text-slate-400 mb-2">Supabase anon key</div>
+                    <input id="cloud-supabase-key" class="text-input" placeholder="eyJhbGciOi...">
+                </label>
+                <label class="block">
+                    <div class="text-[11px] font-bold text-slate-400 mb-2">방 키</div>
+                    <input id="cloud-room-key" class="text-input" placeholder="my-skybox-room">
+                </label>
+                <div class="rounded-[22px] border border-white/10 bg-white/[0.04] p-4 text-xs text-slate-400 leading-6">
+                    Supabase SQL Editor에서 아래 테이블을 한 번만 만들면 됩니다.<br>
+                    <code>create table skybox_project_histories (room_key text primary key, payload jsonb not null, updated_at timestamptz default now());</code>
+                </div>
+                <div class="flex flex-wrap justify-end gap-2 pt-2">
+                    <button id="cloud-save-config" type="button" class="tool-button">설정 저장</button>
+                    <button id="cloud-upload-history" type="button" class="tool-button success">이 기기 기록 올리기</button>
+                    <button id="cloud-download-history" type="button" class="tool-button primary">사이트 기록 가져오기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="canva-bg-modal" class="modal-backdrop">
         <div class="panel-strong rounded-[30px] w-full max-w-2xl overflow-hidden">
             <div class="p-6 border-b border-white/10 flex items-start justify-between gap-4">
@@ -260,6 +296,7 @@
                 <button id="delete-layer" class="tool-button danger">삭제</button>
                 <button id="save-project" class="tool-button success">작업 저장</button>
                 <button id="load-project" class="tool-button">기록 불러오기</button>
+                <button id="open-cloud-sync" class="tool-button success">사이트 저장소</button>
                 <button id="change-layout-mode" class="tool-button">화면 모드</button>
                 <a class="tool-button" href="https://nenekomashiro.com" target="_blank" rel="noopener noreferrer">[짤사이트]</a>
                 <button id="export-all" class="tool-button primary">전체 내보내기 ZIP</button>
@@ -442,7 +479,7 @@
         <canvas id="mobile-slider-preview-canvas" width="1024" height="1024"></canvas>
         <div class="mobile-slider-preview-label">미리보기</div>
     </div>
-    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.27.1</span></div>
+    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.27.2</span></div>
     <script src="./app.js"></script>
 </body>
 </html>

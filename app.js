@@ -1,11 +1,12 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.27.1';
+        const APP_VERSION = 'v2026.05.27.2';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
         const FONT_OPTIONS = ['Pretendard', 'Arial', 'Georgia', 'Verdana', 'Trebuchet MS', 'Courier New'];
         const AI_CONFIG_STORAGE_KEY = 'skybox-ai-config-v1';
         const LAYOUT_MODE_STORAGE_KEY = 'skybox-layout-mode-v1';
+        const CLOUD_SYNC_CONFIG_KEY = 'skybox-cloud-sync-config-v1';
         const BG_QUOTA_STORAGE_KEY = 'skybox-remove-bg-quota-v1';
         const BG_QUOTA_MONTHLY_LIMIT = 50;
         const BG_QUOTA_INITIAL_REMAINING = 13;
@@ -109,6 +110,15 @@
         const projectHistoryRefresh = document.getElementById('project-history-refresh');
         const projectHistoryExport = document.getElementById('project-history-export');
         const projectHistoryImport = document.getElementById('project-history-import');
+        const cloudSyncModal = document.getElementById('cloud-sync-modal');
+        const openCloudSyncButton = document.getElementById('open-cloud-sync');
+        const cloudSyncClose = document.getElementById('cloud-sync-close');
+        const cloudSupabaseUrl = document.getElementById('cloud-supabase-url');
+        const cloudSupabaseKey = document.getElementById('cloud-supabase-key');
+        const cloudRoomKey = document.getElementById('cloud-room-key');
+        const cloudSaveConfig = document.getElementById('cloud-save-config');
+        const cloudUploadHistory = document.getElementById('cloud-upload-history');
+        const cloudDownloadHistory = document.getElementById('cloud-download-history');
         const canvaBgModal = document.getElementById('canva-bg-modal');
         const openCanvaHelperButton = document.getElementById('open-canva-helper');
         const openCanvaBgButton = document.getElementById('open-canva-bg');
@@ -1098,6 +1108,125 @@
             projectHistoryModal?.classList.remove('visible');
         }
 
+        function getCloudSyncConfig() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(CLOUD_SYNC_CONFIG_KEY) || '{}');
+                return {
+                    url: String(saved.url || '').trim().replace(/\/+$/, ''),
+                    key: String(saved.key || '').trim(),
+                    roomKey: String(saved.roomKey || '').trim()
+                };
+            } catch {
+                return { url: '', key: '', roomKey: '' };
+            }
+        }
+
+        function setCloudInputsFromConfig() {
+            const config = getCloudSyncConfig();
+            if (cloudSupabaseUrl) cloudSupabaseUrl.value = config.url;
+            if (cloudSupabaseKey) cloudSupabaseKey.value = config.key;
+            if (cloudRoomKey) cloudRoomKey.value = config.roomKey;
+        }
+
+        function pullCloudSyncConfigFromInputs() {
+            const config = {
+                url: String(cloudSupabaseUrl?.value || '').trim().replace(/\/+$/, ''),
+                key: String(cloudSupabaseKey?.value || '').trim(),
+                roomKey: String(cloudRoomKey?.value || '').trim()
+            };
+            localStorage.setItem(CLOUD_SYNC_CONFIG_KEY, JSON.stringify(config));
+            return config;
+        }
+
+        function requireCloudSyncConfig() {
+            const config = pullCloudSyncConfigFromInputs();
+            if (!config.url || !config.key || !config.roomKey) {
+                throw new Error('Supabase URL, anon key, 방 키를 모두 입력해 주세요.');
+            }
+            return config;
+        }
+
+        function openCloudSyncModal() {
+            setCloudInputsFromConfig();
+            cloudSyncModal?.classList.add('visible');
+        }
+
+        function closeCloudSyncModal() {
+            cloudSyncModal?.classList.remove('visible');
+        }
+
+        async function getProjectHistoryPayload() {
+            const snapshots = (await getProjectSnapshots()).filter(snapshot => snapshot?.state);
+            return {
+                schema: 'skybox-studio-project-history',
+                version: APP_VERSION,
+                exportedAt: new Date().toISOString(),
+                snapshots
+            };
+        }
+
+        async function uploadProjectHistoryToCloud() {
+            try {
+                const config = requireCloudSyncConfig();
+                showLoading('사이트 저장소에 작업 기록을 올리는 중이에요.');
+                const payload = await getProjectHistoryPayload();
+                if (payload.snapshots.length === 0) {
+                    alert('올릴 작업 기록이 없습니다.');
+                    return;
+                }
+                const response = await fetch(`${config.url}/rest/v1/skybox_project_histories?on_conflict=room_key`, {
+                    method: 'POST',
+                    headers: {
+                        apikey: config.key,
+                        Authorization: `Bearer ${config.key}`,
+                        'Content-Type': 'application/json',
+                        Prefer: 'resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify({
+                        room_key: config.roomKey,
+                        payload,
+                        updated_at: new Date().toISOString()
+                    })
+                });
+                if (!response.ok) throw new Error(await response.text());
+                alert(`사이트 저장소에 작업 기록 ${payload.snapshots.length}개를 올렸습니다.`);
+            } catch (error) {
+                alert(`사이트 저장소 업로드 실패\n${getErrorMessage(error)}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function downloadProjectHistoryFromCloud() {
+            try {
+                const config = requireCloudSyncConfig();
+                showLoading('사이트 저장소에서 작업 기록을 가져오는 중이에요.');
+                const url = `${config.url}/rest/v1/skybox_project_histories?room_key=eq.${encodeURIComponent(config.roomKey)}&select=payload,updated_at`;
+                const response = await fetch(url, {
+                    headers: {
+                        apikey: config.key,
+                        Authorization: `Bearer ${config.key}`
+                    }
+                });
+                if (!response.ok) throw new Error(await response.text());
+                const rows = await response.json();
+                const payload = rows?.[0]?.payload;
+                const rawSnapshots = payload?.snapshots;
+                if (!Array.isArray(rawSnapshots)) throw new Error('이 방 키에 저장된 작업 기록이 없습니다.');
+                const snapshots = rawSnapshots.map(normalizeImportedSnapshot).filter(Boolean);
+                if (snapshots.length === 0) throw new Error('가져올 수 있는 작업 기록이 없습니다.');
+                for (const snapshot of snapshots) {
+                    await putProjectSnapshot(snapshot);
+                }
+                await refreshProjectHistoryList();
+                alert(`사이트 저장소에서 작업 기록 ${snapshots.length}개를 가져왔습니다.`);
+            } catch (error) {
+                alert(`사이트 저장소 가져오기 실패\n${getErrorMessage(error)}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
         async function handleProjectHistoryClick(event) {
             const button = event.target.closest('[data-history-action]');
             if (!button) return;
@@ -1129,17 +1258,11 @@
         async function exportProjectHistoryFile() {
             try {
                 showLoading('작업 기록 파일을 만드는 중이에요.');
-                const snapshots = (await getProjectSnapshots()).filter(snapshot => snapshot?.state);
-                if (snapshots.length === 0) {
+                const payload = await getProjectHistoryPayload();
+                if (payload.snapshots.length === 0) {
                     alert('내보낼 작업 기록이 없습니다.');
                     return;
                 }
-                const payload = {
-                    schema: 'skybox-studio-project-history',
-                    version: APP_VERSION,
-                    exportedAt: new Date().toISOString(),
-                    snapshots
-                };
                 const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
                 downloadBlob(blob, `skybox_project_history_${Date.now()}.json`);
             } catch (error) {
@@ -4252,6 +4375,14 @@
             await importProjectHistoryFile(event.target.files?.[0]);
             event.target.value = '';
         });
+        openCloudSyncButton?.addEventListener('click', openCloudSyncModal);
+        cloudSyncClose?.addEventListener('click', closeCloudSyncModal);
+        cloudSaveConfig?.addEventListener('click', () => {
+            pullCloudSyncConfigFromInputs();
+            alert('사이트 저장소 설정을 저장했습니다.');
+        });
+        cloudUploadHistory?.addEventListener('click', uploadProjectHistoryToCloud);
+        cloudDownloadHistory?.addEventListener('click', downloadProjectHistoryFromCloud);
         document.getElementById('apply-poster-background').addEventListener('click', applyPosterBackgroundPreset);
         document.getElementById('arrange-poster-layout').addEventListener('click', arrangePosterLayoutForCurrentFace);
         document.getElementById('export-all').addEventListener('click', exportAll);
