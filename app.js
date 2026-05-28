@@ -1,9 +1,23 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.29.1';
+        const APP_VERSION = 'v2026.05.29.2';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
         const FONT_OPTIONS = ['Pretendard', 'Arial', 'Georgia', 'Verdana', 'Trebuchet MS', 'Courier New'];
+        const NEON_PRESETS = [
+            { key: 'pink', label: '네온핑크', color: '#ff2bd6' },
+            { key: 'blue', label: '네온블루', color: '#24d5ff' },
+            { key: 'red', label: '네온레드', color: '#ff1f2d' },
+            { key: 'mint', label: '네온민트', color: '#2dffb8' },
+            { key: 'purple', label: '네온퍼플', color: '#a855f7' },
+            { key: 'yellow', label: '네온옐로', color: '#facc15' },
+            { key: 'orange', label: '네온오렌지', color: '#fb923c' },
+            { key: 'lime', label: '네온라임', color: '#a3ff12' },
+            { key: 'cyan', label: '네온시안', color: '#67e8f9' },
+            { key: 'white', label: '화이트글로우', color: '#ffffff' },
+            { key: 'hotred', label: '핫레드', color: '#ff0055' },
+            { key: 'ice', label: '아이스블루', color: '#93c5fd' }
+        ];
         const AI_CONFIG_STORAGE_KEY = 'skybox-ai-config-v1';
         const LAYOUT_MODE_STORAGE_KEY = 'skybox-layout-mode-v1';
         const CLOUD_SYNC_CONFIG_KEY = 'skybox-cloud-sync-config-v1';
@@ -36,8 +50,8 @@
         let sliderPreviewTimer = null;
         let isSliderPreviewActive = false;
         let localBgRemovalModulePromise = null;
-        const POSTER_BACKGROUND_COLOR = '#b88ae9';
-        const POSTER_GRID_MODE = 'white';
+        const POSTER_BACKGROUND_COLOR = '#0a0f1a';
+        const POSTER_GRID_MODE = 'none';
 
         const state = Object.fromEntries(FACES.map(face => [face, {
             background: null,
@@ -125,6 +139,7 @@
         const closeCanvaBgButton = document.getElementById('canva-bg-close');
         const canvaResultInput = document.getElementById('canva-result-input');
         const addPairTestGridButton = document.getElementById('add-pair-test-grid');
+        const addPairTestImageButton = document.getElementById('add-pair-test-image');
         let posterExpectedFileCount = 0;
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
@@ -488,9 +503,13 @@
         }
 
         function applyPosterBackgroundPreset() {
-            backgroundTemplateColor.value = POSTER_BACKGROUND_COLOR;
-            backgroundGridMode = POSTER_GRID_MODE;
-            applyCustomGridBackground();
+            const faceState = getFaceState();
+            faceState.background = null;
+            faceState.backgroundName = '';
+            faceState.backgroundColor = POSTER_BACKGROUND_COLOR;
+            faceState.backgroundOpacity = 1;
+            lastBackgroundUploadReport = `[포스터 기본 배경]\n${activeFace.toUpperCase()} -> 기본 단색 배경`;
+            render();
             renderBackgroundTemplates();
         }
 
@@ -690,7 +709,6 @@
 
         async function arrangePosterLayoutForElements(elements) {
             if (!elements.length) return;
-            applyPosterBackgroundPreset();
             elements.forEach((element, index) => applyPosterImageStyle(element, index === 0 ? 'main' : 'sub', index - 1));
             for (const element of elements) {
                 await updateImageProcessing(element);
@@ -700,14 +718,6 @@
 
         async function arrangeFrameTemplateForElements(elements, template = 'hero', accentColor = '') {
             if (!elements.length) return;
-            if (accentColor) {
-                backgroundTemplateColor.value = accentColor;
-                backgroundGridMode = template === 'hero' ? 'none' : 'white';
-                applyCustomGridBackground();
-                renderBackgroundTemplates();
-            } else {
-                applyPosterBackgroundPreset();
-            }
             const limited = elements.slice(0, 5);
             const [main, ...subs] = limited;
             if (main) {
@@ -2266,6 +2276,118 @@
             return grid;
         }
 
+        function drawCalibrationArrow(renderCtx, fromX, fromY, toX, toY, color, label) {
+            const angle = Math.atan2(toY - fromY, toX - fromX);
+            renderCtx.save();
+            renderCtx.strokeStyle = color;
+            renderCtx.fillStyle = color;
+            renderCtx.lineWidth = 14;
+            renderCtx.lineCap = 'round';
+            renderCtx.shadowColor = color;
+            renderCtx.shadowBlur = 18;
+            renderCtx.beginPath();
+            renderCtx.moveTo(fromX, fromY);
+            renderCtx.lineTo(toX, toY);
+            renderCtx.stroke();
+            renderCtx.beginPath();
+            renderCtx.moveTo(toX, toY);
+            renderCtx.lineTo(toX - Math.cos(angle - 0.45) * 58, toY - Math.sin(angle - 0.45) * 58);
+            renderCtx.lineTo(toX - Math.cos(angle + 0.45) * 58, toY - Math.sin(angle + 0.45) * 58);
+            renderCtx.closePath();
+            renderCtx.fill();
+            renderCtx.shadowBlur = 0;
+            renderCtx.font = '900 42px Arial';
+            renderCtx.textAlign = 'center';
+            renderCtx.lineWidth = 8;
+            renderCtx.strokeStyle = 'rgba(2, 6, 12, 0.9)';
+            renderCtx.strokeText(label, (fromX + toX) / 2, (fromY + toY) / 2 - 22);
+            renderCtx.fillText(label, (fromX + toX) / 2, (fromY + toY) / 2 - 22);
+            renderCtx.restore();
+        }
+
+        function createPairCalibrationImage(faces) {
+            const width = CANVAS_SIZE * 2;
+            const height = CANVAS_SIZE;
+            const testCanvas = createEmptyCanvas(width, height);
+            const testCtx = testCanvas.getContext('2d');
+            const sky = testCtx.createLinearGradient(0, 0, 0, height);
+            sky.addColorStop(0, '#38bdf8');
+            sky.addColorStop(0.48, '#bae6fd');
+            sky.addColorStop(0.5, '#fca5a5');
+            sky.addColorStop(1, '#020617');
+            testCtx.fillStyle = sky;
+            testCtx.fillRect(0, 0, width, height);
+
+            testCtx.fillStyle = 'rgba(15, 23, 42, 0.58)';
+            for (let y = height * 0.52; y < height; y += 42) {
+                testCtx.fillRect(0, y, width, 4);
+            }
+            for (let x = 0; x <= width; x += 128) {
+                testCtx.strokeStyle = x === CANVAS_SIZE ? '#fbbf24' : 'rgba(15, 23, 42, 0.26)';
+                testCtx.lineWidth = x === CANVAS_SIZE ? 10 : 2;
+                testCtx.setLineDash(x === CANVAS_SIZE ? [20, 18] : []);
+                testCtx.beginPath();
+                testCtx.moveTo(x, 0);
+                testCtx.lineTo(x, height);
+                testCtx.stroke();
+            }
+            testCtx.setLineDash([]);
+
+            const leftLabel = faces[0].toUpperCase();
+            const rightLabel = faces[1].toUpperCase();
+            testCtx.font = '900 82px Arial';
+            testCtx.textAlign = 'center';
+            testCtx.lineWidth = 12;
+            testCtx.strokeStyle = 'rgba(2, 6, 12, 0.92)';
+            testCtx.fillStyle = '#67e8f9';
+            testCtx.strokeText(leftLabel, CANVAS_SIZE * 0.5, 112);
+            testCtx.fillText(leftLabel, CANVAS_SIZE * 0.5, 112);
+            testCtx.strokeText(rightLabel, CANVAS_SIZE * 1.5, 112);
+            testCtx.fillText(rightLabel, CANVAS_SIZE * 1.5, 112);
+
+            drawCalibrationArrow(testCtx, 190, 250, CANVAS_SIZE - 120, height - 160, '#ff2bd6', `${leftLabel} ↘ SEAM`);
+            drawCalibrationArrow(testCtx, CANVAS_SIZE + 120, height - 160, width - 190, 250, '#2dffb8', `SEAM ↗ ${rightLabel}`);
+            drawCalibrationArrow(testCtx, 190, height - 260, width - 190, height - 260, '#facc15', 'HORIZON FLOW');
+
+            testCtx.font = '900 34px Arial';
+            testCtx.fillStyle = '#ffffff';
+            testCtx.textAlign = 'center';
+            testCtx.strokeStyle = 'rgba(2, 6, 12, 0.86)';
+            testCtx.lineWidth = 7;
+            const footer = 'PAIR CALIBRATION · diagonal arrows must continue through the yellow seam';
+            testCtx.strokeText(footer, width / 2, height - 58);
+            testCtx.fillText(footer, width / 2, height - 58);
+            return testCanvas;
+        }
+
+        async function addPairCalibrationImage() {
+            const faces = getActivePairFaces();
+            if (faces.length !== 2) {
+                alert('먼저 FT/LF 같은 BETA Edge Pair 버튼을 눌러 주세요.');
+                return;
+            }
+            const baseCanvas = createPairCalibrationImage(faces);
+            const splitCanvases = createPairSplitCanvases(baseCanvas, faces);
+            const pairWarpId = generateId();
+            splitCanvases.forEach((partCanvas, index) => {
+                const face = faces[index];
+                const element = createImageElement(`대각선 테스트 ${faces[0].toUpperCase()}-${faces[1].toUpperCase()} ${face.toUpperCase()}`, partCanvas);
+                element.scale = 1;
+                element.x = CANVAS_SIZE / 2;
+                element.y = CANVAS_SIZE / 2;
+                element.autoPairWarp = true;
+                element.pairWarpId = pairWarpId;
+                element.pairFaces = [...faces];
+                element.pairIndex = index;
+                element.pairSourceName = 'pair-calibration.png';
+                element.pairSourceCanvas = copyCanvas(baseCanvas);
+                getFaceState(face).elements.push(element);
+                if (face === activeFace) selectedId = element.id;
+            });
+            lastBackgroundUploadReport = `[대각선 테스트 이미지]\n${faces[0].toUpperCase()} / ${faces[1].toUpperCase()} 페어에 보정용 테스트 이미지를 추가했습니다.`;
+            render();
+        }
+
         function drawBetaGridBase(renderCtx, width, height, faceLabel) {
             const gradient = renderCtx.createLinearGradient(0, 0, width, height);
             gradient.addColorStop(0, '#06111f');
@@ -3158,7 +3280,7 @@
         function getInsidePairFaces(faces) {
             const pair = (faces || []).filter(face => FACES.includes(face)).slice(0, 2);
             if (pair.length !== 2) return pair;
-            const sideOrder = ['lf', 'ft', 'rt', 'bk'];
+            const sideOrder = ['ft', 'lf', 'bk', 'rt'];
             if (!pair.every(face => sideOrder.includes(face))) return pair;
             for (let index = 0; index < sideOrder.length; index++) {
                 const leftFace = sideOrder[index];
@@ -3594,13 +3716,8 @@
                 await updateImageProcessing(selected);
             }
             if (action?.startsWith('neon-sign-')) {
-                const neonColors = {
-                    pink: '#ff2bd6',
-                    blue: '#24d5ff',
-                    red: '#ff1f2d',
-                    mint: '#2dffb8'
-                };
-                await applyNeonSignPreset(selected, neonColors[action.replace('neon-sign-', '')] || '#ff2bd6');
+                const preset = NEON_PRESETS.find(item => item.key === action.replace('neon-sign-', ''));
+                await applyNeonSignPreset(selected, preset?.color || '#ff2bd6');
             }
             if (action === 'mobile-quick-shadow') {
                 selected.shadow = { ...selected.shadow, blur: 0, offsetX: 18, offsetY: 18, opacity: 0.72, color: selected.shadow.color || '#000000' };
@@ -3760,11 +3877,8 @@
                     ${rangeField({ label: '더블 외곽선', key: 'doubleOutlineWidth', min: 0, max: 40, step: 1, value: selected.doubleOutlineWidth || 0, unit: 'px' })}
                     ${rangeField({ label: '더블 외곽선 블러/발광', key: 'doubleOutlineBlur', min: 0, max: 80, step: 1, value: selected.doubleOutlineBlur || 0, unit: 'px' })}
                     ${colorField({ label: '더블 외곽선 색상', key: 'doubleOutlineColor', value: selected.doubleOutlineColor || '#ff1f2d' })}
-                    <div class="grid grid-cols-4 gap-2">
-                        <button type="button" class="tool-button !rounded-2xl" data-action="neon-sign-pink">네온핑크</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="neon-sign-blue">네온블루</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="neon-sign-red">네온레드</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="neon-sign-mint">네온민트</button>
+                    <div class="grid grid-cols-3 gap-2">
+                        ${NEON_PRESETS.map(preset => `<button type="button" class="tool-button !rounded-2xl !px-2" data-action="neon-sign-${preset.key}">${preset.label}</button>`).join('')}
                     </div>
                     ${selectField({ label: '아웃라인 스타일', key: 'outlineStyle', value: selected.outlineStyle || 'solid', options: [
                         { value: 'solid', label: '기본' },
@@ -3809,6 +3923,9 @@
                         { value: 'blur', label: '블러' },
                         { value: 'neon', label: '네온' }
                     ] })}
+                    <div class="grid grid-cols-3 gap-2">
+                        ${NEON_PRESETS.map(preset => `<button type="button" class="tool-button !rounded-2xl !px-2" data-action="neon-sign-${preset.key}">${preset.label}</button>`).join('')}
+                    </div>
                     ${rangeField({ label: '배경 박스 투명도', key: 'backgroundOpacity', min: 0, max: 1, step: 0.01, value: selected.backgroundOpacity.toFixed(2) })}
                     ${colorField({ label: '배경 박스 색상', key: 'backgroundColor', value: selected.backgroundColor })}
                     ${rangeField({ label: '좌우 패딩', key: 'paddingX', min: 0, max: 120, step: 1, value: selected.paddingX, unit: 'px' })}
@@ -4458,6 +4575,7 @@
         document.querySelectorAll('.face-tab').forEach(button => button.addEventListener('click', () => setActiveFace(button.dataset.face)));
         document.querySelectorAll('.face-pair-tab').forEach(button => button.addEventListener('click', () => setActiveFacePair(button.dataset.facePair)));
         addPairTestGridButton?.addEventListener('click', downloadBetaSkyboxGridPack);
+        addPairTestImageButton?.addEventListener('click', addPairCalibrationImage);
 
         window.addEventListener('keydown', event => {
             const tag = document.activeElement?.tagName;

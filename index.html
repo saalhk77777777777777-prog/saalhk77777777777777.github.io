@@ -327,12 +327,13 @@
                 </div>
                 <div class="property-label mt-5">BETA Edge Pair</div>
                 <div class="grid grid-cols-2 gap-2 mt-3">
-                    <button class="face-pair-tab tool-button" data-face-pair="lf/ft">LF/FT</button>
-                    <button class="face-pair-tab tool-button" data-face-pair="ft/rt">FT/RT</button>
-                    <button class="face-pair-tab tool-button" data-face-pair="rt/bk">RT/BK</button>
-                    <button class="face-pair-tab tool-button" data-face-pair="bk/lf">BK/LF</button>
+                    <button class="face-pair-tab tool-button" data-face-pair="ft/lf">FT/LF</button>
+                    <button class="face-pair-tab tool-button" data-face-pair="rt/ft">RT/FT</button>
+                    <button class="face-pair-tab tool-button" data-face-pair="bk/rt">BK/RT</button>
+                    <button class="face-pair-tab tool-button" data-face-pair="lf/bk">LF/BK</button>
                 </div>
                 <button id="add-pair-test-grid" type="button" class="tool-button success w-full mt-3">BETA 전체 테스트 스카이박스 다운</button>
+                <button id="add-pair-test-image" type="button" class="tool-button primary w-full mt-2">테스트 이미지 추가</button>
                 <p class="text-xs text-slate-400 mt-4 leading-5">파일명에 `ft`, `bk`, `lf`, `rt`, `up`, `dn` 이 들어가면 자동으로 해당 면 배경으로 들어갑니다.</p>
             </div>
             <div class="mobile-background-tools px-5 py-5 border-b border-white/10 space-y-3">
@@ -394,7 +395,7 @@
                         <div class="property-label">Quick Compose</div>
                         <div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Poster</div>
                     </div>
-                    <button id="apply-poster-background" type="button" class="tool-button w-full">보라 격자 배경</button>
+                    <button id="apply-poster-background" type="button" class="tool-button w-full">기본 배경 적용</button>
                     <button id="arrange-poster-layout" type="button" class="tool-button primary w-full">현재 면 포스터 배치</button>
                     <div class="grid grid-cols-3 gap-2">
                         <button type="button" class="tool-button !px-2 !py-2" data-frame-template="hero">히어로</button>
@@ -472,7 +473,7 @@
         <div class="mobile-slider-preview-label">미리보기</div>
     </div>
     <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.27.2</span></div>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=2026.05.29.2"></script>
 </body>
 </html>
 
