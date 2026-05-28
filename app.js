@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.27.2';
+        const APP_VERSION = 'v2026.05.29.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -3152,7 +3152,20 @@
         }
 
         function getActivePairFaces() {
-            return String(selectedFacePair || '').split('/').filter(face => FACES.includes(face)).slice(0, 2);
+            return getInsidePairFaces(String(selectedFacePair || '').split('/').filter(face => FACES.includes(face)).slice(0, 2));
+        }
+
+        function getInsidePairFaces(faces) {
+            const pair = (faces || []).filter(face => FACES.includes(face)).slice(0, 2);
+            if (pair.length !== 2) return pair;
+            const sideOrder = ['lf', 'ft', 'rt', 'bk'];
+            if (!pair.every(face => sideOrder.includes(face))) return pair;
+            for (let index = 0; index < sideOrder.length; index++) {
+                const leftFace = sideOrder[index];
+                const rightFace = sideOrder[(index + 1) % sideOrder.length];
+                if (pair.includes(leftFace) && pair.includes(rightFace)) return [leftFace, rightFace];
+            }
+            return pair;
         }
 
         function isFacePairMode() {
@@ -4058,7 +4071,7 @@
         }
 
         function setActiveFacePair(pair) {
-            const faces = String(pair || '').split('/').filter(face => FACES.includes(face));
+            const faces = getInsidePairFaces(String(pair || '').split('/').filter(face => FACES.includes(face)));
             if (faces.length !== 2) return;
             selectedFacePair = faces.join('/');
             activeFace = activeFace === faces[0] ? faces[1] : faces[0];
