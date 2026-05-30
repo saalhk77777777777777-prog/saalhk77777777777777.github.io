@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.30.1';
+        const APP_VERSION = 'v2026.05.30.2';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -22,7 +22,6 @@
         const LAYOUT_MODE_STORAGE_KEY = 'skybox-layout-mode-v1';
         const CLOUD_SYNC_CONFIG_KEY = 'skybox-cloud-sync-config-v1';
         const BG_QUOTA_STORAGE_KEY = 'skybox-remove-bg-quota-v1';
-        const PAIR_INSIDE_VIEW_MIRROR_X = true;
         const BG_QUOTA_MONTHLY_LIMIT = 50;
         const BG_QUOTA_INITIAL_REMAINING = 13;
         const BG_QUOTA_INITIAL_RESET_DATE = '2026-05-21';
@@ -2187,15 +2186,7 @@
             const drawHeight = sourceCanvas.height * fit;
             const drawX = (CANVAS_SIZE - drawWidth) / 2;
             const drawY = (CANVAS_SIZE - drawHeight) / 2;
-            if (PAIR_INSIDE_VIEW_MIRROR_X) {
-                foldCtx.save();
-                foldCtx.translate(CANVAS_SIZE, 0);
-                foldCtx.scale(-1, 1);
-                foldCtx.drawImage(sourceCanvas, drawX, drawY, drawWidth, drawHeight);
-                foldCtx.restore();
-            } else {
-                foldCtx.drawImage(sourceCanvas, drawX, drawY, drawWidth, drawHeight);
-            }
+            foldCtx.drawImage(sourceCanvas, drawX, drawY, drawWidth, drawHeight);
             return foldCanvas;
         }
 
@@ -2365,7 +2356,7 @@
             testCtx.textAlign = 'center';
             testCtx.strokeStyle = 'rgba(2, 6, 12, 0.86)';
             testCtx.lineWidth = 7;
-            const footer = 'PAIR CALIBRATION · inside-view mirror correction ON';
+            const footer = 'PAIR CALIBRATION · original source direction';
             testCtx.strokeText(footer, width / 2, height - 58);
             testCtx.fillText(footer, width / 2, height - 58);
             return testCanvas;
