@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.24';
+        const APP_VERSION = 'v2026.05.31.25';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -2561,6 +2561,14 @@
             return total;
         }
 
+        function getAllPairWarpSettingsSummary() {
+            return ['ft/lf', 'rt/ft', 'bk/rt', 'lf/bk'].map(pair => {
+                const faces = getInsidePairFaces(pair.split('/'));
+                const settings = getStoredPairWarpSettings(faces);
+                return `${faces.map(face => face.toUpperCase()).join('/')}: ${Math.round(settings.stretch * 100)}% / ${settings.power.toFixed(2)}`;
+            }).join('\n');
+        }
+
         function updatePairWarpSettings({ refresh = true } = {}) {
             pairCornerStretch = clamp(Number(pairCornerStretchInput?.value || pairCornerStretch), 0, 0.9);
             pairCornerStretchPower = clamp(Number(pairCornerPowerInput?.value || pairCornerStretchPower), 0.6, 2.4);
@@ -2599,7 +2607,7 @@
                     pairCornerStretchPower = activeSettings.power;
                     updatePairWarpSettingsUI();
                     const total = refreshAllStoredPairWarpElements();
-                    lastBackgroundUploadReport = `[전체 settings 적용]\n${file.name}\n현재 페어: ${getPairWarpSummary()}\n${total}개 페어 이미지를 저장값으로 다시 계산했습니다.`;
+                    lastBackgroundUploadReport = `[전체 settings 적용]\n${file.name}\n${getAllPairWarpSettingsSummary()}\n${total}개 페어 이미지를 저장값으로 다시 계산했습니다.`;
                     render();
                     return;
                 }
