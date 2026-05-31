@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.15';
+        const APP_VERSION = 'v2026.05.31.16';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -150,6 +150,8 @@
         const pairCornerPowerNumberInput = document.getElementById('pair-corner-power-number');
         const pairWarpStatus = document.getElementById('pair-warp-status');
         const applyPairWarpNumbersButton = document.getElementById('apply-pair-warp-numbers');
+        const pairWarpSettingsInput = document.getElementById('pair-warp-settings-input');
+        const importPairWarpSettingsButton = document.getElementById('import-pair-warp-settings');
         const refreshPairWarpButton = document.getElementById('refresh-pair-warp');
         const downloadPairWarpComparisonButton = document.getElementById('download-pair-warp-comparison');
         const downloadAllPairWarpComparisonButton = document.getElementById('download-all-pair-warp-comparison');
@@ -2528,6 +2530,31 @@
             refreshPairWarpElements();
             lastBackgroundUploadReport = `[대각선 숫자 적용]\n${getPairWarpSummary()}`;
             render();
+        }
+
+        function getBestPairWarpVariantFromSettings(settings) {
+            const variants = Array.isArray(settings?.variants) ? settings.variants : [];
+            const current = variants.find(variant => String(variant.label || '').startsWith('current-'));
+            return current || variants.find(variant => Number.isFinite(Number(variant.stretch)) && Number.isFinite(Number(variant.power))) || settings;
+        }
+
+        async function importPairWarpSettingsFile(file) {
+            if (!file) return;
+            try {
+                const settings = JSON.parse(await file.text());
+                const variant = getBestPairWarpVariantFromSettings(settings);
+                pairCornerStretch = clamp(Number(variant.stretch ?? settings.stretch ?? pairCornerStretch), 0, 0.9);
+                pairCornerStretchPower = clamp(Number(variant.power ?? settings.power ?? settings.focus ?? pairCornerStretchPower), 0.6, 2.4);
+                savePairWarpSettings();
+                updatePairWarpSettingsUI();
+                refreshPairWarpElements();
+                lastBackgroundUploadReport = `[settings.json 적용]\n${file.name}\n${getPairWarpSummary()}`;
+                render();
+            } catch (error) {
+                alert(`settings.json 적용 실패\n${getErrorMessage(error)}`);
+            } finally {
+                if (pairWarpSettingsInput) pairWarpSettingsInput.value = '';
+            }
         }
 
         function applyPairWarpPreset(button) {
@@ -4969,6 +4996,8 @@
         pairCornerStretchInput?.addEventListener('input', () => updatePairWarpSettings({ refresh: true }));
         pairCornerPowerInput?.addEventListener('input', () => updatePairWarpSettings({ refresh: true }));
         applyPairWarpNumbersButton?.addEventListener('click', applyPairWarpNumberInputs);
+        importPairWarpSettingsButton?.addEventListener('click', () => pairWarpSettingsInput?.click());
+        pairWarpSettingsInput?.addEventListener('change', event => importPairWarpSettingsFile(event.target.files?.[0]));
         pairCornerStretchNumberInput?.addEventListener('keydown', event => { if (event.key === 'Enter') applyPairWarpNumberInputs(); });
         pairCornerPowerNumberInput?.addEventListener('keydown', event => { if (event.key === 'Enter') applyPairWarpNumberInputs(); });
         document.querySelectorAll('.pair-warp-preset').forEach(button => {

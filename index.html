@@ -358,6 +358,8 @@
                         <input id="pair-corner-power-number" type="number" min="0.6" max="2.4" step="0.05" value="1.35" class="bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-cyan-50" aria-label="모서리 집중도 숫자">
                     </div>
                     <button id="apply-pair-warp-numbers" type="button" class="tool-button w-full">숫자값 적용</button>
+                    <input id="pair-warp-settings-input" type="file" accept=".json,application/json" class="hidden">
+                    <button id="import-pair-warp-settings" type="button" class="tool-button w-full">settings.json 적용</button>
                     <button id="refresh-pair-warp" type="button" class="tool-button w-full">현재 페어 재보정</button>
                     <button id="download-pair-warp-comparison" type="button" class="tool-button success w-full">보정 비교팩 다운</button>
                     <button id="download-all-pair-warp-comparison" type="button" class="tool-button success w-full">전체 페어 비교팩 다운</button>
@@ -502,7 +504,7 @@
         <div class="mobile-slider-preview-label">미리보기</div>
     </div>
     <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.27.2</span></div>
-    <script src="./app.js?v=2026.05.31.15"></script>
+    <script src="./app.js?v=2026.05.31.16"></script>
 </body>
 </html>
 
