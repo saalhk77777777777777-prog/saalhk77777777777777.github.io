@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.5';
+        const APP_VERSION = 'v2026.05.31.6';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -2689,6 +2689,25 @@
                 }
 
                 const zip = new JSZip();
+                zip.file('README.txt', [
+                    `Skybox Studio Pair Warp Comparison`,
+                    `version: ${APP_VERSION}`,
+                    `pair: ${faces.map(face => face.toUpperCase()).join('/')}`,
+                    `focus: ${savedPower.toFixed(2)}`,
+                    '',
+                    '폴더별 corner 값이 클수록 모서리 쪽 사진 늘림이 강합니다.',
+                    'Roblox에서 가장 자연스럽게 이어지는 폴더 값을 앱의 대각선 보정 프리셋/슬라이더에 맞추면 됩니다.'
+                ].join('\n'));
+                zip.file('settings.json', JSON.stringify({
+                    version: APP_VERSION,
+                    pair: faces,
+                    focus: savedPower,
+                    variants: variants.map(variant => ({
+                        label: variant.label,
+                        stretch: variant.stretch,
+                        power: variant.power
+                    }))
+                }, null, 2));
                 zip.file(`comparison_${faces.join('_')}.png`, previewCanvas.toDataURL('image/png').split(',')[1], { base64: true });
                 renderedItems.forEach(item => {
                     const folder = `${item.variant.label}_focus-${item.variant.power.toFixed(2)}`;
