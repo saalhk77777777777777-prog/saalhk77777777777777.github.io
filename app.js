@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.19';
+        const APP_VERSION = 'v2026.05.31.20';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -2953,12 +2953,17 @@
                 }
 
                 zip.file('ALL_PAIRS_SUMMARY.json', JSON.stringify(summary, null, 2));
+                zip.file('CURRENT_VALUES.txt', summary.pairs.map(item => {
+                    const label = item.pair.map(face => face.toUpperCase()).join('/');
+                    return `${label}: stretch=${Number(item.current.stretch).toFixed(2)}, power=${Number(item.current.power).toFixed(2)}, folder=${item.folder}`;
+                }).join('\n'));
                 zip.file('README.txt', [
                     'Skybox Studio All Pair Warp Comparison',
                     `version: ${APP_VERSION}`,
                     `focus: ${savedPower.toFixed(2)}`,
                     'pairs: FT/LF, RT/FT, BK/RT, LF/BK',
                     '',
+                    'CURRENT_VALUES.txt에서 페어별 현재 stretch/power 값을 빠르게 확인할 수 있습니다.',
                     '각 pair_* 폴더의 current-* 항목은 해당 페어에 저장된 현재 보정값입니다.',
                     '각 pair_* 폴더를 Roblox에 넣어 보고 가장 자연스러운 corner 값을 고르면 됩니다.',
                     '한 페어만 이상하면 해당 페어 폴더의 settings.json을 앱의 [settings.json 적용] 버튼으로 불러오세요.'
