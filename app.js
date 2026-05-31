@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.3';
+        const APP_VERSION = 'v2026.05.31.4';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -2339,6 +2339,35 @@
             renderCtx.restore();
         }
 
+        function drawCornerStretchGuide(renderCtx, x, y, label, color, alignX = 1, alignY = 1) {
+            renderCtx.save();
+            renderCtx.strokeStyle = color;
+            renderCtx.fillStyle = color;
+            renderCtx.lineWidth = 10;
+            renderCtx.shadowColor = color;
+            renderCtx.shadowBlur = 20;
+            renderCtx.beginPath();
+            renderCtx.arc(x, y, 72, 0, Math.PI * 2);
+            renderCtx.stroke();
+            renderCtx.beginPath();
+            renderCtx.moveTo(x, y);
+            renderCtx.lineTo(x + alignX * 150, y);
+            renderCtx.moveTo(x, y);
+            renderCtx.lineTo(x, y + alignY * 150);
+            renderCtx.stroke();
+            renderCtx.shadowBlur = 0;
+            renderCtx.font = '900 30px Arial';
+            renderCtx.textAlign = alignX > 0 ? 'left' : 'right';
+            renderCtx.textBaseline = alignY > 0 ? 'top' : 'bottom';
+            renderCtx.lineWidth = 7;
+            renderCtx.strokeStyle = 'rgba(2, 6, 12, 0.92)';
+            const textX = x + alignX * 26;
+            const textY = y + alignY * 26;
+            renderCtx.strokeText(label, textX, textY);
+            renderCtx.fillText(label, textX, textY);
+            renderCtx.restore();
+        }
+
         function createPairCalibrationImage(faces) {
             const width = CANVAS_SIZE * 2;
             const height = CANVAS_SIZE;
@@ -2378,6 +2407,11 @@
             testCtx.fillText(leftLabel, CANVAS_SIZE * 0.5, 112);
             testCtx.strokeText(rightLabel, CANVAS_SIZE * 1.5, 112);
             testCtx.fillText(rightLabel, CANVAS_SIZE * 1.5, 112);
+
+            drawCornerStretchGuide(testCtx, 94, 94, 'TOP CORNER', '#a3ff12', 1, 1);
+            drawCornerStretchGuide(testCtx, width - 94, 94, 'TOP CORNER', '#a3ff12', -1, 1);
+            drawCornerStretchGuide(testCtx, 94, height - 94, 'BOTTOM CORNER', '#fb923c', 1, -1);
+            drawCornerStretchGuide(testCtx, width - 94, height - 94, 'BOTTOM CORNER', '#fb923c', -1, -1);
 
             drawCalibrationArrow(testCtx, 190, 250, CANVAS_SIZE - 120, height - 160, '#ff2bd6', `${leftLabel} ↘ SEAM`);
             drawCalibrationArrow(testCtx, CANVAS_SIZE + 120, height - 160, width - 190, 250, '#2dffb8', `SEAM ↗ ${rightLabel}`);
