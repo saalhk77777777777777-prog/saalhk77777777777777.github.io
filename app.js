@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.16';
+        const APP_VERSION = 'v2026.05.31.17';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -2798,7 +2798,7 @@
                 'current-* 폴더는 앱에 현재 저장된 이 페어의 보정값입니다.',
                 'comparison PNG의 노랑/빨강 히트맵은 모서리 쪽으로 갈수록 늘림이 강해지는 구역입니다.',
                 'Roblox에서 가장 자연스럽게 이어지는 폴더 값을 앱의 대각선 보정 프리셋/슬라이더에 맞추면 됩니다.',
-                '정확히 맞출 때는 settings.json의 stretch/power 값을 숫자 입력 칸에 넣고 [숫자값 적용]을 누르세요.'
+                '정확히 맞출 때는 이 settings.json을 앱의 [settings.json 적용] 버튼으로 불러오거나, stretch/power 값을 숫자 입력 칸에 넣고 [숫자값 적용]을 누르세요.'
             ].join('\n');
         }
 
@@ -2910,7 +2910,7 @@
                     '',
                     '각 pair_* 폴더의 current-* 항목은 해당 페어에 저장된 현재 보정값입니다.',
                     '각 pair_* 폴더를 Roblox에 넣어 보고 가장 자연스러운 corner 값을 고르면 됩니다.',
-                    '한 페어만 이상하면 해당 페어 폴더의 settings.json 값을 숫자 입력 칸에 넣고 [숫자값 적용]을 누르세요.'
+                    '한 페어만 이상하면 해당 페어 폴더의 settings.json을 앱의 [settings.json 적용] 버튼으로 불러오세요.'
                 ].join('\n'));
                 const blob = await zip.generateAsync({ type: 'blob' });
                 downloadBlob(blob, 'all_pair_warp_comparison.zip');
