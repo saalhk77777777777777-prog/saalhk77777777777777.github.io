@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.8';
+        const APP_VERSION = 'v2026.05.31.9';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -2439,6 +2439,10 @@
             if (pairWarpStatus) pairWarpStatus.textContent = `Corner ${Math.round(pairCornerStretch * 100)}% · Focus ${pairCornerStretchPower.toFixed(2)}`;
         }
 
+        function getPairWarpSummary() {
+            return `코너 늘림 ${Math.round(pairCornerStretch * 100)}%, 집중도 ${pairCornerStretchPower.toFixed(2)}, 곡선 smoothstep`;
+        }
+
         function refreshPairWarpElements(targetFaces = getActivePairFaces()) {
             const targetKey = targetFaces.length === 2 ? targetFaces.join('/') : '';
             const groups = new Map();
@@ -2471,7 +2475,7 @@
                 });
             });
 
-            lastBackgroundUploadReport = `[대각선 재보정]\n코너 늘림 ${Math.round(pairCornerStretch * 100)}%, 집중도 ${pairCornerStretchPower.toFixed(2)}로 ${groups.size}개 페어 이미지를 다시 계산했습니다.`;
+            lastBackgroundUploadReport = `[대각선 재보정]\n${getPairWarpSummary()}\n${groups.size}개 페어 이미지를 다시 계산했습니다.`;
             return groups.size;
         }
 
@@ -2492,6 +2496,7 @@
             savePairWarpSettings();
             updatePairWarpSettingsUI();
             refreshPairWarpElements();
+            lastBackgroundUploadReport = `[대각선 프리셋]\n${button.textContent.trim()} · ${getPairWarpSummary()}`;
             render();
         }
 
@@ -2519,7 +2524,7 @@
                 getFaceState(face).elements.push(element);
                 if (face === activeFace) selectedId = element.id;
             });
-            lastBackgroundUploadReport = `[대각선 테스트 이미지]\n${faces[0].toUpperCase()} / ${faces[1].toUpperCase()} 페어에 보정용 테스트 이미지를 추가했습니다.`;
+            lastBackgroundUploadReport = `[대각선 테스트 이미지]\n${faces[0].toUpperCase()} / ${faces[1].toUpperCase()} 페어에 보정용 테스트 이미지를 추가했습니다.\n${getPairWarpSummary()}`;
             render();
         }
 
