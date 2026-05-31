@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.10';
+        const APP_VERSION = 'v2026.05.31.11';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -190,16 +190,39 @@
                 const saved = JSON.parse(localStorage.getItem(PAIR_WARP_SETTINGS_KEY) || '{}');
                 return {
                     stretch: clamp(Number(saved.stretch ?? 0.46), 0, 0.9),
-                    power: clamp(Number(saved.power ?? 1.35), 0.6, 2.4)
+                    power: clamp(Number(saved.power ?? 1.35), 0.6, 2.4),
+                    pairs: saved.pairs && typeof saved.pairs === 'object' ? saved.pairs : {}
                 };
             } catch {
-                return { stretch: 0.46, power: 1.35 };
+                return { stretch: 0.46, power: 1.35, pairs: {} };
             }
         }
+
+        function getPairWarpStorageKey(faces = getActivePairFaces()) {
+            return faces.length === 2 ? faces.join('/') : 'global';
+        }
+
+        function getStoredPairWarpSettings(faces = getActivePairFaces()) {
+            const saved = readPairWarpSettings();
+            const pairSettings = saved.pairs?.[getPairWarpStorageKey(faces)] || {};
+            return {
+                stretch: clamp(Number(pairSettings.stretch ?? saved.stretch ?? 0.46), 0, 0.9),
+                power: clamp(Number(pairSettings.power ?? saved.power ?? 1.35), 0.6, 2.4)
+            };
+        }
+
         function savePairWarpSettings() {
-            localStorage.setItem(PAIR_WARP_SETTINGS_KEY, JSON.stringify({
+            const saved = readPairWarpSettings();
+            const pairKey = getPairWarpStorageKey();
+            const pairs = { ...(saved.pairs || {}) };
+            pairs[pairKey] = {
                 stretch: pairCornerStretch,
                 power: pairCornerStretchPower
+            };
+            localStorage.setItem(PAIR_WARP_SETTINGS_KEY, JSON.stringify({
+                stretch: pairCornerStretch,
+                power: pairCornerStretchPower,
+                pairs
             }));
         }
         function degToRad(deg) { return deg * Math.PI / 180; }
@@ -2437,7 +2460,8 @@
         function updatePairWarpSettingsUI() {
             if (pairCornerStretchInput && pairCornerStretchInput !== document.activeElement) pairCornerStretchInput.value = pairCornerStretch.toFixed(2);
             if (pairCornerPowerInput && pairCornerPowerInput !== document.activeElement) pairCornerPowerInput.value = pairCornerStretchPower.toFixed(2);
-            if (pairWarpStatus) pairWarpStatus.textContent = `Corner ${Math.round(pairCornerStretch * 100)}% · Focus ${pairCornerStretchPower.toFixed(2)}`;
+            const pairLabel = getPairWarpStorageKey().toUpperCase();
+            if (pairWarpStatus) pairWarpStatus.textContent = `${pairLabel} · Corner ${Math.round(pairCornerStretch * 100)}% · Focus ${pairCornerStretchPower.toFixed(2)}`;
         }
 
         function getPairWarpSummary() {
@@ -4525,9 +4549,12 @@
             const faces = getInsidePairFaces(String(pair || '').split('/').filter(face => FACES.includes(face)));
             if (faces.length !== 2) return;
             selectedFacePair = faces.join('/');
+            const storedSettings = getStoredPairWarpSettings(faces);
+            pairCornerStretch = storedSettings.stretch;
+            pairCornerStretchPower = storedSettings.power;
             activeFace = activeFace === faces[0] ? faces[1] : faces[0];
             if (!getFaceState().elements.some(element => element.id === selectedId)) selectedId = null;
-            lastBackgroundUploadReport = `[BETA 면 사이 보기]\n${faces[0].toUpperCase()} / ${faces[1].toUpperCase()} 사이를 토글 중입니다. 같은 버튼을 다시 누르면 반대 면으로 이동합니다.`;
+            lastBackgroundUploadReport = `[BETA 면 사이 보기]\n${faces[0].toUpperCase()} / ${faces[1].toUpperCase()} 사이를 토글 중입니다. 같은 버튼을 다시 누르면 반대 면으로 이동합니다.\n저장된 보정값: ${getPairWarpSummary()}`;
             render();
         }
 
