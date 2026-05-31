@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.25';
+        const APP_VERSION = 'v2026.05.31.26';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -156,6 +156,7 @@
         const exportAllPairWarpSettingsButton = document.getElementById('export-all-pair-warp-settings');
         const resetPairWarpSettingsButton = document.getElementById('reset-pair-warp-settings');
         const refreshPairWarpButton = document.getElementById('refresh-pair-warp');
+        const refreshAllPairWarpButton = document.getElementById('refresh-all-pair-warp');
         const downloadPairWarpComparisonButton = document.getElementById('download-pair-warp-comparison');
         const downloadAllPairWarpComparisonButton = document.getElementById('download-all-pair-warp-comparison');
         let posterExpectedFileCount = 0;
@@ -2686,6 +2687,12 @@
             render();
         }
 
+        function refreshAllPairWarpFromStoredSettings() {
+            const total = refreshAllStoredPairWarpElements();
+            lastBackgroundUploadReport = `[전체 페어 재보정]\n${getAllPairWarpSettingsSummary()}\n${total}개 페어 이미지를 저장값으로 다시 계산했습니다.`;
+            render();
+        }
+
         function applyPairWarpPreset(button) {
             pairCornerStretch = clamp(Number(button.dataset.stretch || 0.46), 0, 0.9);
             pairCornerStretchPower = clamp(Number(button.dataset.power || 1.35), 0.6, 2.4);
@@ -5134,6 +5141,7 @@
         exportPairWarpSettingsButton?.addEventListener('click', exportCurrentPairWarpSettings);
         exportAllPairWarpSettingsButton?.addEventListener('click', exportAllPairWarpSettings);
         resetPairWarpSettingsButton?.addEventListener('click', resetCurrentPairWarpSettings);
+        refreshAllPairWarpButton?.addEventListener('click', refreshAllPairWarpFromStoredSettings);
         pairWarpSettingsInput?.addEventListener('change', event => importPairWarpSettingsFile(event.target.files?.[0]));
         pairCornerStretchNumberInput?.addEventListener('keydown', event => { if (event.key === 'Enter') applyPairWarpNumberInputs(); });
         pairCornerPowerNumberInput?.addEventListener('keydown', event => { if (event.key === 'Enter') applyPairWarpNumberInputs(); });
