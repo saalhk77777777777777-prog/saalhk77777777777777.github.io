@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.2';
+        const APP_VERSION = 'v2026.05.31.3';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -148,6 +148,7 @@
         const pairCornerPowerInput = document.getElementById('pair-corner-power');
         const pairWarpStatus = document.getElementById('pair-warp-status');
         const refreshPairWarpButton = document.getElementById('refresh-pair-warp');
+        const downloadPairWarpComparisonButton = document.getElementById('download-pair-warp-comparison');
         let posterExpectedFileCount = 0;
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
@@ -2599,6 +2600,70 @@
             }
         }
 
+        async function downloadPairWarpComparisonPack() {
+            const faces = getActivePairFaces();
+            if (faces.length !== 2) {
+                alert('먼저 FT/LF 같은 BETA Edge Pair 버튼을 눌러 주세요.');
+                return;
+            }
+
+            showLoading(`${faces[0].toUpperCase()}/${faces[1].toUpperCase()} 대각선 보정 비교팩을 만드는 중이에요.`);
+            const savedStretch = pairCornerStretch;
+            const savedPower = pairCornerStretchPower;
+            const variants = [0.3, 0.46, 0.62, 0.78].map(stretch => ({
+                stretch,
+                power: savedPower,
+                label: `corner-${Math.round(stretch * 100)}`
+            }));
+
+            try {
+                const baseCanvas = createPairCalibrationImage(faces);
+                const previewCanvas = createEmptyCanvas(CANVAS_SIZE * 2, CANVAS_SIZE * variants.length);
+                const previewCtx = previewCanvas.getContext('2d');
+                const renderedItems = [];
+
+                variants.forEach((variant, row) => {
+                    pairCornerStretch = variant.stretch;
+                    pairCornerStretchPower = variant.power;
+                    const splitCanvases = createPairSplitCanvases(baseCanvas, faces);
+                    splitCanvases.forEach((canvas, index) => {
+                        const face = faces[index];
+                        const base64 = canvas.toDataURL('image/png').split(',')[1];
+                        renderedItems.push({ variant, face, canvas, base64 });
+                        previewCtx.drawImage(canvas, index * CANVAS_SIZE, row * CANVAS_SIZE);
+                    });
+                    previewCtx.fillStyle = 'rgba(2, 6, 12, 0.74)';
+                    previewCtx.fillRect(24, row * CANVAS_SIZE + 24, 480, 76);
+                    previewCtx.font = '900 38px Arial';
+                    previewCtx.fillStyle = '#67e8f9';
+                    previewCtx.fillText(`${variant.label} · focus ${variant.power.toFixed(2)}`, 48, row * CANVAS_SIZE + 74);
+                });
+
+                if (typeof JSZip === 'undefined') {
+                    alert('ZIP 라이브러리를 불러오지 못해서 미리보기 PNG만 내보냅니다.');
+                    downloadBlob(await canvasToBlob(previewCanvas), `pair_warp_comparison_${faces.join('_')}.png`);
+                    return;
+                }
+
+                const zip = new JSZip();
+                zip.file(`comparison_${faces.join('_')}.png`, previewCanvas.toDataURL('image/png').split(',')[1], { base64: true });
+                renderedItems.forEach(item => {
+                    const folder = `${item.variant.label}_focus-${item.variant.power.toFixed(2)}`;
+                    zip.file(`${folder}/sky512_${item.face}.tex`, item.base64, { base64: true });
+                    zip.file(`${folder}/preview_${item.face}.png`, item.base64, { base64: true });
+                });
+                const blob = await zip.generateAsync({ type: 'blob' });
+                downloadBlob(blob, `pair_warp_comparison_${faces.join('_')}.zip`);
+            } catch (error) {
+                alert(`대각선 보정 비교팩 생성 실패\n${getErrorMessage(error)}`);
+            } finally {
+                pairCornerStretch = savedStretch;
+                pairCornerStretchPower = savedPower;
+                updatePairWarpSettingsUI();
+                hideLoading();
+            }
+        }
+
         async function addImagesToFacePair(files) {
             const faces = getActivePairFaces();
             if (faces.length !== 2) return false;
@@ -4663,6 +4728,7 @@
         document.querySelectorAll('.face-pair-tab').forEach(button => button.addEventListener('click', () => setActiveFacePair(button.dataset.facePair)));
         addPairTestGridButton?.addEventListener('click', downloadBetaSkyboxGridPack);
         addPairTestImageButton?.addEventListener('click', addPairCalibrationImage);
+        downloadPairWarpComparisonButton?.addEventListener('click', downloadPairWarpComparisonPack);
         pairCornerStretchInput?.addEventListener('input', () => updatePairWarpSettings({ refresh: true }));
         pairCornerPowerInput?.addEventListener('input', () => updatePairWarpSettings({ refresh: true }));
         refreshPairWarpButton?.addEventListener('click', () => {
