@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.17';
+        const APP_VERSION = 'v2026.05.31.18';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -152,6 +152,7 @@
         const applyPairWarpNumbersButton = document.getElementById('apply-pair-warp-numbers');
         const pairWarpSettingsInput = document.getElementById('pair-warp-settings-input');
         const importPairWarpSettingsButton = document.getElementById('import-pair-warp-settings');
+        const exportPairWarpSettingsButton = document.getElementById('export-pair-warp-settings');
         const refreshPairWarpButton = document.getElementById('refresh-pair-warp');
         const downloadPairWarpComparisonButton = document.getElementById('download-pair-warp-comparison');
         const downloadAllPairWarpComparisonButton = document.getElementById('download-all-pair-warp-comparison');
@@ -2555,6 +2556,28 @@
             } finally {
                 if (pairWarpSettingsInput) pairWarpSettingsInput.value = '';
             }
+        }
+
+        function exportCurrentPairWarpSettings() {
+            const faces = getActivePairFaces();
+            if (faces.length !== 2) {
+                alert('먼저 FT/LF 같은 BETA Edge Pair 버튼을 눌러 주세요.');
+                return;
+            }
+            const variants = getPairWarpComparisonVariants(pairCornerStretchPower, pairCornerStretch);
+            const payload = {
+                ...getPairWarpComparisonSettings(faces, variants, pairCornerStretchPower),
+                selected: {
+                    stretch: pairCornerStretch,
+                    power: pairCornerStretchPower,
+                    summary: getPairWarpSummary()
+                },
+                exportedAt: new Date().toISOString()
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            downloadBlob(blob, `pair_warp_settings_${faces.join('_')}.json`);
+            lastBackgroundUploadReport = `[settings.json 저장]\n${faces.map(face => face.toUpperCase()).join('/')} · ${getPairWarpSummary()}`;
+            render();
         }
 
         function applyPairWarpPreset(button) {
@@ -4997,6 +5020,7 @@
         pairCornerPowerInput?.addEventListener('input', () => updatePairWarpSettings({ refresh: true }));
         applyPairWarpNumbersButton?.addEventListener('click', applyPairWarpNumberInputs);
         importPairWarpSettingsButton?.addEventListener('click', () => pairWarpSettingsInput?.click());
+        exportPairWarpSettingsButton?.addEventListener('click', exportCurrentPairWarpSettings);
         pairWarpSettingsInput?.addEventListener('change', event => importPairWarpSettingsFile(event.target.files?.[0]));
         pairCornerStretchNumberInput?.addEventListener('keydown', event => { if (event.key === 'Enter') applyPairWarpNumberInputs(); });
         pairCornerPowerNumberInput?.addEventListener('keydown', event => { if (event.key === 'Enter') applyPairWarpNumberInputs(); });
