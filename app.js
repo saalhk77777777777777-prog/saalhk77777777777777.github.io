@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.11';
+        const APP_VERSION = 'v2026.05.31.12';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -2702,12 +2702,19 @@
             renderCtx.restore();
         }
 
-        function getPairWarpComparisonVariants(power = pairCornerStretchPower) {
-            return [0.3, 0.46, 0.62, 0.78].map(stretch => ({
+        function getPairWarpComparisonVariants(power = pairCornerStretchPower, currentStretch = pairCornerStretch) {
+            const defaultVariants = [0.3, 0.46, 0.62, 0.78].map(stretch => ({
                 stretch,
                 power,
                 label: `corner-${Math.round(stretch * 100)}`
             }));
+            const current = {
+                stretch: clamp(Number(currentStretch), 0, 0.9),
+                power: clamp(Number(power), 0.6, 2.4),
+                label: `current-${Math.round(clamp(Number(currentStretch), 0, 0.9) * 100)}`
+            };
+            const alreadyIncluded = defaultVariants.some(variant => Math.abs(variant.stretch - current.stretch) < 0.005);
+            return alreadyIncluded ? defaultVariants : [current, ...defaultVariants];
         }
 
         function createPairWarpComparisonCanvases(faces, variants) {
@@ -2746,6 +2753,7 @@
                 'curve: smoothstep corner transition',
                 '',
                 '폴더별 corner 값이 클수록 모서리 쪽 사진 늘림이 강합니다.',
+                'current-* 폴더는 앱에 현재 저장된 이 페어의 보정값입니다.',
                 'comparison PNG의 노랑/빨강 히트맵은 모서리 쪽으로 갈수록 늘림이 강해지는 구역입니다.',
                 'Roblox에서 가장 자연스럽게 이어지는 폴더 값을 앱의 대각선 보정 프리셋/슬라이더에 맞추면 됩니다.'
             ].join('\n');
@@ -2775,7 +2783,7 @@
             showLoading(`${faces[0].toUpperCase()}/${faces[1].toUpperCase()} 대각선 보정 비교팩을 만드는 중이에요.`);
             const savedStretch = pairCornerStretch;
             const savedPower = pairCornerStretchPower;
-            const variants = getPairWarpComparisonVariants(savedPower);
+            const variants = getPairWarpComparisonVariants(savedPower, savedStretch);
 
             try {
                 const { previewCanvas, renderedItems } = createPairWarpComparisonCanvases(faces, variants);
@@ -2810,7 +2818,6 @@
         async function downloadAllPairWarpComparisonPack() {
             const savedStretch = pairCornerStretch;
             const savedPower = pairCornerStretchPower;
-            const variants = getPairWarpComparisonVariants(savedPower);
             const pairList = ['ft/lf', 'rt/ft', 'bk/rt', 'lf/bk'].map(pair => getInsidePairFaces(pair.split('/')));
 
             showLoading('전체 대각선 보정 비교팩을 만드는 중이에요.');
@@ -2830,11 +2837,13 @@
 
                 for (const faces of pairList) {
                     const pairKey = faces.join('_');
+                    const pairSettings = getStoredPairWarpSettings(faces);
+                    const variants = getPairWarpComparisonVariants(pairSettings.power, pairSettings.stretch);
                     showLoading(`${faces[0].toUpperCase()}/${faces[1].toUpperCase()} 비교팩 생성 중...`);
                     const { previewCanvas, renderedItems } = createPairWarpComparisonCanvases(faces, variants);
                     const folderRoot = `pair_${pairKey}`;
-                    zip.file(`${folderRoot}/README.txt`, getPairWarpComparisonReadme(faces, variants, savedPower, 'Skybox Studio All Pair Warp Comparison'));
-                    zip.file(`${folderRoot}/settings.json`, JSON.stringify(getPairWarpComparisonSettings(faces, variants, savedPower), null, 2));
+                    zip.file(`${folderRoot}/README.txt`, getPairWarpComparisonReadme(faces, variants, pairSettings.power, 'Skybox Studio All Pair Warp Comparison'));
+                    zip.file(`${folderRoot}/settings.json`, JSON.stringify(getPairWarpComparisonSettings(faces, variants, pairSettings.power), null, 2));
                     zip.file(`${folderRoot}/comparison_${pairKey}.png`, previewCanvas.toDataURL('image/png').split(',')[1], { base64: true });
                     renderedItems.forEach(item => {
                         const folder = `${folderRoot}/${item.variant.label}_focus-${item.variant.power.toFixed(2)}`;
@@ -2844,7 +2853,8 @@
                     summary.pairs.push({
                         pair: faces,
                         folder: folderRoot,
-                        preview: `${folderRoot}/comparison_${pairKey}.png`
+                        preview: `${folderRoot}/comparison_${pairKey}.png`,
+                        current: pairSettings
                     });
                 }
 
@@ -2855,6 +2865,7 @@
                     `focus: ${savedPower.toFixed(2)}`,
                     'pairs: FT/LF, RT/FT, BK/RT, LF/BK',
                     '',
+                    '각 pair_* 폴더의 current-* 항목은 해당 페어에 저장된 현재 보정값입니다.',
                     '각 pair_* 폴더를 Roblox에 넣어 보고 가장 자연스러운 corner 값을 고르면 됩니다.',
                     '한 페어만 이상하면 해당 페어 폴더의 settings.json 값을 기준으로 슬라이더를 맞춰 주세요.'
                 ].join('\n'));
