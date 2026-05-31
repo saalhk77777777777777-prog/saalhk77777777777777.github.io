@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.21';
+        const APP_VERSION = 'v2026.05.31.22';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -243,6 +243,24 @@
                 stretch: 0.46,
                 power: 1.35,
                 pairs
+            }));
+        }
+
+        function saveAllPairWarpSettings(pairs) {
+            const normalizedPairs = {};
+            Object.entries(pairs || {}).forEach(([pairKey, value]) => {
+                const faces = getInsidePairFaces(String(pairKey).split('/'));
+                if (faces.length !== 2) return;
+                normalizedPairs[faces.join('/')] = {
+                    stretch: clamp(Number(value?.stretch ?? 0.46), 0, 0.9),
+                    power: clamp(Number(value?.power ?? 1.35), 0.6, 2.4)
+                };
+            });
+            const activeSettings = normalizedPairs[getPairWarpStorageKey()] || getStoredPairWarpSettings();
+            localStorage.setItem(PAIR_WARP_SETTINGS_KEY, JSON.stringify({
+                stretch: activeSettings.stretch,
+                power: activeSettings.power,
+                pairs: normalizedPairs
             }));
         }
         function degToRad(deg) { return deg * Math.PI / 180; }
@@ -2557,6 +2575,17 @@
             if (!file) return;
             try {
                 const settings = JSON.parse(await file.text());
+                if (settings?.schema === 'skybox-pair-warp-settings' && settings.pairs) {
+                    saveAllPairWarpSettings(settings.pairs);
+                    const activeSettings = getStoredPairWarpSettings();
+                    pairCornerStretch = activeSettings.stretch;
+                    pairCornerStretchPower = activeSettings.power;
+                    updatePairWarpSettingsUI();
+                    refreshPairWarpElements();
+                    lastBackgroundUploadReport = `[전체 settings 적용]\n${file.name}\n현재 페어: ${getPairWarpSummary()}`;
+                    render();
+                    return;
+                }
                 const variant = getBestPairWarpVariantFromSettings(settings);
                 pairCornerStretch = clamp(Number(variant.stretch ?? settings.stretch ?? pairCornerStretch), 0, 0.9);
                 pairCornerStretchPower = clamp(Number(variant.power ?? settings.power ?? settings.focus ?? pairCornerStretchPower), 0.6, 2.4);
