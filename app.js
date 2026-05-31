@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.4';
+        const APP_VERSION = 'v2026.05.31.5';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -2481,6 +2481,15 @@
             }
         }
 
+        function applyPairWarpPreset(button) {
+            pairCornerStretch = clamp(Number(button.dataset.stretch || 0.46), 0, 0.9);
+            pairCornerStretchPower = clamp(Number(button.dataset.power || 1.35), 0.6, 2.4);
+            savePairWarpSettings();
+            updatePairWarpSettingsUI();
+            refreshPairWarpElements();
+            render();
+        }
+
         async function addPairCalibrationImage() {
             const faces = getActivePairFaces();
             if (faces.length !== 2) {
@@ -4765,6 +4774,9 @@
         downloadPairWarpComparisonButton?.addEventListener('click', downloadPairWarpComparisonPack);
         pairCornerStretchInput?.addEventListener('input', () => updatePairWarpSettings({ refresh: true }));
         pairCornerPowerInput?.addEventListener('input', () => updatePairWarpSettings({ refresh: true }));
+        document.querySelectorAll('.pair-warp-preset').forEach(button => {
+            button.addEventListener('click', () => applyPairWarpPreset(button));
+        });
         refreshPairWarpButton?.addEventListener('click', () => {
             const count = refreshPairWarpElements();
             render();
