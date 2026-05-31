@@ -1,10 +1,12 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.1';
+        const APP_VERSION = 'v2026.05.31.2';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
-        const PAIR_CORNER_STRETCH = 0.46;
-        const PAIR_CORNER_STRETCH_POWER = 1.35;
+        const PAIR_WARP_SETTINGS_KEY = 'skybox-pair-warp-settings-v1';
+        const savedPairWarpSettings = readPairWarpSettings();
+        let pairCornerStretch = savedPairWarpSettings.stretch;
+        let pairCornerStretchPower = savedPairWarpSettings.power;
         const FONT_OPTIONS = ['Pretendard', 'Arial', 'Georgia', 'Verdana', 'Trebuchet MS', 'Courier New'];
         const NEON_PRESETS = [
             { key: 'pink', label: '네온핑크', color: '#ff2bd6' },
@@ -142,6 +144,10 @@
         const canvaResultInput = document.getElementById('canva-result-input');
         const addPairTestGridButton = document.getElementById('add-pair-test-grid');
         const addPairTestImageButton = document.getElementById('add-pair-test-image');
+        const pairCornerStretchInput = document.getElementById('pair-corner-stretch');
+        const pairCornerPowerInput = document.getElementById('pair-corner-power');
+        const pairWarpStatus = document.getElementById('pair-warp-status');
+        const refreshPairWarpButton = document.getElementById('refresh-pair-warp');
         let posterExpectedFileCount = 0;
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
@@ -173,6 +179,23 @@
         function showLoading(message) { loadingText.textContent = message; loadingOverlay.classList.add('visible'); }
         function hideLoading() { loadingOverlay.classList.remove('visible'); }
         function clamp(value, min, max) { return Math.min(Math.max(value, min), max); }
+        function readPairWarpSettings() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(PAIR_WARP_SETTINGS_KEY) || '{}');
+                return {
+                    stretch: clamp(Number(saved.stretch ?? 0.46), 0, 0.9),
+                    power: clamp(Number(saved.power ?? 1.35), 0.6, 2.4)
+                };
+            } catch {
+                return { stretch: 0.46, power: 1.35 };
+            }
+        }
+        function savePairWarpSettings() {
+            localStorage.setItem(PAIR_WARP_SETTINGS_KEY, JSON.stringify({
+                stretch: pairCornerStretch,
+                power: pairCornerStretchPower
+            }));
+        }
         function degToRad(deg) { return deg * Math.PI / 180; }
         function createEmptyCanvas(width, height) { const c = document.createElement('canvas'); c.width = width; c.height = height; return c; }
         function copyCanvas(source) { const copied = createEmptyCanvas(source.width, source.height); copied.getContext('2d').drawImage(source, 0, 0); return copied; }
@@ -2154,8 +2177,8 @@
             const centered = raw * 2 - 1;
             const angular = clamp((Math.atan(centered) / (Math.PI / 4) + 1) / 2, 0, 1);
             const angularCentered = angular * 2 - 1;
-            const cornerAmount = Math.pow(Math.abs(centered), PAIR_CORNER_STRETCH_POWER);
-            const stretch = clamp(PAIR_CORNER_STRETCH * cornerAmount * (0.25 + bend * 0.75), 0, 0.62);
+            const cornerAmount = Math.pow(Math.abs(centered), pairCornerStretchPower);
+            const stretch = clamp(pairCornerStretch * cornerAmount * (0.25 + bend * 0.75), 0, 0.62);
             const exponent = 1 - stretch;
             const stretchedCentered = Math.sign(angularCentered) * Math.pow(Math.abs(angularCentered), exponent);
             return clamp((stretchedCentered + 1) / 2, 0, 1);
@@ -2368,6 +2391,59 @@
             testCtx.strokeText(footer, width / 2, height - 58);
             testCtx.fillText(footer, width / 2, height - 58);
             return testCanvas;
+        }
+
+        function updatePairWarpSettingsUI() {
+            if (pairCornerStretchInput && pairCornerStretchInput !== document.activeElement) pairCornerStretchInput.value = pairCornerStretch.toFixed(2);
+            if (pairCornerPowerInput && pairCornerPowerInput !== document.activeElement) pairCornerPowerInput.value = pairCornerStretchPower.toFixed(2);
+            if (pairWarpStatus) pairWarpStatus.textContent = `Corner ${Math.round(pairCornerStretch * 100)}% · Focus ${pairCornerStretchPower.toFixed(2)}`;
+        }
+
+        function refreshPairWarpElements(targetFaces = getActivePairFaces()) {
+            const targetKey = targetFaces.length === 2 ? targetFaces.join('/') : '';
+            const groups = new Map();
+            FACES.forEach(faceKey => {
+                const faceState = getFaceState(faceKey);
+                faceState.elements.forEach(element => {
+                    if (!element.autoPairWarp || !element.pairWarpId || !element.pairSourceCanvas || !Array.isArray(element.pairFaces)) return;
+                    const pairKey = element.pairFaces.join('/');
+                    if (targetKey && pairKey !== targetKey) return;
+                    if (!groups.has(element.pairWarpId)) {
+                        groups.set(element.pairWarpId, {
+                            faces: [...element.pairFaces],
+                            source: element.pairSourceCanvas,
+                            elements: []
+                        });
+                    }
+                    groups.get(element.pairWarpId).elements.push({ faceKey, element });
+                });
+            });
+
+            groups.forEach(group => {
+                const splitCanvases = createPairSplitCanvases(group.source, group.faces);
+                group.elements.forEach(({ element }) => {
+                    const index = Number(element.pairIndex || 0);
+                    const partCanvas = splitCanvases[index];
+                    if (!partCanvas) return;
+                    element.originalCanvas = copyCanvas(partCanvas);
+                    element.maskCanvas = copyCanvas(partCanvas);
+                    element.processedCanvas = copyCanvas(partCanvas);
+                });
+            });
+
+            lastBackgroundUploadReport = `[대각선 재보정]\n코너 늘림 ${Math.round(pairCornerStretch * 100)}%, 집중도 ${pairCornerStretchPower.toFixed(2)}로 ${groups.size}개 페어 이미지를 다시 계산했습니다.`;
+            return groups.size;
+        }
+
+        function updatePairWarpSettings({ refresh = true } = {}) {
+            pairCornerStretch = clamp(Number(pairCornerStretchInput?.value || pairCornerStretch), 0, 0.9);
+            pairCornerStretchPower = clamp(Number(pairCornerPowerInput?.value || pairCornerStretchPower), 0.6, 2.4);
+            savePairWarpSettings();
+            updatePairWarpSettingsUI();
+            if (refresh) {
+                refreshPairWarpElements();
+                render();
+            }
         }
 
         async function addPairCalibrationImage() {
@@ -3410,6 +3486,7 @@
             updatePropertyPanel();
             updateCanvasSettingsUI();
             updateMobileQuickControls();
+            updatePairWarpSettingsUI();
         }
 
         function getLayerBorderValues(element) {
@@ -4586,6 +4663,13 @@
         document.querySelectorAll('.face-pair-tab').forEach(button => button.addEventListener('click', () => setActiveFacePair(button.dataset.facePair)));
         addPairTestGridButton?.addEventListener('click', downloadBetaSkyboxGridPack);
         addPairTestImageButton?.addEventListener('click', addPairCalibrationImage);
+        pairCornerStretchInput?.addEventListener('input', () => updatePairWarpSettings({ refresh: true }));
+        pairCornerPowerInput?.addEventListener('input', () => updatePairWarpSettings({ refresh: true }));
+        refreshPairWarpButton?.addEventListener('click', () => {
+            const count = refreshPairWarpElements();
+            render();
+            alert(count > 0 ? `${count}개 페어 이미지를 현재 대각선 보정값으로 다시 계산했습니다.` : '현재 페어에 재보정할 자동왜곡 이미지가 없습니다.');
+        });
 
         window.addEventListener('keydown', event => {
             const tag = document.activeElement?.tagName;
