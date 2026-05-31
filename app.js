@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.6';
+        const APP_VERSION = 'v2026.05.31.7';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -2643,6 +2643,30 @@
             }
         }
 
+        function drawPairWarpHeatmap(renderCtx, variant, rowY) {
+            const cell = 64;
+            renderCtx.save();
+            renderCtx.globalCompositeOperation = 'screen';
+            for (let y = 0; y < CANVAS_SIZE; y += cell) {
+                const normalizedY = y / Math.max(1, CANVAS_SIZE - cell);
+                const cornerDistance = Math.abs(normalizedY * 2 - 1);
+                const cornerAmount = Math.pow(cornerDistance, variant.power);
+                const alpha = clamp(variant.stretch * cornerAmount * 0.46, 0, 0.34);
+                if (alpha <= 0.01) continue;
+                const hue = 185 - Math.round(cornerAmount * 145);
+                renderCtx.fillStyle = `hsla(${hue}, 100%, 58%, ${alpha})`;
+                renderCtx.fillRect(0, rowY + y, CANVAS_SIZE * 2, cell + 1);
+            }
+            renderCtx.globalCompositeOperation = 'source-over';
+            renderCtx.fillStyle = 'rgba(2, 6, 12, 0.72)';
+            renderCtx.fillRect(CANVAS_SIZE * 2 - 430, rowY + 24, 402, 76);
+            renderCtx.font = '900 28px Arial';
+            renderCtx.fillStyle = '#facc15';
+            renderCtx.textAlign = 'left';
+            renderCtx.fillText('HEATMAP: corner stretch zone', CANVAS_SIZE * 2 - 404, rowY + 72);
+            renderCtx.restore();
+        }
+
         async function downloadPairWarpComparisonPack() {
             const faces = getActivePairFaces();
             if (faces.length !== 2) {
@@ -2675,6 +2699,7 @@
                         renderedItems.push({ variant, face, canvas, base64 });
                         previewCtx.drawImage(canvas, index * CANVAS_SIZE, row * CANVAS_SIZE);
                     });
+                    drawPairWarpHeatmap(previewCtx, variant, row * CANVAS_SIZE);
                     previewCtx.fillStyle = 'rgba(2, 6, 12, 0.74)';
                     previewCtx.fillRect(24, row * CANVAS_SIZE + 24, 480, 76);
                     previewCtx.font = '900 38px Arial';
@@ -2696,6 +2721,7 @@
                     `focus: ${savedPower.toFixed(2)}`,
                     '',
                     '폴더별 corner 값이 클수록 모서리 쪽 사진 늘림이 강합니다.',
+                    'comparison PNG의 노랑/빨강 히트맵은 모서리 쪽으로 갈수록 늘림이 강해지는 구역입니다.',
                     'Roblox에서 가장 자연스럽게 이어지는 폴더 값을 앱의 대각선 보정 프리셋/슬라이더에 맞추면 됩니다.'
                 ].join('\n'));
                 zip.file('settings.json', JSON.stringify({
