@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.13';
+        const APP_VERSION = 'v2026.05.31.14';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -146,7 +146,10 @@
         const addPairTestImageButton = document.getElementById('add-pair-test-image');
         const pairCornerStretchInput = document.getElementById('pair-corner-stretch');
         const pairCornerPowerInput = document.getElementById('pair-corner-power');
+        const pairCornerStretchNumberInput = document.getElementById('pair-corner-stretch-number');
+        const pairCornerPowerNumberInput = document.getElementById('pair-corner-power-number');
         const pairWarpStatus = document.getElementById('pair-warp-status');
+        const applyPairWarpNumbersButton = document.getElementById('apply-pair-warp-numbers');
         const refreshPairWarpButton = document.getElementById('refresh-pair-warp');
         const downloadPairWarpComparisonButton = document.getElementById('download-pair-warp-comparison');
         const downloadAllPairWarpComparisonButton = document.getElementById('download-all-pair-warp-comparison');
@@ -2460,6 +2463,8 @@
         function updatePairWarpSettingsUI() {
             if (pairCornerStretchInput && pairCornerStretchInput !== document.activeElement) pairCornerStretchInput.value = pairCornerStretch.toFixed(2);
             if (pairCornerPowerInput && pairCornerPowerInput !== document.activeElement) pairCornerPowerInput.value = pairCornerStretchPower.toFixed(2);
+            if (pairCornerStretchNumberInput && pairCornerStretchNumberInput !== document.activeElement) pairCornerStretchNumberInput.value = pairCornerStretch.toFixed(2);
+            if (pairCornerPowerNumberInput && pairCornerPowerNumberInput !== document.activeElement) pairCornerPowerNumberInput.value = pairCornerStretchPower.toFixed(2);
             const pairLabel = getPairWarpStorageKey().toUpperCase();
             if (pairWarpStatus) pairWarpStatus.textContent = `${pairLabel} · Corner ${Math.round(pairCornerStretch * 100)}% · Focus ${pairCornerStretchPower.toFixed(2)}`;
         }
@@ -2513,6 +2518,16 @@
                 refreshPairWarpElements();
                 render();
             }
+        }
+
+        function applyPairWarpNumberInputs() {
+            pairCornerStretch = clamp(Number(pairCornerStretchNumberInput?.value || pairCornerStretch), 0, 0.9);
+            pairCornerStretchPower = clamp(Number(pairCornerPowerNumberInput?.value || pairCornerStretchPower), 0.6, 2.4);
+            savePairWarpSettings();
+            updatePairWarpSettingsUI();
+            refreshPairWarpElements();
+            lastBackgroundUploadReport = `[대각선 숫자 적용]\n${getPairWarpSummary()}`;
+            render();
         }
 
         function applyPairWarpPreset(button) {
@@ -4952,6 +4967,9 @@
         downloadAllPairWarpComparisonButton?.addEventListener('click', downloadAllPairWarpComparisonPack);
         pairCornerStretchInput?.addEventListener('input', () => updatePairWarpSettings({ refresh: true }));
         pairCornerPowerInput?.addEventListener('input', () => updatePairWarpSettings({ refresh: true }));
+        applyPairWarpNumbersButton?.addEventListener('click', applyPairWarpNumberInputs);
+        pairCornerStretchNumberInput?.addEventListener('keydown', event => { if (event.key === 'Enter') applyPairWarpNumberInputs(); });
+        pairCornerPowerNumberInput?.addEventListener('keydown', event => { if (event.key === 'Enter') applyPairWarpNumberInputs(); });
         document.querySelectorAll('.pair-warp-preset').forEach(button => {
             button.addEventListener('click', () => applyPairWarpPreset(button));
         });
