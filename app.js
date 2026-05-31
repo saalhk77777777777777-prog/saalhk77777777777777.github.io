@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.9';
+        const APP_VERSION = 'v2026.05.31.10';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -149,6 +149,7 @@
         const pairWarpStatus = document.getElementById('pair-warp-status');
         const refreshPairWarpButton = document.getElementById('refresh-pair-warp');
         const downloadPairWarpComparisonButton = document.getElementById('download-pair-warp-comparison');
+        const downloadAllPairWarpComparisonButton = document.getElementById('download-all-pair-warp-comparison');
         let posterExpectedFileCount = 0;
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
@@ -2677,6 +2678,69 @@
             renderCtx.restore();
         }
 
+        function getPairWarpComparisonVariants(power = pairCornerStretchPower) {
+            return [0.3, 0.46, 0.62, 0.78].map(stretch => ({
+                stretch,
+                power,
+                label: `corner-${Math.round(stretch * 100)}`
+            }));
+        }
+
+        function createPairWarpComparisonCanvases(faces, variants) {
+            const baseCanvas = createPairCalibrationImage(faces);
+            const previewCanvas = createEmptyCanvas(CANVAS_SIZE * 2, CANVAS_SIZE * variants.length);
+            const previewCtx = previewCanvas.getContext('2d');
+            const renderedItems = [];
+
+            variants.forEach((variant, row) => {
+                pairCornerStretch = variant.stretch;
+                pairCornerStretchPower = variant.power;
+                const splitCanvases = createPairSplitCanvases(baseCanvas, faces);
+                splitCanvases.forEach((canvas, index) => {
+                    const face = faces[index];
+                    const base64 = canvas.toDataURL('image/png').split(',')[1];
+                    renderedItems.push({ variant, face, canvas, base64 });
+                    previewCtx.drawImage(canvas, index * CANVAS_SIZE, row * CANVAS_SIZE);
+                });
+                drawPairWarpHeatmap(previewCtx, variant, row * CANVAS_SIZE);
+                previewCtx.fillStyle = 'rgba(2, 6, 12, 0.74)';
+                previewCtx.fillRect(24, row * CANVAS_SIZE + 24, 480, 76);
+                previewCtx.font = '900 38px Arial';
+                previewCtx.fillStyle = '#67e8f9';
+                previewCtx.fillText(`${variant.label} · focus ${variant.power.toFixed(2)}`, 48, row * CANVAS_SIZE + 74);
+            });
+
+            return { previewCanvas, renderedItems };
+        }
+
+        function getPairWarpComparisonReadme(faces, variants, savedPower, title = 'Skybox Studio Pair Warp Comparison') {
+            return [
+                title,
+                `version: ${APP_VERSION}`,
+                `pair: ${faces.map(face => face.toUpperCase()).join('/')}`,
+                `focus: ${savedPower.toFixed(2)}`,
+                'curve: smoothstep corner transition',
+                '',
+                '폴더별 corner 값이 클수록 모서리 쪽 사진 늘림이 강합니다.',
+                'comparison PNG의 노랑/빨강 히트맵은 모서리 쪽으로 갈수록 늘림이 강해지는 구역입니다.',
+                'Roblox에서 가장 자연스럽게 이어지는 폴더 값을 앱의 대각선 보정 프리셋/슬라이더에 맞추면 됩니다.'
+            ].join('\n');
+        }
+
+        function getPairWarpComparisonSettings(faces, variants, savedPower) {
+            return {
+                version: APP_VERSION,
+                pair: faces,
+                focus: savedPower,
+                curve: 'smoothstep corner transition',
+                variants: variants.map(variant => ({
+                    label: variant.label,
+                    stretch: variant.stretch,
+                    power: variant.power
+                }))
+            };
+        }
+
         async function downloadPairWarpComparisonPack() {
             const faces = getActivePairFaces();
             if (faces.length !== 2) {
@@ -2687,35 +2751,10 @@
             showLoading(`${faces[0].toUpperCase()}/${faces[1].toUpperCase()} 대각선 보정 비교팩을 만드는 중이에요.`);
             const savedStretch = pairCornerStretch;
             const savedPower = pairCornerStretchPower;
-            const variants = [0.3, 0.46, 0.62, 0.78].map(stretch => ({
-                stretch,
-                power: savedPower,
-                label: `corner-${Math.round(stretch * 100)}`
-            }));
+            const variants = getPairWarpComparisonVariants(savedPower);
 
             try {
-                const baseCanvas = createPairCalibrationImage(faces);
-                const previewCanvas = createEmptyCanvas(CANVAS_SIZE * 2, CANVAS_SIZE * variants.length);
-                const previewCtx = previewCanvas.getContext('2d');
-                const renderedItems = [];
-
-                variants.forEach((variant, row) => {
-                    pairCornerStretch = variant.stretch;
-                    pairCornerStretchPower = variant.power;
-                    const splitCanvases = createPairSplitCanvases(baseCanvas, faces);
-                    splitCanvases.forEach((canvas, index) => {
-                        const face = faces[index];
-                        const base64 = canvas.toDataURL('image/png').split(',')[1];
-                        renderedItems.push({ variant, face, canvas, base64 });
-                        previewCtx.drawImage(canvas, index * CANVAS_SIZE, row * CANVAS_SIZE);
-                    });
-                    drawPairWarpHeatmap(previewCtx, variant, row * CANVAS_SIZE);
-                    previewCtx.fillStyle = 'rgba(2, 6, 12, 0.74)';
-                    previewCtx.fillRect(24, row * CANVAS_SIZE + 24, 480, 76);
-                    previewCtx.font = '900 38px Arial';
-                    previewCtx.fillStyle = '#67e8f9';
-                    previewCtx.fillText(`${variant.label} · focus ${variant.power.toFixed(2)}`, 48, row * CANVAS_SIZE + 74);
-                });
+                const { previewCanvas, renderedItems } = createPairWarpComparisonCanvases(faces, variants);
 
                 if (typeof JSZip === 'undefined') {
                     alert('ZIP 라이브러리를 불러오지 못해서 미리보기 PNG만 내보냅니다.');
@@ -2724,28 +2763,8 @@
                 }
 
                 const zip = new JSZip();
-                zip.file('README.txt', [
-                    `Skybox Studio Pair Warp Comparison`,
-                    `version: ${APP_VERSION}`,
-                    `pair: ${faces.map(face => face.toUpperCase()).join('/')}`,
-                    `focus: ${savedPower.toFixed(2)}`,
-                    'curve: smoothstep corner transition',
-                    '',
-                    '폴더별 corner 값이 클수록 모서리 쪽 사진 늘림이 강합니다.',
-                    'comparison PNG의 노랑/빨강 히트맵은 모서리 쪽으로 갈수록 늘림이 강해지는 구역입니다.',
-                    'Roblox에서 가장 자연스럽게 이어지는 폴더 값을 앱의 대각선 보정 프리셋/슬라이더에 맞추면 됩니다.'
-                ].join('\n'));
-                zip.file('settings.json', JSON.stringify({
-                    version: APP_VERSION,
-                    pair: faces,
-                    focus: savedPower,
-                    curve: 'smoothstep corner transition',
-                    variants: variants.map(variant => ({
-                        label: variant.label,
-                        stretch: variant.stretch,
-                        power: variant.power
-                    }))
-                }, null, 2));
+                zip.file('README.txt', getPairWarpComparisonReadme(faces, variants, savedPower));
+                zip.file('settings.json', JSON.stringify(getPairWarpComparisonSettings(faces, variants, savedPower), null, 2));
                 zip.file(`comparison_${faces.join('_')}.png`, previewCanvas.toDataURL('image/png').split(',')[1], { base64: true });
                 renderedItems.forEach(item => {
                     const folder = `${item.variant.label}_focus-${item.variant.power.toFixed(2)}`;
@@ -2756,6 +2775,69 @@
                 downloadBlob(blob, `pair_warp_comparison_${faces.join('_')}.zip`);
             } catch (error) {
                 alert(`대각선 보정 비교팩 생성 실패\n${getErrorMessage(error)}`);
+            } finally {
+                pairCornerStretch = savedStretch;
+                pairCornerStretchPower = savedPower;
+                updatePairWarpSettingsUI();
+                hideLoading();
+            }
+        }
+
+        async function downloadAllPairWarpComparisonPack() {
+            const savedStretch = pairCornerStretch;
+            const savedPower = pairCornerStretchPower;
+            const variants = getPairWarpComparisonVariants(savedPower);
+            const pairList = ['ft/lf', 'rt/ft', 'bk/rt', 'lf/bk'].map(pair => getInsidePairFaces(pair.split('/')));
+
+            showLoading('전체 대각선 보정 비교팩을 만드는 중이에요.');
+            try {
+                if (typeof JSZip === 'undefined') {
+                    alert('ZIP 라이브러리를 불러오지 못해서 전체 비교팩을 만들 수 없습니다. 현재 페어 비교팩만 사용해 주세요.');
+                    return;
+                }
+
+                const zip = new JSZip();
+                const summary = {
+                    version: APP_VERSION,
+                    focus: savedPower,
+                    curve: 'smoothstep corner transition',
+                    pairs: []
+                };
+
+                for (const faces of pairList) {
+                    const pairKey = faces.join('_');
+                    showLoading(`${faces[0].toUpperCase()}/${faces[1].toUpperCase()} 비교팩 생성 중...`);
+                    const { previewCanvas, renderedItems } = createPairWarpComparisonCanvases(faces, variants);
+                    const folderRoot = `pair_${pairKey}`;
+                    zip.file(`${folderRoot}/README.txt`, getPairWarpComparisonReadme(faces, variants, savedPower, 'Skybox Studio All Pair Warp Comparison'));
+                    zip.file(`${folderRoot}/settings.json`, JSON.stringify(getPairWarpComparisonSettings(faces, variants, savedPower), null, 2));
+                    zip.file(`${folderRoot}/comparison_${pairKey}.png`, previewCanvas.toDataURL('image/png').split(',')[1], { base64: true });
+                    renderedItems.forEach(item => {
+                        const folder = `${folderRoot}/${item.variant.label}_focus-${item.variant.power.toFixed(2)}`;
+                        zip.file(`${folder}/sky512_${item.face}.tex`, item.base64, { base64: true });
+                        zip.file(`${folder}/preview_${item.face}.png`, item.base64, { base64: true });
+                    });
+                    summary.pairs.push({
+                        pair: faces,
+                        folder: folderRoot,
+                        preview: `${folderRoot}/comparison_${pairKey}.png`
+                    });
+                }
+
+                zip.file('ALL_PAIRS_SUMMARY.json', JSON.stringify(summary, null, 2));
+                zip.file('README.txt', [
+                    'Skybox Studio All Pair Warp Comparison',
+                    `version: ${APP_VERSION}`,
+                    `focus: ${savedPower.toFixed(2)}`,
+                    'pairs: FT/LF, RT/FT, BK/RT, LF/BK',
+                    '',
+                    '각 pair_* 폴더를 Roblox에 넣어 보고 가장 자연스러운 corner 값을 고르면 됩니다.',
+                    '한 페어만 이상하면 해당 페어 폴더의 settings.json 값을 기준으로 슬라이더를 맞춰 주세요.'
+                ].join('\n'));
+                const blob = await zip.generateAsync({ type: 'blob' });
+                downloadBlob(blob, 'all_pair_warp_comparison.zip');
+            } catch (error) {
+                alert(`전체 대각선 보정 비교팩 생성 실패\n${getErrorMessage(error)}`);
             } finally {
                 pairCornerStretch = savedStretch;
                 pairCornerStretchPower = savedPower;
@@ -4829,6 +4911,7 @@
         addPairTestGridButton?.addEventListener('click', downloadBetaSkyboxGridPack);
         addPairTestImageButton?.addEventListener('click', addPairCalibrationImage);
         downloadPairWarpComparisonButton?.addEventListener('click', downloadPairWarpComparisonPack);
+        downloadAllPairWarpComparisonButton?.addEventListener('click', downloadAllPairWarpComparisonPack);
         pairCornerStretchInput?.addEventListener('input', () => updatePairWarpSettings({ refresh: true }));
         pairCornerPowerInput?.addEventListener('input', () => updatePairWarpSettings({ refresh: true }));
         document.querySelectorAll('.pair-warp-preset').forEach(button => {
