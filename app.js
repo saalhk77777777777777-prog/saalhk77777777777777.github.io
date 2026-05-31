@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.20';
+        const APP_VERSION = 'v2026.05.31.21';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -153,6 +153,7 @@
         const pairWarpSettingsInput = document.getElementById('pair-warp-settings-input');
         const importPairWarpSettingsButton = document.getElementById('import-pair-warp-settings');
         const exportPairWarpSettingsButton = document.getElementById('export-pair-warp-settings');
+        const exportAllPairWarpSettingsButton = document.getElementById('export-all-pair-warp-settings');
         const resetPairWarpSettingsButton = document.getElementById('reset-pair-warp-settings');
         const refreshPairWarpButton = document.getElementById('refresh-pair-warp');
         const downloadPairWarpComparisonButton = document.getElementById('download-pair-warp-comparison');
@@ -2590,6 +2591,29 @@
             const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
             downloadBlob(blob, `pair_warp_settings_${faces.join('_')}.json`);
             lastBackgroundUploadReport = `[settings.json 저장]\n${faces.map(face => face.toUpperCase()).join('/')} · ${getPairWarpSummary()}`;
+            render();
+        }
+
+        function exportAllPairWarpSettings() {
+            const pairList = ['ft/lf', 'rt/ft', 'bk/rt', 'lf/bk'].map(pair => getInsidePairFaces(pair.split('/')));
+            const pairs = Object.fromEntries(pairList.map(faces => {
+                const settings = getStoredPairWarpSettings(faces);
+                return [faces.join('/'), {
+                    stretch: settings.stretch,
+                    power: settings.power,
+                    label: faces.map(face => face.toUpperCase()).join('/')
+                }];
+            }));
+            const payload = {
+                schema: 'skybox-pair-warp-settings',
+                version: APP_VERSION,
+                curve: 'smoothstep corner transition',
+                exportedAt: new Date().toISOString(),
+                pairs
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            downloadBlob(blob, 'all_pair_warp_settings.json');
+            lastBackgroundUploadReport = `[전체 settings 저장]\nFT/LF, RT/FT, BK/RT, LF/BK 보정값을 저장했습니다.`;
             render();
         }
 
@@ -5054,6 +5078,7 @@
         applyPairWarpNumbersButton?.addEventListener('click', applyPairWarpNumberInputs);
         importPairWarpSettingsButton?.addEventListener('click', () => pairWarpSettingsInput?.click());
         exportPairWarpSettingsButton?.addEventListener('click', exportCurrentPairWarpSettings);
+        exportAllPairWarpSettingsButton?.addEventListener('click', exportAllPairWarpSettings);
         resetPairWarpSettingsButton?.addEventListener('click', resetCurrentPairWarpSettings);
         pairWarpSettingsInput?.addEventListener('change', event => importPairWarpSettingsFile(event.target.files?.[0]));
         pairCornerStretchNumberInput?.addEventListener('keydown', event => { if (event.key === 'Enter') applyPairWarpNumberInputs(); });
