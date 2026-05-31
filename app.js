@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.7';
+        const APP_VERSION = 'v2026.05.31.8';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -180,6 +180,10 @@
         function showLoading(message) { loadingText.textContent = message; loadingOverlay.classList.add('visible'); }
         function hideLoading() { loadingOverlay.classList.remove('visible'); }
         function clamp(value, min, max) { return Math.min(Math.max(value, min), max); }
+        function smoothstep01(value) {
+            const t = clamp(value, 0, 1);
+            return t * t * (3 - 2 * t);
+        }
         function readPairWarpSettings() {
             try {
                 const saved = JSON.parse(localStorage.getItem(PAIR_WARP_SETTINGS_KEY) || '{}');
@@ -2178,8 +2182,9 @@
             const centered = raw * 2 - 1;
             const angular = clamp((Math.atan(centered) / (Math.PI / 4) + 1) / 2, 0, 1);
             const angularCentered = angular * 2 - 1;
-            const cornerAmount = Math.pow(Math.abs(centered), pairCornerStretchPower);
-            const stretch = clamp(pairCornerStretch * cornerAmount * (0.25 + bend * 0.75), 0, 0.62);
+            const cornerAmount = Math.pow(smoothstep01(Math.abs(centered)), pairCornerStretchPower);
+            const bendEase = 0.18 + smoothstep01(bend) * 0.82;
+            const stretch = clamp(pairCornerStretch * cornerAmount * bendEase, 0, 0.64);
             const exponent = 1 - stretch;
             const stretchedCentered = Math.sign(angularCentered) * Math.pow(Math.abs(angularCentered), exponent);
             return clamp((stretchedCentered + 1) / 2, 0, 1);
@@ -2650,7 +2655,7 @@
             for (let y = 0; y < CANVAS_SIZE; y += cell) {
                 const normalizedY = y / Math.max(1, CANVAS_SIZE - cell);
                 const cornerDistance = Math.abs(normalizedY * 2 - 1);
-                const cornerAmount = Math.pow(cornerDistance, variant.power);
+                const cornerAmount = Math.pow(smoothstep01(cornerDistance), variant.power);
                 const alpha = clamp(variant.stretch * cornerAmount * 0.46, 0, 0.34);
                 if (alpha <= 0.01) continue;
                 const hue = 185 - Math.round(cornerAmount * 145);
@@ -2719,6 +2724,7 @@
                     `version: ${APP_VERSION}`,
                     `pair: ${faces.map(face => face.toUpperCase()).join('/')}`,
                     `focus: ${savedPower.toFixed(2)}`,
+                    'curve: smoothstep corner transition',
                     '',
                     '폴더별 corner 값이 클수록 모서리 쪽 사진 늘림이 강합니다.',
                     'comparison PNG의 노랑/빨강 히트맵은 모서리 쪽으로 갈수록 늘림이 강해지는 구역입니다.',
@@ -2728,6 +2734,7 @@
                     version: APP_VERSION,
                     pair: faces,
                     focus: savedPower,
+                    curve: 'smoothstep corner transition',
                     variants: variants.map(variant => ({
                         label: variant.label,
                         stretch: variant.stretch,
