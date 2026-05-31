@@ -1,8 +1,10 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.30.2';
+        const APP_VERSION = 'v2026.05.31.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
+        const PAIR_CORNER_STRETCH = 0.46;
+        const PAIR_CORNER_STRETCH_POWER = 1.35;
         const FONT_OPTIONS = ['Pretendard', 'Arial', 'Georgia', 'Verdana', 'Trebuchet MS', 'Courier New'];
         const NEON_PRESETS = [
             { key: 'pink', label: '네온핑크', color: '#ff2bd6' },
@@ -2147,10 +2149,16 @@
             return clamp(Math.atan(clamp(value, 0, 1)) / (Math.PI / 4), 0, 1);
         }
 
-        function getFoldAlong01(edge, x, y) {
+        function getFoldAlong01(edge, x, y, bend = 0) {
             const raw = isHorizontalEdge(edge) ? y / (CANVAS_SIZE - 1) : x / (CANVAS_SIZE - 1);
             const centered = raw * 2 - 1;
-            return clamp((Math.atan(centered) / (Math.PI / 4) + 1) / 2, 0, 1);
+            const angular = clamp((Math.atan(centered) / (Math.PI / 4) + 1) / 2, 0, 1);
+            const angularCentered = angular * 2 - 1;
+            const cornerAmount = Math.pow(Math.abs(centered), PAIR_CORNER_STRETCH_POWER);
+            const stretch = clamp(PAIR_CORNER_STRETCH * cornerAmount * (0.25 + bend * 0.75), 0, 0.62);
+            const exponent = 1 - stretch;
+            const stretchedCentered = Math.sign(angularCentered) * Math.pow(Math.abs(angularCentered), exponent);
+            return clamp((stretchedCentered + 1) / 2, 0, 1);
         }
 
         function sampleImageDataBilinear(imageData, u, v) {
@@ -2210,7 +2218,7 @@
                     for (let x = 0; x < CANVAS_SIZE; x++) {
                         if (!isInSeamHalf(config.edge, x, y)) continue;
                         const bend = getAngular01(getCenterToSeamProgress(config.edge, x, y));
-                        const along = getFoldAlong01(config.edge, x, y);
+                        const along = getFoldAlong01(config.edge, x, y, bend);
                         const across = config.firstHalf ? bend * 0.5 : 1 - bend * 0.5;
                         const sourceU = isHorizontalEdge(config.edge) ? across : along;
                         const sourceV = isHorizontalEdge(config.edge) ? along : across;
