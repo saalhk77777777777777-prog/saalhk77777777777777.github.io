@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.26';
+        const APP_VERSION = 'v2026.05.31.27';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -155,6 +155,7 @@
         const exportPairWarpSettingsButton = document.getElementById('export-pair-warp-settings');
         const exportAllPairWarpSettingsButton = document.getElementById('export-all-pair-warp-settings');
         const resetPairWarpSettingsButton = document.getElementById('reset-pair-warp-settings');
+        const resetAllPairWarpSettingsButton = document.getElementById('reset-all-pair-warp-settings');
         const refreshPairWarpButton = document.getElementById('refresh-pair-warp');
         const refreshAllPairWarpButton = document.getElementById('refresh-all-pair-warp');
         const downloadPairWarpComparisonButton = document.getElementById('download-pair-warp-comparison');
@@ -2687,6 +2688,20 @@
             render();
         }
 
+        function resetAllPairWarpSettings() {
+            localStorage.setItem(PAIR_WARP_SETTINGS_KEY, JSON.stringify({
+                stretch: 0.46,
+                power: 1.35,
+                pairs: {}
+            }));
+            pairCornerStretch = 0.46;
+            pairCornerStretchPower = 1.35;
+            updatePairWarpSettingsUI();
+            const total = refreshAllStoredPairWarpElements();
+            lastBackgroundUploadReport = `[전체 대각선 기본값 복원]\nFT/LF, RT/FT, BK/RT, LF/BK를 기본값으로 되돌렸습니다.\n${total}개 페어 이미지를 다시 계산했습니다.`;
+            render();
+        }
+
         function refreshAllPairWarpFromStoredSettings() {
             const total = refreshAllStoredPairWarpElements();
             lastBackgroundUploadReport = `[전체 페어 재보정]\n${getAllPairWarpSettingsSummary()}\n${total}개 페어 이미지를 저장값으로 다시 계산했습니다.`;
@@ -5141,6 +5156,7 @@
         exportPairWarpSettingsButton?.addEventListener('click', exportCurrentPairWarpSettings);
         exportAllPairWarpSettingsButton?.addEventListener('click', exportAllPairWarpSettings);
         resetPairWarpSettingsButton?.addEventListener('click', resetCurrentPairWarpSettings);
+        resetAllPairWarpSettingsButton?.addEventListener('click', resetAllPairWarpSettings);
         refreshAllPairWarpButton?.addEventListener('click', refreshAllPairWarpFromStoredSettings);
         pairWarpSettingsInput?.addEventListener('change', event => importPairWarpSettingsFile(event.target.files?.[0]));
         pairCornerStretchNumberInput?.addEventListener('keydown', event => { if (event.key === 'Enter') applyPairWarpNumberInputs(); });
