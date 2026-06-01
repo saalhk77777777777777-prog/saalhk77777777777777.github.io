@@ -1,5 +1,5 @@
-﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.01.1';
+const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
+        const APP_VERSION = 'v2026.06.01.2';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -199,12 +199,12 @@
             try {
                 const saved = JSON.parse(localStorage.getItem(PAIR_WARP_SETTINGS_KEY) || '{}');
                 return {
-                    stretch: clamp(Number(saved.stretch ?? 0.46), 0, 0.9),
-                    power: clamp(Number(saved.power ?? 1.35), 0.6, 2.4),
+                    stretch: clamp(Number(saved.stretch ?? 0.62), 0, 1.2),
+                    power: clamp(Number(saved.power ?? 1.45), 0.6, 2.4),
                     pairs: saved.pairs && typeof saved.pairs === 'object' ? saved.pairs : {}
                 };
             } catch {
-                return { stretch: 0.46, power: 1.35, pairs: {} };
+                return { stretch: 0.62, power: 1.45, pairs: {} };
             }
         }
 
@@ -216,8 +216,8 @@
             const saved = readPairWarpSettings();
             const pairSettings = saved.pairs?.[getPairWarpStorageKey(faces)] || {};
             return {
-                stretch: clamp(Number(pairSettings.stretch ?? saved.stretch ?? 0.46), 0, 0.9),
-                power: clamp(Number(pairSettings.power ?? saved.power ?? 1.35), 0.6, 2.4)
+                stretch: clamp(Number(pairSettings.stretch ?? saved.stretch ?? 0.62), 0, 1.2),
+                power: clamp(Number(pairSettings.power ?? saved.power ?? 1.45), 0.6, 2.4)
             };
         }
 
@@ -242,8 +242,8 @@
             const pairs = { ...(saved.pairs || {}) };
             delete pairs[pairKey];
             localStorage.setItem(PAIR_WARP_SETTINGS_KEY, JSON.stringify({
-                stretch: 0.46,
-                power: 1.35,
+                stretch: 0.62,
+                power: 1.45,
                 pairs
             }));
         }
@@ -254,8 +254,8 @@
                 const faces = getInsidePairFaces(String(pairKey).split('/'));
                 if (faces.length !== 2) return;
                 normalizedPairs[faces.join('/')] = {
-                    stretch: clamp(Number(value?.stretch ?? 0.46), 0, 0.9),
-                    power: clamp(Number(value?.power ?? 1.35), 0.6, 2.4)
+                    stretch: clamp(Number(value?.stretch ?? 0.62), 0, 1.2),
+                    power: clamp(Number(value?.power ?? 1.45), 0.6, 2.4)
                 };
             });
             const activeSettings = normalizedPairs[getPairWarpStorageKey()] || getStoredPairWarpSettings();
@@ -2248,8 +2248,9 @@
             const angularCentered = angular * 2 - 1;
             const cornerAmount = Math.pow(smoothstep01(Math.abs(centered)), pairCornerStretchPower);
             const bendEase = 0.18 + smoothstep01(bend) * 0.82;
-            const magnify = clamp(pairCornerStretch * cornerAmount * bendEase, 0, 0.72);
-            const exponent = 1 + magnify * 1.35;
+            const magnify = clamp(pairCornerStretch * cornerAmount * bendEase, 0, 0.98);
+            const sphericalBoost = cornerAmount * (0.55 + Math.abs(angularCentered) * 0.45);
+            const exponent = 1 + magnify * (1.95 + sphericalBoost * 0.55);
             const enlargedCentered = Math.sign(angularCentered) * Math.pow(Math.abs(angularCentered), exponent);
             return clamp((enlargedCentered + 1) / 2, 0, 1);
         }
@@ -2572,7 +2573,7 @@
         }
 
         function updatePairWarpSettings({ refresh = true } = {}) {
-            pairCornerStretch = clamp(Number(pairCornerStretchInput?.value || pairCornerStretch), 0, 0.9);
+            pairCornerStretch = clamp(Number(pairCornerStretchInput?.value || pairCornerStretch), 0, 1.2);
             pairCornerStretchPower = clamp(Number(pairCornerPowerInput?.value || pairCornerStretchPower), 0.6, 2.4);
             savePairWarpSettings();
             updatePairWarpSettingsUI();
@@ -2583,7 +2584,7 @@
         }
 
         function applyPairWarpNumberInputs() {
-            pairCornerStretch = clamp(Number(pairCornerStretchNumberInput?.value || pairCornerStretch), 0, 0.9);
+            pairCornerStretch = clamp(Number(pairCornerStretchNumberInput?.value || pairCornerStretch), 0, 1.2);
             pairCornerStretchPower = clamp(Number(pairCornerPowerNumberInput?.value || pairCornerStretchPower), 0.6, 2.4);
             savePairWarpSettings();
             updatePairWarpSettingsUI();
@@ -2614,7 +2615,7 @@
                     return;
                 }
                 const variant = getBestPairWarpVariantFromSettings(settings);
-                pairCornerStretch = clamp(Number(variant.stretch ?? settings.stretch ?? pairCornerStretch), 0, 0.9);
+                pairCornerStretch = clamp(Number(variant.stretch ?? settings.stretch ?? pairCornerStretch), 0, 1.2);
                 pairCornerStretchPower = clamp(Number(variant.power ?? settings.power ?? settings.focus ?? pairCornerStretchPower), 0.6, 2.4);
                 savePairWarpSettings();
                 updatePairWarpSettingsUI();
@@ -2680,8 +2681,8 @@
                 return;
             }
             removeStoredPairWarpSettings(faces);
-            pairCornerStretch = 0.46;
-            pairCornerStretchPower = 1.35;
+            pairCornerStretch = 0.62;
+            pairCornerStretchPower = 1.45;
             updatePairWarpSettingsUI();
             refreshPairWarpElements(faces);
             lastBackgroundUploadReport = `[대각선 기본값 복원]\n${faces.map(face => face.toUpperCase()).join('/')} · ${getPairWarpSummary()}`;
@@ -2690,12 +2691,12 @@
 
         function resetAllPairWarpSettings() {
             localStorage.setItem(PAIR_WARP_SETTINGS_KEY, JSON.stringify({
-                stretch: 0.46,
-                power: 1.35,
+                stretch: 0.62,
+                power: 1.45,
                 pairs: {}
             }));
-            pairCornerStretch = 0.46;
-            pairCornerStretchPower = 1.35;
+            pairCornerStretch = 0.62;
+            pairCornerStretchPower = 1.45;
             updatePairWarpSettingsUI();
             const total = refreshAllStoredPairWarpElements();
             lastBackgroundUploadReport = `[전체 대각선 기본값 복원]\nFT/LF, RT/FT, BK/RT, LF/BK를 기본값으로 되돌렸습니다.\n${total}개 페어 이미지를 다시 계산했습니다.`;
@@ -2709,8 +2710,8 @@
         }
 
         function applyPairWarpPreset(button) {
-            pairCornerStretch = clamp(Number(button.dataset.stretch || 0.46), 0, 0.9);
-            pairCornerStretchPower = clamp(Number(button.dataset.power || 1.35), 0.6, 2.4);
+            pairCornerStretch = clamp(Number(button.dataset.stretch || 0.62), 0, 1.2);
+            pairCornerStretchPower = clamp(Number(button.dataset.power || 1.45), 0.6, 2.4);
             savePairWarpSettings();
             updatePairWarpSettingsUI();
             refreshPairWarpElements();
@@ -2896,15 +2897,15 @@
         }
 
         function getPairWarpComparisonVariants(power = pairCornerStretchPower, currentStretch = pairCornerStretch) {
-            const defaultVariants = [0.3, 0.46, 0.62, 0.78].map(stretch => ({
+            const defaultVariants = [0.46, 0.62, 0.82, 1.05].map(stretch => ({
                 stretch,
                 power,
                 label: `corner-${Math.round(stretch * 100)}`
             }));
             const current = {
-                stretch: clamp(Number(currentStretch), 0, 0.9),
+                stretch: clamp(Number(currentStretch), 0, 1.2),
                 power: clamp(Number(power), 0.6, 2.4),
-                label: `current-${Math.round(clamp(Number(currentStretch), 0, 0.9) * 100)}`
+                label: `current-${Math.round(clamp(Number(currentStretch), 0, 1.2) * 100)}`
             };
             const alreadyIncluded = defaultVariants.some(variant => Math.abs(variant.stretch - current.stretch) < 0.005);
             return alreadyIncluded ? defaultVariants : [current, ...defaultVariants];
