@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.02.2';
+        const APP_VERSION = 'v2026.06.02.3';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -327,8 +327,8 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                 return { face: 'bk', u: (-dir.x / az + 1) / 2, v: (-dir.y / az + 1) / 2 };
             }
             if (ax >= ay) {
-                if (dir.x >= 0) return { face: 'rt', u: (-dir.z / ax + 1) / 2, v: (-dir.y / ax + 1) / 2 };
-                return { face: 'lf', u: (dir.z / ax + 1) / 2, v: (-dir.y / ax + 1) / 2 };
+                if (dir.x >= 0) return { face: 'lf', u: (-dir.z / ax + 1) / 2, v: (-dir.y / ax + 1) / 2 };
+                return { face: 'rt', u: (dir.z / ax + 1) / 2, v: (-dir.y / ax + 1) / 2 };
             }
             if (dir.y >= 0) return { face: 'up', u: (dir.x / ay + 1) / 2, v: (dir.z / ay + 1) / 2 };
             return { face: 'dn', u: (dir.x / ay + 1) / 2, v: (-dir.z / ay + 1) / 2 };
@@ -339,8 +339,8 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             const map = {
                 ft: { x, y: -y, z: 1 },
                 bk: { x: -x, y: -y, z: -1 },
-                rt: { x: 1, y: -y, z: -x },
-                lf: { x: -1, y: -y, z: x },
+                rt: { x: -1, y: -y, z: x },
+                lf: { x: 1, y: -y, z: -x },
                 up: { x, y: 1, z: y },
                 dn: { x, y: -1, z: -y }
             };
@@ -3581,38 +3581,38 @@ ${created.length} images arranged on the inside spherical wall.`;
                 ft: {
                     top: { face: 'up', edge: 'bottom' },
                     bottom: { face: 'dn', edge: 'top' },
-                    left: { face: 'lf', edge: 'right' },
-                    right: { face: 'rt', edge: 'left' }
+                    left: { face: 'rt', edge: 'right' },
+                    right: { face: 'lf', edge: 'left' }
                 },
                 bk: {
                     top: { face: 'up', edge: 'top', reverse: true },
                     bottom: { face: 'dn', edge: 'bottom', reverse: true },
-                    left: { face: 'rt', edge: 'right' },
-                    right: { face: 'lf', edge: 'left' }
+                    left: { face: 'lf', edge: 'right' },
+                    right: { face: 'rt', edge: 'left' }
                 },
                 lf: {
-                    top: { face: 'up', edge: 'left' },
-                    bottom: { face: 'dn', edge: 'left', reverse: true },
-                    left: { face: 'bk', edge: 'right' },
-                    right: { face: 'ft', edge: 'left' }
-                },
-                rt: {
                     top: { face: 'up', edge: 'right', reverse: true },
                     bottom: { face: 'dn', edge: 'right' },
                     left: { face: 'ft', edge: 'right' },
                     right: { face: 'bk', edge: 'left' }
                 },
+                rt: {
+                    top: { face: 'up', edge: 'left' },
+                    bottom: { face: 'dn', edge: 'left', reverse: true },
+                    left: { face: 'bk', edge: 'right' },
+                    right: { face: 'ft', edge: 'left' }
+                },
                 up: {
                     top: { face: 'bk', edge: 'top', reverse: true },
                     bottom: { face: 'ft', edge: 'top' },
-                    left: { face: 'lf', edge: 'top' },
-                    right: { face: 'rt', edge: 'top', reverse: true }
+                    left: { face: 'rt', edge: 'top' },
+                    right: { face: 'lf', edge: 'top', reverse: true }
                 },
                 dn: {
                     top: { face: 'ft', edge: 'bottom' },
                     bottom: { face: 'bk', edge: 'bottom', reverse: true },
-                    left: { face: 'lf', edge: 'bottom', reverse: true },
-                    right: { face: 'rt', edge: 'bottom' }
+                    left: { face: 'rt', edge: 'bottom', reverse: true },
+                    right: { face: 'lf', edge: 'bottom' }
                 }
             };
             return links[face] || {};
@@ -4228,7 +4228,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         function getInsidePairFaces(faces) {
             const pair = (faces || []).filter(face => FACES.includes(face)).slice(0, 2);
             if (pair.length !== 2) return pair;
-            const sideOrder = ['ft', 'lf', 'bk', 'rt'];
+            const sideOrder = ['ft', 'rt', 'bk', 'lf'];
             if (!pair.every(face => sideOrder.includes(face))) return pair;
             for (let index = 0; index < sideOrder.length; index++) {
                 const leftFace = sideOrder[index];
