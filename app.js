@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.01.2';
+        const APP_VERSION = 'v2026.06.02.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -49,6 +49,9 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         let showEditorGrid = true;
         let snapToGrid = false;
         let layoutMode = 'pc';
+        let sphericalEditMode = false;
+        let sphereView = { yaw: 0, pitch: 0, fov: 96 };
+        let sphereDragState = null;
         const canvasPointers = new Map();
         let pinchState = null;
         let sliderPreviewTimer = null;
@@ -160,6 +163,9 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         const refreshAllPairWarpButton = document.getElementById('refresh-all-pair-warp');
         const downloadPairWarpComparisonButton = document.getElementById('download-pair-warp-comparison');
         const downloadAllPairWarpComparisonButton = document.getElementById('download-all-pair-warp-comparison');
+        const sphereEditToggleButton = document.getElementById('sphere-edit-toggle');
+        const sphereResetViewButton = document.getElementById('sphere-reset-view');
+        const sphereEditStatus = document.getElementById('sphere-edit-status');
         let posterExpectedFileCount = 0;
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
@@ -266,6 +272,106 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             }));
         }
         function degToRad(deg) { return deg * Math.PI / 180; }
+        function radToDeg(rad) { return rad * 180 / Math.PI; }
+        function normalizeAngleDeg(deg) {
+            let value = Number(deg || 0);
+            while (value > 180) value -= 360;
+            while (value < -180) value += 360;
+            return value;
+        }
+        function normalizeVector(vector) {
+            const length = Math.hypot(vector.x, vector.y, vector.z) || 1;
+            return { x: vector.x / length, y: vector.y / length, z: vector.z / length };
+        }
+        function dot3(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+        function cross3(a, b) {
+            return {
+                x: a.y * b.z - a.z * b.y,
+                y: a.z * b.x - a.x * b.z,
+                z: a.x * b.y - a.y * b.x
+            };
+        }
+        function directionFromYawPitch(yawDeg, pitchDeg) {
+            const yaw = degToRad(yawDeg);
+            const pitch = degToRad(pitchDeg);
+            const cosPitch = Math.cos(pitch);
+            return normalizeVector({
+                x: Math.sin(yaw) * cosPitch,
+                y: Math.sin(pitch),
+                z: Math.cos(yaw) * cosPitch
+            });
+        }
+        function yawPitchFromDirection(direction) {
+            const dir = normalizeVector(direction);
+            return {
+                yaw: normalizeAngleDeg(radToDeg(Math.atan2(dir.x, dir.z))),
+                pitch: clamp(radToDeg(Math.asin(dir.y)), -89, 89)
+            };
+        }
+        function getSphereBasis(yawDeg = sphereView.yaw, pitchDeg = sphereView.pitch) {
+            const forward = directionFromYawPitch(yawDeg, pitchDeg);
+            const worldUp = { x: 0, y: 1, z: 0 };
+            let right = normalizeVector(cross3(forward, worldUp));
+            if (Math.hypot(right.x, right.y, right.z) < 0.001) right = { x: 1, y: 0, z: 0 };
+            const up = normalizeVector(cross3(right, forward));
+            return { forward, right, up };
+        }
+        function directionToCubeFaceUV(direction) {
+            const dir = normalizeVector(direction);
+            const ax = Math.abs(dir.x);
+            const ay = Math.abs(dir.y);
+            const az = Math.abs(dir.z);
+            if (az >= ax && az >= ay) {
+                if (dir.z >= 0) return { face: 'ft', u: (dir.x / az + 1) / 2, v: (-dir.y / az + 1) / 2 };
+                return { face: 'bk', u: (-dir.x / az + 1) / 2, v: (-dir.y / az + 1) / 2 };
+            }
+            if (ax >= ay) {
+                if (dir.x >= 0) return { face: 'rt', u: (-dir.z / ax + 1) / 2, v: (-dir.y / ax + 1) / 2 };
+                return { face: 'lf', u: (dir.z / ax + 1) / 2, v: (-dir.y / ax + 1) / 2 };
+            }
+            if (dir.y >= 0) return { face: 'up', u: (dir.x / ay + 1) / 2, v: (dir.z / ay + 1) / 2 };
+            return { face: 'dn', u: (dir.x / ay + 1) / 2, v: (-dir.z / ay + 1) / 2 };
+        }
+        function directionFromCubeFaceUV(face, u, v) {
+            const x = u * 2 - 1;
+            const y = v * 2 - 1;
+            const map = {
+                ft: { x, y: -y, z: 1 },
+                bk: { x: -x, y: -y, z: -1 },
+                rt: { x: 1, y: -y, z: -x },
+                lf: { x: -1, y: -y, z: x },
+                up: { x, y: 1, z: y },
+                dn: { x, y: -1, z: -y }
+            };
+            return normalizeVector(map[face] || map.ft);
+        }
+        function viewDirectionFromCanvasPoint(x, y, width = CANVAS_SIZE, height = CANVAS_SIZE) {
+            const basis = getSphereBasis();
+            const aspect = width / Math.max(1, height);
+            const tanFov = Math.tan(degToRad(sphereView.fov) / 2);
+            const nx = ((x / width) * 2 - 1) * tanFov * aspect;
+            const ny = (1 - (y / height) * 2) * tanFov;
+            return normalizeVector({
+                x: basis.forward.x + basis.right.x * nx + basis.up.x * ny,
+                y: basis.forward.y + basis.right.y * nx + basis.up.y * ny,
+                z: basis.forward.z + basis.right.z * nx + basis.up.z * ny
+            });
+        }
+        function projectDirectionToSphereView(direction, width = CANVAS_SIZE, height = CANVAS_SIZE) {
+            const basis = getSphereBasis();
+            const dir = normalizeVector(direction);
+            const depth = dot3(dir, basis.forward);
+            if (depth <= 0.03) return null;
+            const aspect = width / Math.max(1, height);
+            const tanFov = Math.tan(degToRad(sphereView.fov) / 2);
+            const px = dot3(dir, basis.right) / depth;
+            const py = dot3(dir, basis.up) / depth;
+            return {
+                x: (px / (tanFov * aspect) + 1) * width / 2,
+                y: (1 - py / tanFov) * height / 2,
+                depth
+            };
+        }
         function createEmptyCanvas(width, height) { const c = document.createElement('canvas'); c.width = width; c.height = height; return c; }
         function copyCanvas(source) { const copied = createEmptyCanvas(source.width, source.height); copied.getContext('2d').drawImage(source, 0, 0); return copied; }
         function resizeCanvasTo(source, width, height) {
@@ -1055,6 +1161,11 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             element.perspectiveY = Number(element.perspectiveY ?? 0);
             element.perspectiveBend = Number(element.perspectiveBend ?? 0);
             element.perspectiveCurve = Number(element.perspectiveCurve ?? 0);
+            element.spherical = Boolean(element.spherical);
+            element.sphereYaw = Number(element.sphereYaw ?? 0);
+            element.spherePitch = Number(element.spherePitch ?? 0);
+            element.sphereWidth = Number(element.sphereWidth ?? 28);
+            element.sphereHeight = Number(element.sphereHeight ?? 14);
             element.processedCanvas = copyCanvas(element.maskCanvas);
             element.previewUrl = '';
             delete element.originalCanvasData;
@@ -1766,6 +1877,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                     element.maskCanvas = removeSolidBackgroundFromCanvas(element.originalCanvas);
                     await updateImageProcessing(element);
                     element.name = `${element.name} ${nameSuffix}`.trim();
+                    if (sphericalEditMode) prepareElementForSphere(element);
                     getFaceState().elements.push(element);
                     selectedId = element.id;
                 }
@@ -1797,6 +1909,11 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                 perspectiveY: 0,
                 perspectiveBend: 0,
                 perspectiveCurve: 0,
+                spherical: false,
+                sphereYaw: 0,
+                spherePitch: 0,
+                sphereWidth: 28,
+                sphereHeight: 28 * (baseCanvas.height / Math.max(1, baseCanvas.width)),
                 opacity: 1,
                 visible: true,
                 locked: false,
@@ -1836,6 +1953,11 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                 flipX: false,
                 flipY: false,
                 rotation: 0,
+                spherical: false,
+                sphereYaw: 0,
+                spherePitch: 0,
+                sphereWidth: 32,
+                sphereHeight: 12,
                 opacity: 1,
                 visible: true,
                 locked: false,
@@ -1859,7 +1981,41 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             };
         }
 
+        function getAllSphericalElements() {
+            const map = new Map();
+            FACES.forEach(face => {
+                getFaceState(face).elements.forEach(element => {
+                    if (element.spherical && !map.has(element.id)) map.set(element.id, element);
+                });
+            });
+            return [...map.values()];
+        }
+
+        function getVisibleLayerElements() {
+            return sphericalEditMode ? getAllSphericalElements() : getFaceState().elements.filter(element => !element.spherical);
+        }
+
+        function prepareElementForSphere(element) {
+            const direction = directionFromYawPitch(sphereView.yaw, sphereView.pitch);
+            const center = yawPitchFromDirection(direction);
+            element.spherical = true;
+            element.sphereYaw = center.yaw;
+            element.spherePitch = center.pitch;
+            if (element.type === 'image') {
+                const aspect = element.processedCanvas.height / Math.max(1, element.processedCanvas.width);
+                element.sphereWidth = clamp(Number(element.sphereWidth || 30), 4, 120);
+                element.sphereHeight = clamp(element.sphereWidth * aspect, 4, 120);
+            } else {
+                element.sphereWidth = clamp(Number(element.sphereWidth || 34), 4, 140);
+                element.sphereHeight = clamp(Number(element.sphereHeight || 12), 3, 80);
+            }
+            element.x = CANVAS_SIZE / 2;
+            element.y = CANVAS_SIZE / 2;
+            return element;
+        }
+
         function getSelectedElement() {
+            if (sphericalEditMode) return getAllSphericalElements().find(element => element.id === selectedId) || null;
             return getFaceState().elements.find(element => element.id === selectedId) || null;
         }
 
@@ -3153,6 +3309,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                         const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
                         const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
                         await updateImageProcessing(element);
+                        if (sphericalEditMode) prepareElementForSphere(element);
                         getFaceState().elements.push(element);
                         selectedId = element.id;
                     } catch (error) {
@@ -3205,6 +3362,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                     const mainElement = createImageElement(mainFile.name.replace(/\.[^.]+$/, ''), originalCanvas);
                     mainElement.maskCanvas = cutoutCanvas;
                     mainElement.name = `${mainElement.name} 메인 ${engine === 'local' ? '로컬AI제거 복구가능' : 'AI제거 복구가능'}`;
+                    if (sphericalEditMode) prepareElementForSphere(mainElement);
                     created.push(mainElement);
                     getFaceState().elements.push(mainElement);
                 } catch (error) {
@@ -3218,6 +3376,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                         const image = await fileToImage(file);
                         const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
                         const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
+                        if (sphericalEditMode) prepareElementForSphere(element);
                         created.push(element);
                         getFaceState().elements.push(element);
                     } catch (error) {
@@ -3250,6 +3409,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                         element.maskCanvas = cutoutCanvas;
                         element.name = `${element.name} ${engine === 'local' ? '로컬AI제거' : 'AI제거'} 복구가능`;
                         await updateImageProcessing(element);
+                        if (sphericalEditMode) prepareElementForSphere(element);
                         getFaceState().elements.push(element);
                         selectedId = element.id;
                     } catch (error) {
@@ -3266,6 +3426,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                         element.maskCanvas = removeSolidBackgroundFromCanvas(element.originalCanvas);
                         await updateImageProcessing(element);
                         element.name = `${element.name} 단색제거`;
+                        if (sphericalEditMode) prepareElementForSphere(element);
                         getFaceState().elements.push(element);
                         selectedId = element.id;
                     }
@@ -3799,11 +3960,185 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             renderCtx.restore();
         }
 
+        function getElementSourceCanvas(element) {
+            if (element.type === 'image') return element.processedCanvas || element.maskCanvas || element.originalCanvas;
+            const metrics = getTextMetrics(element);
+            const sourceCanvas = createEmptyCanvas(Math.ceil(metrics.width * element.scale + 96), Math.ceil(metrics.height * element.scale + 96));
+            const sourceCtx = sourceCanvas.getContext('2d');
+            const copy = {
+                ...element,
+                x: sourceCanvas.width / 2,
+                y: sourceCanvas.height / 2,
+                rotation: 0,
+                scale: element.scale,
+                spherical: false
+            };
+            drawTextElement(copy, sourceCtx, false);
+            return sourceCanvas;
+        }
+
+        function getSphericalElementFrame(element) {
+            const center = directionFromYawPitch(element.sphereYaw || 0, element.spherePitch || 0);
+            const worldUp = Math.abs(center.y) > 0.96 ? { x: 0, y: 0, z: 1 } : { x: 0, y: 1, z: 0 };
+            let right = normalizeVector(cross3(center, worldUp));
+            let up = normalizeVector(cross3(right, center));
+            const rotation = degToRad(element.rotation || 0);
+            if (rotation) {
+                const cos = Math.cos(rotation);
+                const sin = Math.sin(rotation);
+                const rotatedRight = normalizeVector({
+                    x: right.x * cos + up.x * sin,
+                    y: right.y * cos + up.y * sin,
+                    z: right.z * cos + up.z * sin
+                });
+                const rotatedUp = normalizeVector({
+                    x: up.x * cos - right.x * sin,
+                    y: up.y * cos - right.y * sin,
+                    z: up.z * cos - right.z * sin
+                });
+                right = rotatedRight;
+                up = rotatedUp;
+            }
+            return { center, right, up };
+        }
+
+        function sampleCanvasPixel(sourceData, sourceCanvas, sx, sy) {
+            const x = clamp(Math.floor(sx), 0, sourceCanvas.width - 1);
+            const y = clamp(Math.floor(sy), 0, sourceCanvas.height - 1);
+            const index = (y * sourceCanvas.width + x) * 4;
+            return [
+                sourceData.data[index],
+                sourceData.data[index + 1],
+                sourceData.data[index + 2],
+                sourceData.data[index + 3]
+            ];
+        }
+
+        function alphaBlendPixel(data, index, color, opacity = 1) {
+            const alpha = clamp((color[3] / 255) * opacity, 0, 1);
+            if (alpha <= 0) return;
+            data[index] = Math.round(data[index] * (1 - alpha) + color[0] * alpha);
+            data[index + 1] = Math.round(data[index + 1] * (1 - alpha) + color[1] * alpha);
+            data[index + 2] = Math.round(data[index + 2] * (1 - alpha) + color[2] * alpha);
+            data[index + 3] = Math.round(Math.min(255, data[index + 3] + color[3] * opacity * (1 - data[index + 3] / 255)));
+        }
+
+        function drawSphericalElementsOnDirectionCanvas(targetCanvas, directionForPixel, elements = getAllSphericalElements()) {
+            const visibleElements = elements.filter(element => element.visible && element.spherical);
+            if (!visibleElements.length) return;
+            const targetCtx = targetCanvas.getContext('2d', { willReadFrequently: true });
+            const imageData = targetCtx.getImageData(0, 0, targetCanvas.width, targetCanvas.height);
+            const sourceCache = new Map();
+            visibleElements.forEach(element => {
+                const sourceCanvas = getElementSourceCanvas(element);
+                if (!sourceCanvas) return;
+                const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+                sourceCache.set(element.id, {
+                    element,
+                    sourceCanvas,
+                    sourceData: sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height),
+                    frame: getSphericalElementFrame(element),
+                    halfWidth: degToRad(Math.max(1, Number(element.sphereWidth || 24)) / 2),
+                    halfHeight: degToRad(Math.max(1, Number(element.sphereHeight || 12)) / 2)
+                });
+            });
+
+            for (let y = 0; y < targetCanvas.height; y++) {
+                for (let x = 0; x < targetCanvas.width; x++) {
+                    const direction = directionForPixel(x, y, targetCanvas.width, targetCanvas.height);
+                    if (!direction) continue;
+                    const index = (y * targetCanvas.width + x) * 4;
+                    sourceCache.forEach(item => {
+                        const { element, sourceCanvas, sourceData, frame, halfWidth, halfHeight } = item;
+                        const depth = dot3(direction, frame.center);
+                        if (depth <= 0.02) return;
+                        const localX = Math.atan2(dot3(direction, frame.right), depth);
+                        const localY = Math.atan2(dot3(direction, frame.up), depth);
+                        if (Math.abs(localX) > halfWidth || Math.abs(localY) > halfHeight) return;
+                        const sx = ((localX / halfWidth) + 1) * 0.5 * (sourceCanvas.width - 1);
+                        const sy = (1 - ((localY / halfHeight) + 1) * 0.5) * (sourceCanvas.height - 1);
+                        const color = sampleCanvasPixel(sourceData, sourceCanvas, sx, sy);
+                        alphaBlendPixel(imageData.data, index, color, element.opacity ?? 1);
+                    });
+                }
+            }
+            targetCtx.putImageData(imageData, 0, 0);
+        }
+
+        function drawSphericalElementsOnFace(faceKey, renderCtx) {
+            if (!getAllSphericalElements().some(element => element.visible && element.spherical)) return;
+            const overlay = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
+            drawSphericalElementsOnDirectionCanvas(overlay, (x, y, width, height) => {
+                return directionFromCubeFaceUV(faceKey, x / Math.max(1, width - 1), y / Math.max(1, height - 1));
+            });
+            renderCtx.drawImage(overlay, 0, 0);
+        }
+
+        function drawSpherePreview(renderCtx) {
+            const previewSize = 512;
+            const preview = createEmptyCanvas(previewSize, previewSize);
+            const previewCtx = preview.getContext('2d', { willReadFrequently: true });
+            const imageData = previewCtx.createImageData(previewSize, previewSize);
+            const faceCanvases = Object.fromEntries(FACES.map(face => [face, renderFaceToCanvas(face)]));
+            const faceData = Object.fromEntries(FACES.map(face => {
+                const faceCanvas = faceCanvases[face];
+                return [face, faceCanvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE)];
+            }));
+            for (let y = 0; y < previewSize; y++) {
+                for (let x = 0; x < previewSize; x++) {
+                    const direction = viewDirectionFromCanvasPoint(x + 0.5, y + 0.5, previewSize, previewSize);
+                    const sample = directionToCubeFaceUV(direction);
+                    const u = clamp(sample.u, 0, 1);
+                    const v = clamp(sample.v, 0, 1);
+                    const sx = Math.round(u * (CANVAS_SIZE - 1));
+                    const sy = Math.round(v * (CANVAS_SIZE - 1));
+                    const source = faceData[sample.face].data;
+                    const sourceIndex = (sy * CANVAS_SIZE + sx) * 4;
+                    const targetIndex = (y * previewSize + x) * 4;
+                    imageData.data[targetIndex] = source[sourceIndex];
+                    imageData.data[targetIndex + 1] = source[sourceIndex + 1];
+                    imageData.data[targetIndex + 2] = source[sourceIndex + 2];
+                    imageData.data[targetIndex + 3] = 255;
+                }
+            }
+            previewCtx.putImageData(imageData, 0, 0);
+            drawSphericalElementsOnDirectionCanvas(preview, (x, y, width, height) => viewDirectionFromCanvasPoint(x + 0.5, y + 0.5, width, height));
+            renderCtx.save();
+            renderCtx.fillStyle = '#020617';
+            renderCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            renderCtx.drawImage(preview, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            renderCtx.strokeStyle = 'rgba(103,232,249,0.75)';
+            renderCtx.lineWidth = 3;
+            renderCtx.strokeRect(24, 24, CANVAS_SIZE - 48, CANVAS_SIZE - 48);
+            renderCtx.fillStyle = 'rgba(2, 6, 23, 0.72)';
+            renderCtx.fillRect(32, 32, 450, 70);
+            renderCtx.fillStyle = '#67e8f9';
+            renderCtx.font = '900 24px Arial';
+            renderCtx.fillText('SPHERE EDIT · inside skybox', 52, 76);
+            renderCtx.font = '700 14px Arial';
+            renderCtx.fillStyle = 'rgba(226,232,240,0.86)';
+            renderCtx.fillText(`yaw ${Math.round(sphereView.yaw)}° / pitch ${Math.round(sphereView.pitch)}° / FOV ${Math.round(sphereView.fov)}°`, 52, 96);
+            const selected = getSelectedElement();
+            if (selected?.spherical) {
+                const point = projectDirectionToSphereView(directionFromYawPitch(selected.sphereYaw, selected.spherePitch));
+                if (point) {
+                    const width = CANVAS_SIZE * ((selected.sphereWidth || 24) / sphereView.fov);
+                    const height = CANVAS_SIZE * ((selected.sphereHeight || 12) / sphereView.fov);
+                    renderCtx.strokeStyle = '#facc15';
+                    renderCtx.setLineDash([12, 8]);
+                    renderCtx.strokeRect(point.x - width / 2, point.y - height / 2, width, height);
+                    renderCtx.setLineDash([]);
+                }
+            }
+            renderCtx.restore();
+        }
+
         function drawScene(faceKey, renderCtx, includeSelection = true) {
             const faceState = getFaceState(faceKey);
             drawBackground(faceState, renderCtx, faceKey);
             faceState.elements.forEach(element => {
                 if (!element.visible) return;
+                if (element.spherical) return;
                 const selected = includeSelection && element.id === selectedId;
                 if (element.type === 'image') drawImageElement(element, renderCtx, selected);
                 if (element.type === 'text') drawTextElement(element, renderCtx, selected);
@@ -3833,12 +4168,14 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             drawBackground(faceState, renderCtx, faceKey);
             for (const element of faceState.elements) {
                 if (!element.visible) continue;
+                if (element.spherical) continue;
                 if (element.type === 'image') {
                     const exportElement = await createExportImageElement(element, pairWarpCache);
                     drawImageElement(exportElement, renderCtx, false);
                 }
                 if (element.type === 'text') drawTextElement(element, renderCtx, false);
             }
+            drawSphericalElementsOnFace(faceKey, renderCtx);
         }
 
         function getActivePairFaces() {
@@ -3951,17 +4288,32 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             });
         }
 
+        function updateSphereEditUI() {
+            if (sphereEditToggleButton) {
+                sphereEditToggleButton.textContent = sphericalEditMode ? '구형 편집 ON' : '구형 편집 OFF';
+                sphereEditToggleButton.classList.toggle('success', sphericalEditMode);
+                sphereEditToggleButton.classList.toggle('primary', !sphericalEditMode);
+            }
+            if (sphereEditStatus) {
+                const count = getAllSphericalElements().length;
+                sphereEditStatus.textContent = sphericalEditMode
+                    ? `ON · 안쪽 구면 작업 중 · 구형 레이어 ${count}개 · 드래그=배치/시점, 휠=크기`
+                    : `OFF · 기존 6면 평면 편집 중 · 구형 레이어 ${count}개`;
+            }
+        }
+
         function updateCanvasSettingsUI() {
             const face = getFaceState();
             document.getElementById('canvas-bg-color').value = face.backgroundColor;
             document.getElementById('canvas-bg-opacity').value = face.backgroundOpacity;
-            document.getElementById('layer-count').textContent = `${face.elements.length} items`;
+            document.getElementById('layer-count').textContent = `${getVisibleLayerElements().length} items`;
             updateBackgroundStatusUI();
         }
 
         function render() {
             ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            if (isFacePairMode()) drawFacePairScene(ctx);
+            if (sphericalEditMode) drawSpherePreview(ctx);
+            else if (isFacePairMode()) drawFacePairScene(ctx);
             else drawScene(activeFace, ctx, true);
             updateFaceButtons();
             updateLayerList();
@@ -3969,6 +4321,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             updateCanvasSettingsUI();
             updateMobileQuickControls();
             updatePairWarpSettingsUI();
+            updateSphereEditUI();
         }
 
         function getLayerBorderValues(element) {
@@ -4027,13 +4380,13 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         }
 
         function updateLayerList() {
-            const face = getFaceState();
-            if (face.elements.length === 0) {
-                layerList.innerHTML = '<div class="text-center text-sm text-slate-500 py-10 leading-6">레이어가 아직 없어요.<br>이미지나 텍스트를 추가해 주세요.</div>';
+            const elements = getVisibleLayerElements();
+            if (elements.length === 0) {
+                layerList.innerHTML = `<div class="text-center text-sm text-slate-500 py-10 leading-6">${sphericalEditMode ? 'Sphere layers are empty.<br>Turn Sphere Edit ON and add an image.' : 'Layers are empty.<br>Add an image or text layer.'}</div>`;
                 return;
             }
 
-            layerList.innerHTML = face.elements.map((element, index) => {
+            layerList.innerHTML = elements.map((element, index) => {
                 const isActive = element.id === selectedId;
                 const thumb = element.type === 'image'
                     ? `<img src="${element.previewUrl}" class="w-11 h-11 rounded-xl object-contain bg-black/40 border border-white/5">`
@@ -4043,8 +4396,8 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                         <div class="flex items-center gap-3">
                             ${thumb}
                             <div class="min-w-0 flex-1">
-                                <div class="text-sm font-bold truncate">${element.locked ? '🔒 ' : ''}${element.name}</div>
-                                <div class="text-[11px] text-slate-400 uppercase tracking-[0.18em]">${element.type} · ${face.elements.length - index}</div>
+                                <div class="text-sm font-bold truncate">${element.locked ? '?? ' : ''}${element.name}</div>
+                                <div class="text-[11px] text-slate-400 uppercase tracking-[0.18em]">${element.spherical ? 'SPHERE' : element.type} ? ${elements.length - index}</div>
                             </div>
                             <button class="text-xs font-black text-slate-400 hover:text-white transition-colors" data-toggle-id="${element.id}">${element.visible ? 'ON' : 'OFF'}</button>
                         </div>
@@ -4062,7 +4415,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             layerList.querySelectorAll('[data-toggle-id]').forEach(button => {
                 button.addEventListener('click', event => {
                     event.stopPropagation();
-                    const target = getFaceState().elements.find(element => element.id === button.dataset.toggleId);
+                    const target = elements.find(element => element.id === button.dataset.toggleId);
                     if (!target) return;
                     target.visible = !target.visible;
                     render();
@@ -4398,6 +4751,14 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                     ${rangeField({ label: 'X', key: 'x', min: 0, max: CANVAS_SIZE, step: 1, value: Math.round(selected.x) })}
                     ${rangeField({ label: 'Y', key: 'y', min: 0, max: CANVAS_SIZE, step: 1, value: Math.round(selected.y) })}
                 </div>
+                ${selected.spherical ? `
+                <div class="property-group space-y-4">
+                    <div class="property-label">?? ??</div>
+                    ${rangeField({ label: 'Yaw', key: 'sphereYaw', min: -180, max: 180, step: 1, value: Math.round(selected.sphereYaw || 0), unit: '?' })}
+                    ${rangeField({ label: 'Pitch', key: 'spherePitch', min: -85, max: 85, step: 1, value: Math.round(selected.spherePitch || 0), unit: '?' })}
+                    ${rangeField({ label: '?? ??', key: 'sphereWidth', min: 2, max: 140, step: 1, value: Math.round(selected.sphereWidth || 24), unit: '?' })}
+                    ${rangeField({ label: '?? ??', key: 'sphereHeight', min: 2, max: 100, step: 1, value: Math.round(selected.sphereHeight || 12), unit: '?' })}
+                </div>` : ''}
                 <div class="property-group space-y-4">
                     <div class="property-label">캔바 스타일 빠른 작업</div>
                     <div class="grid grid-cols-2 gap-2">
@@ -4552,16 +4913,23 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
 
         function addTextLayer() {
             const element = createTextElement();
+            if (sphericalEditMode) prepareElementForSphere(element);
             getFaceState().elements.push(element);
             selectedId = element.id;
             render();
         }
 
         function removeElement(id) {
-            const face = getFaceState();
-            const index = face.elements.findIndex(element => element.id === id);
-            if (index === -1) return;
-            face.elements.splice(index, 1);
+            let removed = false;
+            for (const faceKey of FACES) {
+                const face = getFaceState(faceKey);
+                const index = face.elements.findIndex(element => element.id === id);
+                if (index === -1) continue;
+                face.elements.splice(index, 1);
+                removed = true;
+                break;
+            }
+            if (!removed) return;
             if (selectedId === id) selectedId = null;
             render();
         }
@@ -4770,10 +5138,24 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         }
 
         function findTopElementAt(x, y) {
+            if (sphericalEditMode) {
+                const elements = getAllSphericalElements();
+                for (let i = elements.length - 1; i >= 0; i--) {
+                    const element = elements[i];
+                    if (!element.visible) continue;
+                    const point = projectDirectionToSphereView(directionFromYawPitch(element.sphereYaw || 0, element.spherePitch || 0));
+                    if (!point) continue;
+                    const width = CANVAS_SIZE * ((element.sphereWidth || 24) / sphereView.fov);
+                    const height = CANVAS_SIZE * ((element.sphereHeight || 12) / sphereView.fov);
+                    if (Math.abs(x - point.x) <= width / 2 && Math.abs(y - point.y) <= height / 2) return element;
+                }
+                return null;
+            }
             const elements = getFaceState().elements;
             for (let i = elements.length - 1; i >= 0; i--) {
                 const element = elements[i];
                 if (!element.visible) continue;
+                if (element.spherical) continue;
                 if (isPointInsideElement(element, x, y)) return element;
             }
             return null;
@@ -4902,15 +5284,24 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             }
             const target = findTopElementAt(point.x, point.y);
             if (!target) {
-                selectedId = null;
+                if (sphericalEditMode) {
+                    sphereDragState = { mode: 'view', startX: point.x, startY: point.y, yaw: sphereView.yaw, pitch: sphereView.pitch };
+                    isDragging = true;
+                } else {
+                    selectedId = null;
+                }
                 render();
                 return;
             }
             selectedId = target.id;
             if (!target.locked) {
                 isDragging = true;
-                dragOffset.x = point.x - target.x;
-                dragOffset.y = point.y - target.y;
+                if (sphericalEditMode && target.spherical) {
+                    sphereDragState = { mode: 'element', elementId: target.id };
+                } else {
+                    dragOffset.x = point.x - target.x;
+                    dragOffset.y = point.y - target.y;
+                }
             }
             render();
         });
@@ -4926,6 +5317,21 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             }
             if (!isDragging) return;
             const selected = getSelectedElement();
+            if (sphericalEditMode) {
+                if (sphereDragState?.mode === 'view') {
+                    sphereView.yaw = normalizeAngleDeg(sphereDragState.yaw - (point.x - sphereDragState.startX) * 0.18);
+                    sphereView.pitch = clamp(sphereDragState.pitch + (point.y - sphereDragState.startY) * 0.14, -80, 80);
+                    render();
+                    return;
+                }
+                if (sphereDragState?.mode === 'element' && selected?.spherical) {
+                    const center = yawPitchFromDirection(viewDirectionFromCanvasPoint(point.x, point.y));
+                    selected.sphereYaw = center.yaw;
+                    selected.spherePitch = center.pitch;
+                    render();
+                    return;
+                }
+            }
             if (!selected) return;
             selected.x = clamp(snapCanvasValue(point.x - dragOffset.x), 0, CANVAS_SIZE);
             selected.y = clamp(snapCanvasValue(point.y - dragOffset.y), 0, CANVAS_SIZE);
@@ -4936,6 +5342,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             if (event?.pointerId != null) canvasPointers.delete(event.pointerId);
             if (canvasPointers.size < 2) pinchState = null;
             isDragging = false;
+            sphereDragState = null;
         }
 
         canvas.addEventListener('pointerup', stopCanvasPointer);
@@ -4944,6 +5351,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             canvasPointers.clear();
             pinchState = null;
             isDragging = false;
+            sphereDragState = null;
             cutoutState.isDrawing = false;
             cutoutState.lastPoint = null;
         });
@@ -4957,6 +5365,16 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             }
             const selected = getSelectedElement();
             if (!selected || selected.locked) return;
+            if (sphericalEditMode && selected.spherical) {
+                if (event.shiftKey) selected.rotation = clamp(selected.rotation + (event.deltaY > 0 ? 3 : -3), -180, 180);
+                else {
+                    const delta = event.deltaY > 0 ? -1.4 : 1.4;
+                    selected.sphereWidth = clamp((selected.sphereWidth || 24) + delta, 2, 140);
+                    selected.sphereHeight = clamp((selected.sphereHeight || 12) + delta * 0.6, 2, 100);
+                }
+                render();
+                return;
+            }
             if (event.shiftKey) selected.rotation = clamp(selected.rotation + (event.deltaY > 0 ? 3 : -3), -180, 180);
             else selected.scale = clamp(selected.scale + (event.deltaY > 0 ? -0.04 : 0.04), 0.05, 4);
             render();
@@ -5000,6 +5418,19 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             const files = Array.from(event.target.files || []);
             if (files.length) await addImages(files);
             event.target.value = '';
+        });
+        sphereEditToggleButton?.addEventListener('click', () => {
+            sphericalEditMode = !sphericalEditMode;
+            selectedFacePair = '';
+            selectedId = null;
+            lastBackgroundUploadReport = sphericalEditMode
+                ? '[구형 편집]\n이미지를 안쪽 구면에 붙이는 모드입니다. 드래그로 시점/레이어를 움직이고, 전체 내보내기 때 6면으로 다시 굽습니다.'
+                : '[구형 편집 종료]\n기존 6면 평면 편집 모드로 돌아왔습니다.';
+            render();
+        });
+        sphereResetViewButton?.addEventListener('click', () => {
+            sphereView = { yaw: 0, pitch: 0, fov: 96 };
+            render();
         });
         posterQuickStart?.addEventListener('click', async () => {
             const count = await requestPosterFileCount();
