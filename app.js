@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.02.1';
+        const APP_VERSION = 'v2026.06.02.2';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -165,6 +165,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         const downloadAllPairWarpComparisonButton = document.getElementById('download-all-pair-warp-comparison');
         const sphereEditToggleButton = document.getElementById('sphere-edit-toggle');
         const sphereResetViewButton = document.getElementById('sphere-reset-view');
+        const sphereAutoLayoutButton = document.getElementById('sphere-auto-layout');
         const sphereEditStatus = document.getElementById('sphere-edit-status');
         let posterExpectedFileCount = 0;
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
@@ -2014,6 +2015,33 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             return element;
         }
 
+        function arrangeSphericalElements(elements = getAllSphericalElements(), options = {}) {
+            const items = (elements || []).filter(Boolean);
+            if (!items.length) return 0;
+            const count = items.length;
+            const baseYaw = Number(options.yaw ?? sphereView.yaw);
+            const basePitch = Number(options.pitch ?? sphereView.pitch);
+            const arc = clamp(Number(options.arc ?? Math.min(104, 22 + count * 16)), 18, 128);
+            const centerIndex = (count - 1) / 2;
+            items.forEach((element, index) => {
+                if (!element.spherical) prepareElementForSphere(element);
+                const normalized = count <= 1 ? 0 : (index - centerIndex) / centerIndex;
+                const row = count >= 4 ? (index % 2 === 0 ? -1 : 1) : 0;
+                element.sphereYaw = normalizeAngleDeg(baseYaw + normalized * arc / 2);
+                element.spherePitch = clamp(basePitch + row * 7 - Math.abs(normalized) * 3, -70, 70);
+                if (element.type === 'image') {
+                    const aspect = element.processedCanvas.height / Math.max(1, element.processedCanvas.width);
+                    const targetWidth = clamp(count <= 1 ? 34 : 72 / Math.max(2, count) + 16, 12, 34);
+                    element.sphereWidth = targetWidth;
+                    element.sphereHeight = clamp(targetWidth * aspect, 8, 48);
+                } else {
+                    element.sphereWidth = clamp(count <= 1 ? 38 : 30, 8, 80);
+                    element.sphereHeight = clamp(count <= 1 ? 14 : 11, 4, 32);
+                }
+            });
+            return items.length;
+        }
+
         function getSelectedElement() {
             if (sphericalEditMode) return getAllSphericalElements().find(element => element.id === selectedId) || null;
             return getFaceState().elements.find(element => element.id === selectedId) || null;
@@ -3300,21 +3328,31 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                 await addImagesToFacePair(files);
                 return;
             }
-            showLoading('이미지를 레이어로 추가하고 있어요.');
+            showLoading('???? ???? ???? ???.');
+            const created = [];
             try {
                 for (const file of files) {
-                        showLoading(`이미지 레이어 추가 중...\n${file.name}`);
+                    showLoading(`??? ??? ?? ?...
+${file.name}`);
                     try {
                         const image = await fileToImage(file);
                         const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
                         const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
                         await updateImageProcessing(element);
                         if (sphericalEditMode) prepareElementForSphere(element);
+                        created.push(element);
                         getFaceState().elements.push(element);
                         selectedId = element.id;
                     } catch (error) {
-                        alert(`이미지 추가 실패: ${file.name}\n${error.message}`);
+                        alert(`??? ?? ??: ${file.name}
+${error.message}`);
                     }
+                }
+                if (sphericalEditMode && created.length > 1) {
+                    arrangeSphericalElements(created);
+                    selectedId = created[0].id;
+                    lastBackgroundUploadReport = `[Sphere Auto Layout]
+${created.length} images arranged on the inside spherical wall.`;
                 }
                 render();
             } finally {
@@ -3384,7 +3422,12 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                     }
                 }
                 if (!created.length) return;
-                await arrangeFrameTemplateForElements(created, 'hero', options.accentColor);
+                if (sphericalEditMode) {
+                    arrangeSphericalElements(created, { arc: Math.min(118, 36 + created.length * 18) });
+                    lastBackgroundUploadReport = `[Sphere Poster Layout]\n${created.length} poster images arranged on the inside spherical wall.`;
+                } else {
+                    await arrangeFrameTemplateForElements(created, 'hero', options.accentColor);
+                }
                 selectedId = created[0].id;
                 render();
             } finally {
@@ -4294,6 +4337,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                 sphereEditToggleButton.classList.toggle('success', sphericalEditMode);
                 sphereEditToggleButton.classList.toggle('primary', !sphericalEditMode);
             }
+            if (sphereAutoLayoutButton) sphereAutoLayoutButton.disabled = getAllSphericalElements().length === 0;
             if (sphereEditStatus) {
                 const count = getAllSphericalElements().length;
                 sphereEditStatus.textContent = sphericalEditMode
@@ -5430,6 +5474,16 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         });
         sphereResetViewButton?.addEventListener('click', () => {
             sphereView = { yaw: 0, pitch: 0, fov: 96 };
+            render();
+        });
+        sphereAutoLayoutButton?.addEventListener('click', () => {
+            const count = arrangeSphericalElements();
+            if (count) {
+                sphericalEditMode = true;
+                selectedFacePair = '';
+                selectedId = getAllSphericalElements()[0]?.id || null;
+                lastBackgroundUploadReport = `[Sphere Auto Layout]\n${count} spherical layers arranged around the current view.`;
+            }
             render();
         });
         posterQuickStart?.addEventListener('click', async () => {
