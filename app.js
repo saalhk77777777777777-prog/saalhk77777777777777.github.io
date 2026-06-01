@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.02.3';
+        const APP_VERSION = 'v2026.06.02.4';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -330,7 +330,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                 if (dir.x >= 0) return { face: 'lf', u: (-dir.z / ax + 1) / 2, v: (-dir.y / ax + 1) / 2 };
                 return { face: 'rt', u: (dir.z / ax + 1) / 2, v: (-dir.y / ax + 1) / 2 };
             }
-            if (dir.y >= 0) return { face: 'up', u: (dir.x / ay + 1) / 2, v: (dir.z / ay + 1) / 2 };
+            if (dir.y >= 0) return { face: 'up', u: 1 - (dir.z / ay + 1) / 2, v: (dir.x / ay + 1) / 2 };
             return { face: 'dn', u: (dir.x / ay + 1) / 2, v: (-dir.z / ay + 1) / 2 };
         }
         function directionFromCubeFaceUV(face, u, v) {
@@ -341,7 +341,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                 bk: { x: -x, y: -y, z: -1 },
                 rt: { x: -1, y: -y, z: x },
                 lf: { x: 1, y: -y, z: -x },
-                up: { x, y: 1, z: y },
+                up: { x: y, y: 1, z: -x },
                 dn: { x, y: -1, z: -y }
             };
             return normalizeVector(map[face] || map.ft);
