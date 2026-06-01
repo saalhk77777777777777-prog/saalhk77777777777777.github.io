@@ -283,7 +283,7 @@
                 <button id="preset-folder-button" class="tool-button">외부 폴더 가져오기</button>
                 <input type="file" id="preset-folder-input" class="hidden" webkitdirectory directory multiple>
                 <label class="tool-button cursor-pointer">이미지 추가<input type="file" id="asset-bulk" class="hidden" accept="image/*" multiple></label>
-                <button id="sphere-edit-toggle" class="tool-button primary" type="button">구형 편집 OFF</button>
+                <button id="sphere-edit-toggle" class="tool-button success" type="button">Sphere Workflow ON</button>
                 <button type="button" id="poster-quick-start" class="tool-button">포스터 빠른 추가</button>
                 <input type="file" id="poster-quick-input" class="hidden" accept="image/*" multiple>
                 <label class="tool-button cursor-pointer">AI 배경제거 추가<input type="file" id="asset-bulk-ai" class="hidden" accept="image/*" multiple></label>
@@ -300,7 +300,7 @@
                 <button id="open-cloud-sync" class="tool-button success">사이트 저장소</button>
                 <button id="change-layout-mode" class="tool-button">화면 모드</button>
                 <a class="tool-button" href="https://nenekomashiro.com" target="_blank" rel="noopener noreferrer">[짤사이트]</a>
-                <button id="export-all" class="tool-button primary">전체 내보내기 ZIP</button>
+                <button id="export-all" class="tool-button primary">Sphere -> 6 Faces ZIP</button>
             </div>
         </div>
     </header>
@@ -385,12 +385,12 @@
                     <div><div class="text-[11px] text-slate-400 mb-2">배경 불투명도</div><input id="canvas-bg-opacity" type="range" min="0" max="1" step="0.01" value="1"></div>
                 </div>
                 <p class="text-[11px] text-slate-500 leading-5">면 사이 이미지는 FT/RT 같은 BETA Edge Pair에서 추가하면 기록되고, 전체 내보내기 때 자동으로 로블록스 원근 보정됩니다.</p>
-                <div class="property-label mt-5">Sphere Edit</div>
+                <div class="property-label mt-5">Sphere Workflow</div>
                 <div class="space-y-2 text-[11px] text-slate-400 leading-5">
                     <button id="sphere-reset-view" type="button" class="tool-button w-full">구형 시점 정면</button>
                     <button id="sphere-auto-layout" type="button" class="tool-button primary w-full">구형 자동 배치</button>
-                    <p id="sphere-edit-status">OFF · 기존 6면 평면 편집 중</p>
-                    <p>ON 상태에서 이미지를 추가하면 안쪽 구면에 붙고, 저장할 때 6면으로 다시 자연스럽게 굽습니다.</p>
+                    <p id="sphere-edit-status">Cube -> Sphere edit -> Cube export</p>
+                    <p>Default flow: cube map loads in, editing happens on the inside sphere, export bakes it back into six warped faces.</p>
                 </div>
                 <div class="property-group space-y-3">
                     <div class="flex items-center justify-between">
@@ -519,7 +519,7 @@
         <div class="mobile-slider-preview-label">미리보기</div>
     </div>
     <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.27.2</span></div>
-    <script src="./app.js?v=2026.06.02.6"></script>
+    <script src="./app.js?v=2026.06.02.7"></script>
 </body>
 </html>
 

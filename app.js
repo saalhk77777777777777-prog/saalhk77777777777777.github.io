@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.02.6';
+        const APP_VERSION = 'v2026.06.02.7';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -49,7 +49,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         let showEditorGrid = true;
         let snapToGrid = false;
         let layoutMode = 'pc';
-        let sphericalEditMode = false;
+        let sphericalEditMode = true;
         let sphereView = { yaw: 0, pitch: 0, fov: 96 };
         let sphereDragState = null;
         const canvasPointers = new Map();
@@ -4332,17 +4332,20 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function updateSphereEditUI() {
+            const count = getAllSphericalElements().length;
             if (sphereEditToggleButton) {
-                sphereEditToggleButton.textContent = sphericalEditMode ? '구형 편집 ON' : '구형 편집 OFF';
+                sphereEditToggleButton.textContent = sphericalEditMode ? 'Sphere Workflow ON' : 'Flat Face Mode';
                 sphereEditToggleButton.classList.toggle('success', sphericalEditMode);
                 sphereEditToggleButton.classList.toggle('primary', !sphericalEditMode);
+                sphereEditToggleButton.title = sphericalEditMode
+                    ? 'Cube map is edited as an inside sphere, then baked back into six faces on export.'
+                    : 'Direct 6-face/pair editing mode. Click to return to sphere workflow.';
             }
-            if (sphereAutoLayoutButton) sphereAutoLayoutButton.disabled = getAllSphericalElements().length === 0;
+            if (sphereAutoLayoutButton) sphereAutoLayoutButton.disabled = count === 0;
             if (sphereEditStatus) {
-                const count = getAllSphericalElements().length;
                 sphereEditStatus.textContent = sphericalEditMode
-                    ? `ON · 안쪽 구면 작업 중 · 구형 레이어 ${count}개 · 드래그=배치/시점, 휠=크기`
-                    : `OFF · 기존 6면 평면 편집 중 · 구형 레이어 ${count}개`;
+                    ? `Cube -> Sphere edit -> Cube export - sphere layers ${count} - drag=place/view, wheel=size`
+                    : `Flat 6-face / edge-pair edit - sphere layers ${count} - click top button to return to sphere workflow`;
             }
         }
 
@@ -5162,15 +5165,18 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function setActiveFace(face) {
+            sphericalEditMode = false;
             selectedFacePair = '';
             activeFace = face;
             if (!getFaceState().elements.some(element => element.id === selectedId)) selectedId = null;
+            lastBackgroundUploadReport = `[6면 평면 편집]\n${face.toUpperCase()} 면을 직접 확인하는 모드입니다. 상단 구체 편집 버튼을 누르면 구체 상태 편집으로 돌아갑니다.`;
             render();
         }
 
         function setActiveFacePair(pair) {
             const faces = getInsidePairFaces(String(pair || '').split('/').filter(face => FACES.includes(face)));
             if (faces.length !== 2) return;
+            sphericalEditMode = false;
             selectedFacePair = faces.join('/');
             const storedSettings = getStoredPairWarpSettings(faces);
             pairCornerStretch = storedSettings.stretch;
@@ -5466,10 +5472,12 @@ ${created.length} images arranged on the inside spherical wall.`;
         sphereEditToggleButton?.addEventListener('click', () => {
             sphericalEditMode = !sphericalEditMode;
             selectedFacePair = '';
-            selectedId = null;
+            selectedId = sphericalEditMode ? (getAllSphericalElements()[0]?.id || null) : null;
             lastBackgroundUploadReport = sphericalEditMode
-                ? '[구형 편집]\n이미지를 안쪽 구면에 붙이는 모드입니다. 드래그로 시점/레이어를 움직이고, 전체 내보내기 때 6면으로 다시 굽습니다.'
-                : '[구형 편집 종료]\n기존 6면 평면 편집 모드로 돌아왔습니다.';
+                ? `[Sphere Workflow]
+Cube map is now edited as an inside sphere. Export bakes it back into six warped faces.`
+                : `[Flat Face Mode]
+Direct 6-face editing helper mode. Click Sphere Workflow to return.`;
             render();
         });
         sphereResetViewButton?.addEventListener('click', () => {
