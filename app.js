@@ -1,5 +1,5 @@
 ﻿const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.05.31.30';
+        const APP_VERSION = 'v2026.06.01.1';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -2248,10 +2248,10 @@
             const angularCentered = angular * 2 - 1;
             const cornerAmount = Math.pow(smoothstep01(Math.abs(centered)), pairCornerStretchPower);
             const bendEase = 0.18 + smoothstep01(bend) * 0.82;
-            const stretch = clamp(pairCornerStretch * cornerAmount * bendEase, 0, 0.64);
-            const exponent = 1 - stretch;
-            const stretchedCentered = Math.sign(angularCentered) * Math.pow(Math.abs(angularCentered), exponent);
-            return clamp((stretchedCentered + 1) / 2, 0, 1);
+            const magnify = clamp(pairCornerStretch * cornerAmount * bendEase, 0, 0.72);
+            const exponent = 1 + magnify * 1.35;
+            const enlargedCentered = Math.sign(angularCentered) * Math.pow(Math.abs(angularCentered), exponent);
+            return clamp((enlargedCentered + 1) / 2, 0, 1);
         }
 
         function sampleImageDataBilinear(imageData, u, v) {
@@ -2507,7 +2507,7 @@
         }
 
         function getPairWarpSummary() {
-            return `코너 늘림 ${Math.round(pairCornerStretch * 100)}%, 집중도 ${pairCornerStretchPower.toFixed(2)}, 곡선 smoothstep`;
+            return `코너 확대 ${Math.round(pairCornerStretch * 100)}%, 집중도 ${pairCornerStretchPower.toFixed(2)}, 곡선 smoothstep`;
         }
 
         function refreshPairWarpElements(targetFaces = getActivePairFaces()) {
