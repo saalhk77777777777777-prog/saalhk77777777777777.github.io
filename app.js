@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.02.14';
+        const APP_VERSION = 'v2026.06.02.16';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -4089,6 +4089,30 @@ ${created.length} images arranged on the inside spherical wall.`;
             ];
         }
 
+        function sampleCanvasPixelBilinear(sourceData, sourceCanvas, sx, sy) {
+            const x0 = clamp(Math.floor(sx), 0, sourceCanvas.width - 1);
+            const y0 = clamp(Math.floor(sy), 0, sourceCanvas.height - 1);
+            const x1 = clamp(x0 + 1, 0, sourceCanvas.width - 1);
+            const y1 = clamp(y0 + 1, 0, sourceCanvas.height - 1);
+            const tx = clamp(sx - x0, 0, 1);
+            const ty = clamp(sy - y0, 0, 1);
+            const topWeight = 1 - ty;
+            const bottomWeight = ty;
+            const leftWeight = 1 - tx;
+            const rightWeight = tx;
+            const topLeft = (y0 * sourceCanvas.width + x0) * 4;
+            const topRight = (y0 * sourceCanvas.width + x1) * 4;
+            const bottomLeft = (y1 * sourceCanvas.width + x0) * 4;
+            const bottomRight = (y1 * sourceCanvas.width + x1) * 4;
+            const color = [0, 0, 0, 0];
+            for (let channel = 0; channel < 4; channel++) {
+                const top = sourceData.data[topLeft + channel] * leftWeight + sourceData.data[topRight + channel] * rightWeight;
+                const bottom = sourceData.data[bottomLeft + channel] * leftWeight + sourceData.data[bottomRight + channel] * rightWeight;
+                color[channel] = Math.round(top * topWeight + bottom * bottomWeight);
+            }
+            return color;
+        }
+
         function alphaBlendPixel(data, index, color, opacity = 1) {
             const alpha = clamp((color[3] / 255) * opacity, 0, 1);
             if (alpha <= 0) return;
@@ -4195,7 +4219,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                         if (Math.abs(localX) > halfWidth || Math.abs(localY) > halfHeight) return;
                         const sx = ((localX / halfWidth) + 1) * 0.5 * (sourceCanvas.width - 1);
                         const sy = (1 - ((localY / halfHeight) + 1) * 0.5) * (sourceCanvas.height - 1);
-                        const color = sampleCanvasPixel(sourceData, sourceCanvas, sx, sy);
+                        const color = sampleCanvasPixelBilinear(sourceData, sourceCanvas, sx, sy);
                         const edgeFeather = Math.max(degToRad(0.35), Math.min(halfWidth, halfHeight) * 0.018);
                         const edgeDistance = Math.min(halfWidth - Math.abs(localX), halfHeight - Math.abs(localY));
                         const edgeOpacity = clamp(edgeDistance / edgeFeather, 0, 1);
@@ -4334,14 +4358,13 @@ ${created.length} images arranged on the inside spherical wall.`;
                     const sample = directionToCubeFaceUV(direction);
                     const u = clamp(sample.u, 0, 1);
                     const v = clamp(sample.v, 0, 1);
-                    const sx = Math.round(u * (CANVAS_SIZE - 1));
-                    const sy = Math.round(v * (CANVAS_SIZE - 1));
-                    const source = faceData[sample.face].data;
-                    const sourceIndex = (sy * CANVAS_SIZE + sx) * 4;
-                    imageData.data[targetIndex] = source[sourceIndex];
-                    imageData.data[targetIndex + 1] = source[sourceIndex + 1];
-                    imageData.data[targetIndex + 2] = source[sourceIndex + 2];
-                    imageData.data[targetIndex + 3] = 255;
+                    const sourceCanvas = faceCanvases[sample.face];
+                    const sourceData = faceData[sample.face];
+                    const color = sampleCanvasPixelBilinear(sourceData, sourceCanvas, u * (CANVAS_SIZE - 1), v * (CANVAS_SIZE - 1));
+                    imageData.data[targetIndex] = color[0];
+                    imageData.data[targetIndex + 1] = color[1];
+                    imageData.data[targetIndex + 2] = color[2];
+                    imageData.data[targetIndex + 3] = color[3];
                 }
             }
             previewCtx.putImageData(imageData, 0, 0);
