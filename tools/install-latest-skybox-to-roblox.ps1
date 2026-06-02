@@ -32,6 +32,36 @@ function Test-SkyboxZip {
     }
 }
 
+function Read-SkyboxZipManifest {
+    param([string]$Path)
+    $archive = $null
+    $reader = $null
+    try {
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($Path)
+        $entry = $archive.Entries | Where-Object { $_.FullName -eq "manifest.json" } | Select-Object -First 1
+        if (-not $entry) {
+            return $null
+        }
+        $stream = $entry.Open()
+        $reader = New-Object System.IO.StreamReader($stream)
+        $json = $reader.ReadToEnd()
+        if (-not $json) {
+            return $null
+        }
+        return $json | ConvertFrom-Json
+    } catch {
+        Write-Warning "Could not read ZIP manifest: $($_.Exception.Message)"
+        return $null
+    } finally {
+        if ($reader) {
+            $reader.Dispose()
+        }
+        if ($archive) {
+            $archive.Dispose()
+        }
+    }
+}
+
 function Find-LatestSkyboxZip {
     $candidates = @()
     $downloads = Join-Path $HOME "Downloads"
@@ -82,7 +112,8 @@ function Write-InstallManifest {
         [string]$SourceZip,
         [string]$TargetSkyDirectory,
         [object[]]$InstalledTextures,
-        [string]$BackupDirectory
+        [string]$BackupDirectory,
+        [object]$ExportManifest
     )
 
     $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -94,6 +125,7 @@ function Write-InstallManifest {
         sourceZip = $SourceZip
         targetSkyDirectory = $TargetSkyDirectory
         backupDirectory = $BackupDirectory
+        exportManifest = $ExportManifest
         textureCount = $InstalledTextures.Count
         textures = @($InstalledTextures | ForEach-Object {
             [ordered]@{
@@ -159,7 +191,8 @@ try {
 
     $installedTextures = Get-ChildItem -LiteralPath $skyDirectory -File -Filter "sky512_*.tex" |
         Sort-Object Name
-    Write-InstallManifest -SourceZip $resolvedZip -TargetSkyDirectory $skyDirectory -InstalledTextures $installedTextures -BackupDirectory $backupDirectory
+    $exportManifest = Read-SkyboxZipManifest -Path $resolvedZip
+    Write-InstallManifest -SourceZip $resolvedZip -TargetSkyDirectory $skyDirectory -InstalledTextures $installedTextures -BackupDirectory $backupDirectory -ExportManifest $exportManifest
 
     Write-Host "Installed $($installedTextures.Count) sky textures"
     Write-Host "From: $resolvedZip"

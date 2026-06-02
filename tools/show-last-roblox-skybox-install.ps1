@@ -58,6 +58,10 @@ if (-not $manifest) {
 Write-Host "Manifest: $manifestSource"
 Write-Host "Installed at: $($manifest.installedAt)"
 Write-Host "Source ZIP:   $($manifest.sourceZip)"
+if ($manifest.exportManifest) {
+    Write-Host "Export ver:   $($manifest.exportManifest.version)"
+    Write-Host "Export flow:  $($manifest.exportManifest.flow)"
+}
 Write-Host "Target sky:   $($manifest.targetSkyDirectory)"
 Write-Host "Backup:       $($manifest.backupDirectory)"
 Write-Host "Textures:     $($manifest.textureCount)"
