@@ -53,6 +53,7 @@ Add-Line '```powershell'
 Add-Line "cd `"$projectRoot`""
 Add-Line "powershell -ExecutionPolicy Bypass -File .\tools\show-skybox-ready-state.ps1"
 Add-Line "powershell -ExecutionPolicy Bypass -File .\tools\check-skybox-project.ps1"
+Add-Line "powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-ui-text.ps1"
 Add-Line "powershell -ExecutionPolicy Bypass -File .\tools\start-skybox-workflow.ps1 -Open"
 Add-Line '```'
 

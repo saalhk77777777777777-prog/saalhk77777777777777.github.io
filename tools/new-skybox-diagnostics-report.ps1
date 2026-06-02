@@ -61,6 +61,10 @@ Add-ReportSection -Title "Local Asset References" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\test-skybox-local-assets.ps1"
 }
 
+Add-ReportSection -Title "UI Text" -Body {
+    powershell -ExecutionPolicy Bypass -File ".\tools\test-skybox-ui-text.ps1"
+}
+
 Add-ReportSection -Title "Project Check" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\check-skybox-project.ps1" -SkipHttp
 }
