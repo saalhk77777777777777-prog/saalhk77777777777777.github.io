@@ -77,6 +77,42 @@ function Find-LatestRobloxSkyDirectory {
     return $resolvedSky
 }
 
+function Write-InstallManifest {
+    param(
+        [string]$SourceZip,
+        [string]$TargetSkyDirectory,
+        [object[]]$InstalledTextures,
+        [string]$BackupDirectory
+    )
+
+    $projectRoot = Split-Path -Parent $PSScriptRoot
+    $exportsDirectory = Join-Path $projectRoot "exports"
+    New-Item -ItemType Directory -Force -Path $exportsDirectory | Out-Null
+
+    $manifest = [ordered]@{
+        installedAt = (Get-Date).ToString("o")
+        sourceZip = $SourceZip
+        targetSkyDirectory = $TargetSkyDirectory
+        backupDirectory = $BackupDirectory
+        textureCount = $InstalledTextures.Count
+        textures = @($InstalledTextures | ForEach-Object {
+            [ordered]@{
+                name = $_.Name
+                length = $_.Length
+                sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+            }
+        })
+    }
+
+    $json = $manifest | ConvertTo-Json -Depth 5
+    $skyManifestPath = Join-Path $TargetSkyDirectory "skybox-install-manifest.json"
+    $projectManifestPath = Join-Path $exportsDirectory "last-roblox-skybox-install.json"
+    Set-Content -LiteralPath $skyManifestPath -Value $json -Encoding UTF8
+    Set-Content -LiteralPath $projectManifestPath -Value $json -Encoding UTF8
+    Write-Host "Manifest: $skyManifestPath"
+    Write-Host "Manifest copy: $projectManifestPath"
+}
+
 $resolvedZip = if ($ZipPath) {
     (Resolve-Path -LiteralPath $ZipPath -ErrorAction Stop).Path
 } else {
@@ -108,6 +144,8 @@ try {
                 Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $backupDirectory $_.Name) -Force
             }
         Write-Host "Backup: $backupDirectory"
+    } else {
+        $backupDirectory = ""
     }
 
     Get-ChildItem -LiteralPath $skyDirectory -File -Filter "sky512_*.tex" -ErrorAction SilentlyContinue |
@@ -119,7 +157,11 @@ try {
         Copy-Item -LiteralPath $texture.FullName -Destination (Join-Path $skyDirectory $texture.Name) -Force
     }
 
-    Write-Host "Installed $($newTextures.Count) sky textures"
+    $installedTextures = Get-ChildItem -LiteralPath $skyDirectory -File -Filter "sky512_*.tex" |
+        Sort-Object Name
+    Write-InstallManifest -SourceZip $resolvedZip -TargetSkyDirectory $skyDirectory -InstalledTextures $installedTextures -BackupDirectory $backupDirectory
+
+    Write-Host "Installed $($installedTextures.Count) sky textures"
     Write-Host "From: $resolvedZip"
     Write-Host "To:   $skyDirectory"
 } finally {
