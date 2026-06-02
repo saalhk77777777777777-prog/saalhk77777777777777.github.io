@@ -233,6 +233,33 @@ function Assert-WatcherStopWiring {
     Write-Host "OK watcher stop wiring"
 }
 
+function Assert-SkyboxZipCleanupWiring {
+    $cleanupPath = "tools\clean-old-skybox-zips.ps1"
+    if (-not (Test-Path -LiteralPath $cleanupPath -PathType Leaf)) {
+        throw "Skybox ZIP cleanup script is missing: $cleanupPath"
+    }
+
+    $cleanup = Get-Content -LiteralPath $cleanupPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "Test-ZipContainsSkyboxTextures",
+        "[int]`$KeepCount = 5",
+        "[switch]`$DryRun",
+        "Select-Object -Skip `$KeepCount",
+        "Remove-Item -LiteralPath `$zip.FullName -Force"
+    )
+    foreach ($needle in $required) {
+        if (-not $cleanup.Contains($needle)) {
+            throw "Skybox ZIP cleanup script is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("clean-old-skybox-zips.ps1")) {
+        throw "Roblox apply docs do not mention skybox ZIP cleanup script."
+    }
+
+    Write-Host "OK skybox ZIP cleanup wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -247,6 +274,7 @@ Assert-RobloxBackupRetentionWiring
 Assert-SkyboxZipTesterWiring
 Assert-WatcherStatusWiring
 Assert-WatcherStopWiring
+Assert-SkyboxZipCleanupWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."

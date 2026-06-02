@@ -32,6 +32,14 @@ powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-zip.ps1 -ZipPath "C
 
 `-ZipPath`를 생략하면 최신 skybox ZIP을 자동으로 찾습니다.
 
+## 오래된 skybox ZIP 정리
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\clean-old-skybox-zips.ps1 -DryRun
+```
+
+기본값은 최신 5개 skybox ZIP만 남깁니다. 실제 삭제 전에는 `-DryRun`으로 먼저 확인하세요.
+
 ## 로그 확인
 
 ```powershell
