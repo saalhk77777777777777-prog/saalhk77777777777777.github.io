@@ -138,6 +138,31 @@ function Assert-RobloxBackupRetentionWiring {
     Write-Host "OK Roblox backup retention wiring"
 }
 
+function Assert-SkyboxZipTesterWiring {
+    $testerPath = "tools\test-skybox-zip.ps1"
+    if (-not (Test-Path -LiteralPath $testerPath -PathType Leaf)) {
+        throw "Skybox ZIP tester is missing: $testerPath"
+    }
+
+    $tester = Get-Content -LiteralPath $testerPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $requiredTester = @(
+        "sky512_[^/]+\.tex",
+        "manifest.json",
+        "Manifest references missing texture"
+    )
+    foreach ($needle in $requiredTester) {
+        if (-not $tester.Contains($needle)) {
+            throw "Skybox ZIP tester is missing check: $needle"
+        }
+    }
+    if (-not $docs.Contains("test-skybox-zip.ps1")) {
+        throw "Roblox apply docs do not mention test-skybox-zip.ps1."
+    }
+
+    Write-Host "OK skybox ZIP tester wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -149,6 +174,7 @@ Assert-VersionCachebusterMatch
 Assert-ElementIdsExist
 Assert-ExportManifestWiring
 Assert-RobloxBackupRetentionWiring
+Assert-SkyboxZipTesterWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."
