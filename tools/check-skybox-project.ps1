@@ -205,6 +205,10 @@ function Assert-SkyboxLocalAssetTesterWiring {
     $assetScript = Get-Content -LiteralPath $assetPath -Raw
     $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
     $required = @(
+        "[switch]`$Json",
+        "ReferenceCount",
+        "MissingCount",
+        "ConvertTo-Json",
         "index.html",
         "src",
         "href",

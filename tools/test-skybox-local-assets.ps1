@@ -1,4 +1,6 @@
-param()
+param(
+    [switch]$Json
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -28,12 +30,29 @@ foreach ($attribute in @("src", "href")) {
 }
 
 $missing = @($references | Where-Object { -not (Test-Path -LiteralPath $_.Path -PathType Leaf) })
+$result = [pscustomobject]@{
+    HtmlPath = $htmlPath
+    ReferenceCount = @($references).Count
+    MissingCount = $missing.Count
+    References = @($references)
+    Missing = @($missing)
+}
+
+if ($Json) {
+    $result | ConvertTo-Json -Depth 4
+    if ($missing.Count -gt 0) {
+        exit 1
+    }
+    exit 0
+}
+
 if ($missing.Count -gt 0) {
     $message = $missing | ForEach-Object { "- $($_.Attribute)=$($_.Reference) -> $($_.Path)" }
     throw "Missing local assets referenced by index.html:`n$($message -join "`n")"
 }
 
 Write-Host "Skybox local asset references OK"
+Write-Host "References: $($result.ReferenceCount)"
 foreach ($reference in $references) {
     Write-Host ("- {0}={1}" -f $reference.Attribute, $reference.Reference)
 }
