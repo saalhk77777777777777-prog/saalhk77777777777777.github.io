@@ -549,11 +549,15 @@ function Assert-CurrentRobloxSkyboxExportWiring {
 
     $exportScript = Get-Content -LiteralPath $exportPath -Raw
     $reportScript = Get-Content -LiteralPath "tools\new-skybox-diagnostics-report.ps1" -Raw
+    $listScript = Get-Content -LiteralPath "tools\list-skybox-zips.ps1" -Raw
     $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
     $required = @(
         "[switch]`$DryRun",
         "CreateFromDirectory",
         "roblox-current-skybox-",
+        "manifestType = `"roblox-current`"",
+        "version = `"roblox-current`"",
+        "flow = `"Roblox current sky backup`"",
         "manifest.json",
         "sky512_*.tex",
         "Safety check failed"
@@ -565,6 +569,9 @@ function Assert-CurrentRobloxSkyboxExportWiring {
     }
     if (-not $reportScript.Contains("export-current-roblox-skybox.ps1")) {
         throw "Diagnostics report does not include current Roblox skybox export dry run."
+    }
+    if ($listScript.IndexOf("sourceSkyDirectory") -gt $listScript.IndexOf("manifest.flow")) {
+        throw "ZIP list must classify sourceSkyDirectory as roblox-current before flow as app-export."
     }
     if (-not $docs.Contains("export-current-roblox-skybox.ps1")) {
         throw "Roblox apply docs do not mention current Roblox skybox export script."

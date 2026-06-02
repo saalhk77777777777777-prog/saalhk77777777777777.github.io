@@ -114,7 +114,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\export-current-roblox-skybox.ps
 powershell -ExecutionPolicy Bypass -File .\tools\export-current-roblox-skybox.ps1
 ```
 
-현재 Roblox `sky512_*.tex` 파일을 `exports\roblox-current-skybox-*.zip`으로 저장합니다. Roblox 파일은 수정하지 않습니다.
+현재 Roblox `sky512_*.tex` 파일을 `exports\roblox-current-skybox-*.zip`으로 저장합니다. Roblox 파일은 수정하지 않습니다. 생성되는 manifest에는 `manifestType: roblox-current`, `version: roblox-current`, `flow: Roblox current sky backup`이 들어가며, 목록에서는 배포용 `app-export`가 아니라 `roblox-current`로 분류됩니다.
 
 ## skybox ZIP 후보 목록
 

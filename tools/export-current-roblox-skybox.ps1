@@ -79,6 +79,9 @@ try {
     }
 
     $manifest = [ordered]@{
+        manifestType = "roblox-current"
+        version = "roblox-current"
+        flow = "Roblox current sky backup"
         exportedAt = (Get-Date).ToString("o")
         sourceSkyDirectory = $skyDirectory
         textureCount = $textures.Count
