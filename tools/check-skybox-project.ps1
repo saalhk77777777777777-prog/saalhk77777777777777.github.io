@@ -480,6 +480,7 @@ function Assert-SkyboxReadyStateWiring {
         "list-roblox-skybox-backups.ps1",
         "show-last-roblox-skybox-install.ps1",
         "export-current-roblox-skybox.ps1",
+        "const APP_VERSION|app\.js\?v=",
         "Invoke-Soft"
     )
     foreach ($needle in $required) {

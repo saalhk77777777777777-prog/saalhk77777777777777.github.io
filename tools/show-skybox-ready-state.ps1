@@ -28,7 +28,7 @@ Write-Host ("Project: " + $projectRoot)
 
 Write-Section "Version"
 Invoke-Soft {
-    Select-String -LiteralPath "app.js", "index.html" -Pattern "APP_VERSION|app\.js\?v=" |
+    Select-String -LiteralPath "app.js", "index.html" -Pattern "const APP_VERSION|app\.js\?v=" |
         ForEach-Object { Write-Host ("{0}:{1}: {2}" -f $_.Path, $_.LineNumber, $_.Line.Trim()) }
 }
 
