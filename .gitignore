@@ -7,3 +7,5 @@ exports/
 *.zip
 skybox_studio_pack_*.zip
 backup-*/
+last-roblox-skybox-install.json
+skybox-install-manifest.json
