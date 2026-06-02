@@ -64,6 +64,16 @@ Write-Section "Local Server"
 Invoke-Soft {
     $response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$Port/index.html" -TimeoutSec 3
     Write-Host "HTTP: $($response.StatusCode) on http://127.0.0.1:$Port/"
+    $scriptMatch = [regex]::Match($response.Content, '<script\s+src="([^"]*app\.js\?v=[^"]+)"')
+    if ($scriptMatch.Success) {
+        $scriptPath = $scriptMatch.Groups[1].Value.TrimStart("./")
+        $scriptResponse = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$Port/$scriptPath" -TimeoutSec 3
+        $scriptLooksValid = $scriptResponse.Content -match "APP_VERSION"
+        Write-Host "App script: $($scriptResponse.StatusCode) $scriptPath"
+        Write-Host "App script valid: $scriptLooksValid"
+    } else {
+        Write-Host "WARN: app.js cachebuster script not found in index.html."
+    }
 }
 
 Write-Section "Watcher"

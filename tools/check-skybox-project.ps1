@@ -825,6 +825,8 @@ function Assert-SkyboxReadyStateWiring {
         "get-skybox-version.ps1",
         "test-skybox-ui-text.ps1",
         "UI Text",
+        "app.js cachebuster script",
+        "App script valid",
         "LowDiskWarningGB",
         "WARN: free space is below",
         "Git Sync",
