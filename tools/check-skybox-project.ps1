@@ -185,6 +185,39 @@ function Assert-SkyboxZipTesterWiring {
     Write-Host "OK skybox ZIP tester wiring"
 }
 
+function Assert-SkyboxDeployReadinessWiring {
+    $readinessPath = "tools\test-skybox-deploy-readiness.ps1"
+    if (-not (Test-Path -LiteralPath $readinessPath -PathType Leaf)) {
+        throw "Skybox deploy readiness script is missing: $readinessPath"
+    }
+
+    $readinessScript = Get-Content -LiteralPath $readinessPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "Skybox deploy readiness test",
+        "Mode: DRY RUN - Roblox files will not be modified",
+        "Find-LatestDeployZip",
+        "skybox_studio_pack_*.zip",
+        "Invoke-CheckedPowerShell",
+        "Step failed with exit code",
+        "test-skybox-zip.ps1",
+        "test-roblox-sky-folder.ps1",
+        "install-latest-skybox-to-roblox.ps1",
+        "-DryRun",
+        "Ready: ZIP and Roblox target passed dry-run deploy checks."
+    )
+    foreach ($needle in $required) {
+        if (-not $readinessScript.Contains($needle)) {
+            throw "Skybox deploy readiness script is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("test-skybox-deploy-readiness.ps1")) {
+        throw "Roblox apply docs do not mention deploy readiness script."
+    }
+
+    Write-Host "OK skybox deploy readiness wiring"
+}
+
 function Assert-WatcherStatusWiring {
     $statusPath = "tools\show-skybox-watcher-status.ps1"
     if (-not (Test-Path -LiteralPath $statusPath -PathType Leaf)) {
@@ -757,6 +790,7 @@ Assert-ElementIdsExist
 Assert-ExportManifestWiring
 Assert-RobloxBackupRetentionWiring
 Assert-SkyboxZipTesterWiring
+Assert-SkyboxDeployReadinessWiring
 Assert-WatcherStatusWiring
 Assert-WatcherStopWiring
 Assert-SkyboxZipCleanupWiring
