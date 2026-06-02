@@ -581,6 +581,36 @@ function Assert-SkyboxHandoffSummaryWiring {
     Write-Host "OK skybox handoff summary wiring"
 }
 
+function Assert-SkyboxVersionBumpWiring {
+    $bumpPath = "tools\bump-skybox-version.ps1"
+    if (-not (Test-Path -LiteralPath $bumpPath -PathType Leaf)) {
+        throw "Skybox version bump script is missing: $bumpPath"
+    }
+
+    $bumpScript = Get-Content -LiteralPath $bumpPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "APP_VERSION",
+        "app.js?v=",
+        "ReadAllText",
+        "WriteAllText",
+        "UTF8Encoding",
+        "Get-NextVersion",
+        "Assert-VersionFormat",
+        "Bumped skybox version"
+    )
+    foreach ($needle in $required) {
+        if (-not $bumpScript.Contains($needle)) {
+            throw "Skybox version bump script is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("bump-skybox-version.ps1")) {
+        throw "Roblox apply docs do not mention version bump script."
+    }
+
+    Write-Host "OK skybox version bump wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -607,6 +637,7 @@ Assert-CurrentRobloxSkyboxExportWiring
 Assert-SkyboxReadyStateWiring
 Assert-SkyboxGeneratedCleanupWiring
 Assert-SkyboxHandoffSummaryWiring
+Assert-SkyboxVersionBumpWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."

@@ -155,3 +155,12 @@ powershell -ExecutionPolicy Bypass -File .\tools\new-skybox-handoff-summary.ps1
 ```
 
 This writes an `exports\skybox-handoff-*.md` file with resume commands, Git sync, version, ready state, and validation output for continuing long Codex work safely.
+
+## Bump app version safely
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\bump-skybox-version.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\bump-skybox-version.ps1 -Version 2026.06.03.50
+```
+
+This updates both `APP_VERSION` in `app.js` and the `app.js?v=` cachebuster in `index.html` together.
