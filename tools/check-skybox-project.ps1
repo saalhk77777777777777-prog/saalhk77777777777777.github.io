@@ -260,6 +260,32 @@ function Assert-SkyboxZipCleanupWiring {
     Write-Host "OK skybox ZIP cleanup wiring"
 }
 
+function Assert-RobloxSkyFolderTesterWiring {
+    $testerPath = "tools\test-roblox-sky-folder.ps1"
+    if (-not (Test-Path -LiteralPath $testerPath -PathType Leaf)) {
+        throw "Roblox sky folder tester is missing: $testerPath"
+    }
+
+    $tester = Get-Content -LiteralPath $testerPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "Find-LatestRobloxSkyDirectory",
+        "sky512_*.tex",
+        "skybox-install-manifest.json",
+        "Backup count exceeds MaxBackups"
+    )
+    foreach ($needle in $required) {
+        if (-not $tester.Contains($needle)) {
+            throw "Roblox sky folder tester is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("test-roblox-sky-folder.ps1")) {
+        throw "Roblox apply docs do not mention sky folder tester."
+    }
+
+    Write-Host "OK Roblox sky folder tester wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -275,6 +301,7 @@ Assert-SkyboxZipTesterWiring
 Assert-WatcherStatusWiring
 Assert-WatcherStopWiring
 Assert-SkyboxZipCleanupWiring
+Assert-RobloxSkyFolderTesterWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."
