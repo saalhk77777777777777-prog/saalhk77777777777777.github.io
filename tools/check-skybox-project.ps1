@@ -650,6 +650,9 @@ function Assert-SkyboxPublishWiring {
         "[Parameter(Mandatory = `$true)]",
         "git diff --check",
         "check-skybox-project.ps1",
+        "Assert-StagedVersionBump",
+        "-join `"``n`"",
+        "Publish requires a version bump",
         "git commit -m `$Message",
         "git push origin HEAD",
         "Published and synchronized"

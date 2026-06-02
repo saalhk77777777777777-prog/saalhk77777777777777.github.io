@@ -180,4 +180,4 @@ This requires a clean working tree, runs the project check, bumps `APP_VERSION` 
 powershell -ExecutionPolicy Bypass -File .\tools\publish-skybox-changes.ps1 -Message "Your commit message" -All
 ```
 
-This checks the project, stages the requested changes, commits, pushes to `origin/main`, and verifies the branch is synchronized.
+This checks the project, verifies the staged changes include an `APP_VERSION`/`app.js?v=` bump, commits, pushes to `origin/main`, and verifies the branch is synchronized.

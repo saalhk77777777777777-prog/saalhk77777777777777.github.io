@@ -51,6 +51,18 @@ function Stage-RequestedChanges {
     }
 }
 
+function Assert-StagedVersionBump {
+    $stagedNames = @(git diff --cached --name-only)
+    $stagedDiff = (git diff --cached -- app.js index.html) -join "`n"
+
+    if ($stagedNames -notcontains "app.js" -or $stagedNames -notcontains "index.html") {
+        throw "Publish requires a version bump. Stage both app.js and index.html after running tools\bump-skybox-version.ps1."
+    }
+    if ($stagedDiff -notmatch "APP_VERSION" -or $stagedDiff -notmatch "app\.js\?v=") {
+        throw "Publish requires APP_VERSION and app.js?v= cachebuster changes."
+    }
+}
+
 Invoke-Step -Title "Preflight" -Body {
     Assert-HasChanges
     git status --short
@@ -69,6 +81,7 @@ Invoke-Step -Title "Project Check" -Body {
 Invoke-Step -Title "Stage" -Body {
     Stage-RequestedChanges
     git diff --cached --check
+    Assert-StagedVersionBump
     git status --short
 }
 
