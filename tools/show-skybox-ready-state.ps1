@@ -122,6 +122,11 @@ Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\measure-skybox-reclaimable-space.ps1"
 }
 
+Write-Section "Optional Image Sample Reclaimable Dry Run"
+Invoke-Soft {
+    powershell -ExecutionPolicy Bypass -File ".\tools\measure-skybox-reclaimable-space.ps1" -IncludeImageSamples
+}
+
 Write-Section "Large Skybox Files"
 Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\list-large-skybox-files.ps1" -Limit 8 -MinMB 1

@@ -726,6 +726,8 @@ function Assert-SkyboxReadyStateWiring {
         "export-current-roblox-skybox.ps1",
         "clean-skybox-generated-files.ps1",
         "measure-skybox-reclaimable-space.ps1",
+        "Optional Image Sample Reclaimable Dry Run",
+        "-IncludeImageSamples",
         "get-skybox-version.ps1",
         "LowDiskWarningGB",
         "WARN: free space is below",
