@@ -121,6 +121,31 @@ function Assert-GitAttributesWiring {
     Write-Host "OK gitattributes"
 }
 
+function Assert-GitIgnoreWiring {
+    $ignorePath = ".gitignore"
+    if (-not (Test-Path -LiteralPath $ignorePath -PathType Leaf)) {
+        throw ".gitignore is missing."
+    }
+
+    $ignore = Get-Content -LiteralPath $ignorePath -Raw
+    $required = @(
+        "exports/",
+        "*.log",
+        "*.tmp",
+        "*.zip",
+        "skybox_studio_pack_*.zip",
+        "last-roblox-skybox-install.json",
+        "skybox-install-manifest.json"
+    )
+    foreach ($needle in $required) {
+        if (-not $ignore.Contains($needle)) {
+            throw ".gitignore is missing generated-file rule: $needle"
+        }
+    }
+
+    Write-Host "OK gitignore"
+}
+
 function Assert-ElementIdsExist {
     $html = Get-Content -LiteralPath "index.html" -Raw
     $js = Get-Content -LiteralPath "app.js" -Raw
@@ -887,6 +912,7 @@ Assert-PowerShellScriptParses -Path ".\run-local.ps1"
 Assert-VersionCachebusterMatch
 Assert-NoEncodingMojibake
 Assert-GitAttributesWiring
+Assert-GitIgnoreWiring
 Assert-ElementIdsExist
 Assert-ExportManifestWiring
 Assert-RobloxBackupRetentionWiring
