@@ -223,6 +223,10 @@ function Assert-SkyboxLocalAssetTesterWiring {
     Write-Host "OK skybox local asset tester wiring"
 }
 
+function Assert-SkyboxLocalAssetsExist {
+    powershell -ExecutionPolicy Bypass -File ".\tools\test-skybox-local-assets.ps1" | Out-Host
+}
+
 function Assert-HttpLoads {
     if ($SkipHttp) {
         Write-Host "SKIP http"
@@ -991,6 +995,7 @@ Assert-GitAttributesWiring
 Assert-GitIgnoreWiring
 Assert-ElementIdsExist
 Assert-SkyboxLocalAssetTesterWiring
+Assert-SkyboxLocalAssetsExist
 Assert-ExportManifestWiring
 Assert-RobloxBackupRetentionWiring
 Assert-SkyboxZipTesterWiring
