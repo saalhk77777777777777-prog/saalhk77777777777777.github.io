@@ -535,6 +535,34 @@ function Assert-SkyboxGeneratedCleanupWiring {
     Write-Host "OK skybox generated cleanup wiring"
 }
 
+function Assert-SkyboxHandoffSummaryWiring {
+    $handoffPath = "tools\new-skybox-handoff-summary.ps1"
+    if (-not (Test-Path -LiteralPath $handoffPath -PathType Leaf)) {
+        throw "Skybox handoff summary script is missing: $handoffPath"
+    }
+
+    $handoffScript = Get-Content -LiteralPath $handoffPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "skybox-handoff-",
+        "show-skybox-ready-state.ps1",
+        "check-skybox-project.ps1",
+        "start-skybox-workflow.ps1",
+        "git rev-list --left-right --count",
+        "Use it as a compact handoff"
+    )
+    foreach ($needle in $required) {
+        if (-not $handoffScript.Contains($needle)) {
+            throw "Skybox handoff summary script is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("new-skybox-handoff-summary.ps1")) {
+        throw "Roblox apply docs do not mention handoff summary script."
+    }
+
+    Write-Host "OK skybox handoff summary wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -560,6 +588,7 @@ Assert-RobloxSkyboxBackupListWiring
 Assert-CurrentRobloxSkyboxExportWiring
 Assert-SkyboxReadyStateWiring
 Assert-SkyboxGeneratedCleanupWiring
+Assert-SkyboxHandoffSummaryWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."
