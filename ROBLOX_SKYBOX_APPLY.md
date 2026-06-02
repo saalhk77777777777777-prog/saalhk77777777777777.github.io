@@ -14,6 +14,12 @@ powershell -ExecutionPolicy Bypass -File .\tools\start-skybox-watcher.ps1 -Resta
 - 백업 보존 개수는 `-MaxBackups 5`처럼 바꿀 수 있습니다.
 - Roblox 설치 대상 드라이브 여유공간은 기본 `-MinFreeGB 0.5` 이상이어야 합니다.
 
+로컬 앱 서버와 watcher를 한 번에 준비하려면 아래 명령을 사용합니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\start-skybox-workflow.ps1 -Open
+```
+
 ## 수동으로 ZIP 적용
 
 ```powershell

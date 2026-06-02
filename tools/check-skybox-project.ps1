@@ -312,6 +312,33 @@ function Assert-DiagnosticsReportWiring {
     Write-Host "OK diagnostics report wiring"
 }
 
+function Assert-WorkflowStarterWiring {
+    $workflowPath = "tools\start-skybox-workflow.ps1"
+    if (-not (Test-Path -LiteralPath $workflowPath -PathType Leaf)) {
+        throw "Workflow starter script is missing: $workflowPath"
+    }
+
+    $workflow = Get-Content -LiteralPath $workflowPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "run-local.ps1",
+        "start-skybox-watcher.ps1",
+        "show-skybox-watcher-status.ps1",
+        "[switch]`$Open",
+        "[switch]`$RestartWatcher"
+    )
+    foreach ($needle in $required) {
+        if (-not $workflow.Contains($needle)) {
+            throw "Workflow starter is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("start-skybox-workflow.ps1")) {
+        throw "Roblox apply docs do not mention workflow starter."
+    }
+
+    Write-Host "OK workflow starter wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -330,6 +357,7 @@ Assert-WatcherStopWiring
 Assert-SkyboxZipCleanupWiring
 Assert-RobloxSkyFolderTesterWiring
 Assert-DiagnosticsReportWiring
+Assert-WorkflowStarterWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."
