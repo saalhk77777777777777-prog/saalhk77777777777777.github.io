@@ -180,6 +180,32 @@ function Assert-SkyboxZipTesterWiring {
     Write-Host "OK skybox ZIP tester wiring"
 }
 
+function Assert-WatcherStatusWiring {
+    $statusPath = "tools\show-skybox-watcher-status.ps1"
+    if (-not (Test-Path -LiteralPath $statusPath -PathType Leaf)) {
+        throw "Watcher status script is missing: $statusPath"
+    }
+
+    $statusScript = Get-Content -LiteralPath $statusPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "watch-skybox-downloads.ps1",
+        "-MaxBackups\s+([0-9]+)",
+        "-MinFreeGB\s+([0-9.]+)",
+        "skybox-download-watcher.log"
+    )
+    foreach ($needle in $required) {
+        if (-not $statusScript.Contains($needle)) {
+            throw "Watcher status script is missing check: $needle"
+        }
+    }
+    if (-not $docs.Contains("show-skybox-watcher-status.ps1")) {
+        throw "Roblox apply docs do not mention watcher status script."
+    }
+
+    Write-Host "OK watcher status wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -192,6 +218,7 @@ Assert-ElementIdsExist
 Assert-ExportManifestWiring
 Assert-RobloxBackupRetentionWiring
 Assert-SkyboxZipTesterWiring
+Assert-WatcherStatusWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."

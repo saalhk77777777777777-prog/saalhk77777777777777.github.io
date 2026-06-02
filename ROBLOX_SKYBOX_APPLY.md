@@ -36,6 +36,12 @@ powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-zip.ps1 -ZipPath "C
 Get-Content .\exports\skybox-download-watcher.log -Tail 40
 ```
 
+## watcher 상태 확인
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\show-skybox-watcher-status.ps1
+```
+
 ## 마지막 적용 이력 확인
 
 ```powershell
