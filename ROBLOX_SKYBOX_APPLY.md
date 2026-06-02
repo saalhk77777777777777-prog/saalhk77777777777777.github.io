@@ -164,3 +164,12 @@ powershell -ExecutionPolicy Bypass -File .\tools\bump-skybox-version.ps1 -Versio
 ```
 
 This updates both `APP_VERSION` in `app.js` and the `app.js?v=` cachebuster in `index.html` together.
+
+## Prepare release safely
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\prepare-skybox-release.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\prepare-skybox-release.ps1 -Version 2026.06.03.51
+```
+
+This requires a clean working tree, runs the project check, bumps `APP_VERSION` and `app.js?v=`, then runs the project check again. Commit and push still happen separately so the commit message stays intentional.

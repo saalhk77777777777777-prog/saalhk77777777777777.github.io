@@ -611,6 +611,33 @@ function Assert-SkyboxVersionBumpWiring {
     Write-Host "OK skybox version bump wiring"
 }
 
+function Assert-SkyboxReleasePrepareWiring {
+    $preparePath = "tools\prepare-skybox-release.ps1"
+    if (-not (Test-Path -LiteralPath $preparePath -PathType Leaf)) {
+        throw "Skybox release prepare script is missing: $preparePath"
+    }
+
+    $prepareScript = Get-Content -LiteralPath $preparePath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "Assert-CleanEnoughToPrepare",
+        "check-skybox-project.ps1",
+        "bump-skybox-version.ps1",
+        "Post-Bump Check",
+        "git push origin main"
+    )
+    foreach ($needle in $required) {
+        if (-not $prepareScript.Contains($needle)) {
+            throw "Skybox release prepare script is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("prepare-skybox-release.ps1")) {
+        throw "Roblox apply docs do not mention release prepare script."
+    }
+
+    Write-Host "OK skybox release prepare wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -638,6 +665,7 @@ Assert-SkyboxReadyStateWiring
 Assert-SkyboxGeneratedCleanupWiring
 Assert-SkyboxHandoffSummaryWiring
 Assert-SkyboxVersionBumpWiring
+Assert-SkyboxReleasePrepareWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."
