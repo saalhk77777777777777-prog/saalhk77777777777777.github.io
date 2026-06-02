@@ -38,6 +38,7 @@ function Read-Manifest {
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $projectManifestPath = Join-Path $projectRoot "exports\last-roblox-skybox-install.json"
+$restoreManifestPath = Join-Path $projectRoot "exports\last-roblox-skybox-restore.json"
 $skyDirectory = Find-LatestRobloxSkyDirectory -VersionPath $RobloxVersionPath
 $skyManifestPath = Join-Path $skyDirectory "skybox-install-manifest.json"
 
@@ -52,23 +53,32 @@ if (-not $manifest) {
     Write-Host "No skybox install manifest found yet."
     Write-Host "Expected project manifest: $projectManifestPath"
     Write-Host "Expected Roblox manifest: $skyManifestPath"
-    return
-}
-
-Write-Host "Manifest: $manifestSource"
-Write-Host "Installed at: $($manifest.installedAt)"
-Write-Host "Source ZIP:   $($manifest.sourceZip)"
-if ($manifest.exportManifest) {
-    Write-Host "Export ver:   $($manifest.exportManifest.version)"
-    Write-Host "Export flow:  $($manifest.exportManifest.flow)"
-}
-Write-Host "Target sky:   $($manifest.targetSkyDirectory)"
-Write-Host "Backup:       $($manifest.backupDirectory)"
-Write-Host "Textures:     $($manifest.textureCount)"
-
-$manifest.textures |
-    Sort-Object name |
-    ForEach-Object {
-        $hash = if ($_.sha256) { $_.sha256.Substring(0, [Math]::Min(12, $_.sha256.Length)) } else { "nohash" }
-        Write-Host ("- {0}  {1} bytes  sha256:{2}" -f $_.name, $_.length, $hash)
+} else {
+    Write-Host "Manifest: $manifestSource"
+    Write-Host "Installed at: $($manifest.installedAt)"
+    Write-Host "Source ZIP:   $($manifest.sourceZip)"
+    if ($manifest.exportManifest) {
+        Write-Host "Export ver:   $($manifest.exportManifest.version)"
+        Write-Host "Export flow:  $($manifest.exportManifest.flow)"
     }
+    Write-Host "Target sky:   $($manifest.targetSkyDirectory)"
+    Write-Host "Backup:       $($manifest.backupDirectory)"
+    Write-Host "Textures:     $($manifest.textureCount)"
+
+    $manifest.textures |
+        Sort-Object name |
+        ForEach-Object {
+            $hash = if ($_.sha256) { $_.sha256.Substring(0, [Math]::Min(12, $_.sha256.Length)) } else { "nohash" }
+            Write-Host ("- {0}  {1} bytes  sha256:{2}" -f $_.name, $_.length, $hash)
+        }
+}
+
+$restoreManifest = Read-Manifest -Path $restoreManifestPath
+if ($restoreManifest) {
+    Write-Host ""
+    Write-Host "Last restore manifest: $restoreManifestPath"
+    Write-Host "Restored at: $($restoreManifest.restoredAt)"
+    Write-Host "Source backup: $($restoreManifest.sourceBackup)"
+    Write-Host "Target sky:     $($restoreManifest.targetSkyDirectory)"
+    Write-Host "Textures:       $($restoreManifest.textureCount)"
+}

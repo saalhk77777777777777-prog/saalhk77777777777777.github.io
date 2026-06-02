@@ -103,6 +103,9 @@ function Assert-ExportManifestWiring {
     if ($summary -notlike "*Export ver:*" -or $summary -notlike "*Export flow:*") {
         throw "Install summary does not show export manifest fields."
     }
+    if ($summary -notlike "*last-roblox-skybox-restore.json*" -or $summary -notlike "*Restored at:*") {
+        throw "Install summary does not show restore manifest fields."
+    }
 
     Write-Host "OK export manifest wiring"
 }
