@@ -638,6 +638,34 @@ function Assert-SkyboxReleasePrepareWiring {
     Write-Host "OK skybox release prepare wiring"
 }
 
+function Assert-SkyboxPublishWiring {
+    $publishPath = "tools\publish-skybox-changes.ps1"
+    if (-not (Test-Path -LiteralPath $publishPath -PathType Leaf)) {
+        throw "Skybox publish script is missing: $publishPath"
+    }
+
+    $publishScript = Get-Content -LiteralPath $publishPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "[Parameter(Mandatory = `$true)]",
+        "git diff --check",
+        "check-skybox-project.ps1",
+        "git commit -m `$Message",
+        "git push origin HEAD",
+        "Published and synchronized"
+    )
+    foreach ($needle in $required) {
+        if (-not $publishScript.Contains($needle)) {
+            throw "Skybox publish script is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("publish-skybox-changes.ps1")) {
+        throw "Roblox apply docs do not mention publish script."
+    }
+
+    Write-Host "OK skybox publish wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -666,6 +694,7 @@ Assert-SkyboxGeneratedCleanupWiring
 Assert-SkyboxHandoffSummaryWiring
 Assert-SkyboxVersionBumpWiring
 Assert-SkyboxReleasePrepareWiring
+Assert-SkyboxPublishWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."

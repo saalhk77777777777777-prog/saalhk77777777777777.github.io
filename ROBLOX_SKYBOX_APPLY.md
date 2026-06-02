@@ -173,3 +173,11 @@ powershell -ExecutionPolicy Bypass -File .\tools\prepare-skybox-release.ps1 -Ver
 ```
 
 This requires a clean working tree, runs the project check, bumps `APP_VERSION` and `app.js?v=`, then runs the project check again. Commit and push still happen separately so the commit message stays intentional.
+
+## Publish verified changes
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\publish-skybox-changes.ps1 -Message "Your commit message" -All
+```
+
+This checks the project, stages the requested changes, commits, pushes to `origin/main`, and verifies the branch is synchronized.
