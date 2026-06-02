@@ -303,7 +303,11 @@ function Assert-DiagnosticsReportWiring {
         "show-skybox-watcher-status.ps1",
         "test-roblox-sky-folder.ps1",
         "list-skybox-zips.ps1",
-        "restore-roblox-skybox-backup.ps1"
+        "restore-roblox-skybox-backup.ps1",
+        "Roblox Process",
+        "Behind/Ahead",
+        "-FullPath",
+        "WARN:"
     )
     foreach ($needle in $required) {
         if (-not $reportScript.Contains($needle)) {

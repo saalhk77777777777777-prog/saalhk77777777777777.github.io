@@ -40,6 +40,10 @@ Set-Location -LiteralPath $projectRoot
 Add-ReportSection -Title "Git" -Body {
     git status --short
     git log -5 --oneline
+    "Branch: " + (git rev-parse --abbrev-ref HEAD)
+    "Commit: " + (git rev-parse --short HEAD)
+    "Upstream: " + (git rev-parse --abbrev-ref --symbolic-full-name "@{u}")
+    "Behind/Ahead: " + (git rev-list --left-right --count "@{u}...HEAD")
 }
 
 Add-ReportSection -Title "App Version" -Body {
@@ -55,11 +59,24 @@ Add-ReportSection -Title "Watcher" -Body {
 }
 
 Add-ReportSection -Title "Skybox ZIP Candidates" -Body {
-    powershell -ExecutionPolicy Bypass -File ".\tools\list-skybox-zips.ps1" -Limit 10
+    powershell -ExecutionPolicy Bypass -File ".\tools\list-skybox-zips.ps1" -Limit 10 -FullPath
 }
 
 Add-ReportSection -Title "Roblox Sky Folder" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\test-roblox-sky-folder.ps1"
+}
+
+Add-ReportSection -Title "Roblox Process" -Body {
+    $robloxProcesses = @(Get-Process -ErrorAction SilentlyContinue |
+        Where-Object { $_.ProcessName -match "Roblox" } |
+        Sort-Object ProcessName, Id)
+    if ($robloxProcesses.Count -eq 0) {
+        "Roblox process: not running"
+    } else {
+        "Roblox process: running ($($robloxProcesses.Count))"
+        $robloxProcesses | ForEach-Object { "- {0} pid:{1}" -f $_.ProcessName, $_.Id }
+        "Tip: restart Roblox after installing new sky textures."
+    }
 }
 
 Add-ReportSection -Title "Roblox Restore Dry Run" -Body {
@@ -82,6 +99,14 @@ Add-ReportSection -Title "Disks" -Body {
     Get-PSDrive -PSProvider FileSystem |
         Select-Object Name, @{Name='FreeGB';Expression={[math]::Round($_.Free / 1GB, 2)}}, Root |
         Format-Table -AutoSize
+    $projectRootDrive = [System.IO.Path]::GetPathRoot($projectRoot)
+    $driveName = $projectRootDrive.TrimEnd('\').TrimEnd(':')
+    $drive = Get-PSDrive -Name $driveName -ErrorAction Stop
+    $freeGB = [math]::Round($drive.Free / 1GB, 2)
+    if ($freeGB -lt 3) {
+        "WARN: $projectRootDrive free space is below 3.00 GB ($freeGB GB)."
+        "Suggested dry run: powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1"
+    }
 }
 
 Write-Host "Diagnostics report: $reportPath"
