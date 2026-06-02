@@ -286,6 +286,32 @@ function Assert-RobloxSkyFolderTesterWiring {
     Write-Host "OK Roblox sky folder tester wiring"
 }
 
+function Assert-DiagnosticsReportWiring {
+    $reportPath = "tools\new-skybox-diagnostics-report.ps1"
+    if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) {
+        throw "Diagnostics report script is missing: $reportPath"
+    }
+
+    $reportScript = Get-Content -LiteralPath $reportPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "skybox-diagnostics-",
+        "check-skybox-project.ps1",
+        "show-skybox-watcher-status.ps1",
+        "test-roblox-sky-folder.ps1"
+    )
+    foreach ($needle in $required) {
+        if (-not $reportScript.Contains($needle)) {
+            throw "Diagnostics report script is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("new-skybox-diagnostics-report.ps1")) {
+        throw "Roblox apply docs do not mention diagnostics report script."
+    }
+
+    Write-Host "OK diagnostics report wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -302,6 +328,7 @@ Assert-WatcherStatusWiring
 Assert-WatcherStopWiring
 Assert-SkyboxZipCleanupWiring
 Assert-RobloxSkyFolderTesterWiring
+Assert-DiagnosticsReportWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."

@@ -70,6 +70,12 @@ powershell -ExecutionPolicy Bypass -File .\tools\show-last-roblox-skybox-install
 powershell -ExecutionPolicy Bypass -File .\tools\test-roblox-sky-folder.ps1
 ```
 
+## 진단 리포트 만들기
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\new-skybox-diagnostics-report.ps1
+```
+
 ## Roblox 확인 흐름
 
 1. 앱에서 `Sphere -> 6 Faces ZIP` 다운로드
