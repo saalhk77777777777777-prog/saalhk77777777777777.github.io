@@ -72,6 +72,11 @@ Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\list-skybox-zips.ps1" -Limit 5 -FullPath
 }
 
+Write-Section "Deploy ZIP Candidates"
+Invoke-Soft {
+    powershell -ExecutionPolicy Bypass -File ".\tools\list-skybox-zips.ps1" -Limit 5 -DeployOnly -FullPath
+}
+
 Write-Section "Roblox Sky Folder"
 Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\test-roblox-sky-folder.ps1"

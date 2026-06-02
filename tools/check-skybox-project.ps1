@@ -584,6 +584,8 @@ function Assert-SkyboxReadyStateWiring {
     $required = @(
         "show-skybox-watcher-status.ps1",
         "list-skybox-zips.ps1",
+        "Deploy ZIP Candidates",
+        "-DeployOnly",
         "test-roblox-sky-folder.ps1",
         "list-roblox-skybox-backups.ps1",
         "show-last-roblox-skybox-install.ps1",

@@ -132,7 +132,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\list-skybox-zips.ps1 -All
 powershell -ExecutionPolicy Bypass -File .\tools\show-skybox-ready-state.ps1
 ```
 
-Git 동기화, 앱 버전, 로컬 서버, watcher, ZIP 후보, Roblox sky 폴더, 백업, 마지막 적용 이력, 현재 sky export dry run, 생성 파일 정리 dry run, 큰 파일 후보, 디스크 경고를 한 번에 봅니다.
+Git 동기화, 앱 버전, 로컬 서버, watcher, 전체 ZIP 후보, 배포용 ZIP 후보, Roblox sky 폴더, 백업, 마지막 적용 이력, 현재 sky export dry run, 생성 파일 정리 dry run, 큰 파일 후보, 디스크 경고를 한 번에 봅니다.
 
 ## 생성 파일 안전 정리
 
