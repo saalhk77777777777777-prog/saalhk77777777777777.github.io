@@ -164,6 +164,8 @@ function Assert-SkyboxZipTesterWiring {
     $tester = Get-Content -LiteralPath $testerPath -Raw
     $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
     $requiredTester = @(
+        "function Find-LatestSkyboxZip",
+        "Test-ZipContainsSkyboxTextures",
         "sky512_[^/]+\.tex",
         "manifest.json",
         "Manifest references missing texture"

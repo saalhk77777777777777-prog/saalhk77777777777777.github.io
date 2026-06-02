@@ -1,12 +1,57 @@
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$ZipPath
+    [string]$ZipPath = ""
 )
 
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$resolvedZip = (Resolve-Path -LiteralPath $ZipPath -ErrorAction Stop).Path
+function Test-ZipContainsSkyboxTextures {
+    param([string]$Path)
+    $archive = $null
+    try {
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($Path)
+        $textureCount = @($archive.Entries | Where-Object { $_.FullName -match "(^|/)sky512_[^/]+\.tex$" }).Count
+        return $textureCount -ge 6
+    } catch {
+        return $false
+    } finally {
+        if ($archive) {
+            $archive.Dispose()
+        }
+    }
+}
+
+function Find-LatestSkyboxZip {
+    $projectRoot = Split-Path -Parent $PSScriptRoot
+    $folders = @(
+        (Join-Path $HOME "Downloads"),
+        (Join-Path $projectRoot "exports")
+    )
+
+    $candidates = @()
+    foreach ($folder in $folders) {
+        if (-not (Test-Path -LiteralPath $folder -PathType Container)) {
+            continue
+        }
+        $candidates += Get-ChildItem -LiteralPath $folder -File -Filter "*.zip" -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.Name -notmatch "\.crdownload$|\.tmp$" -and
+                (Test-ZipContainsSkyboxTextures -Path $_.FullName)
+            }
+    }
+
+    $latest = $candidates | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if (-not $latest) {
+        throw "No skybox ZIP found. Pass -ZipPath or export Sphere -> 6 Faces ZIP first."
+    }
+    return $latest.FullName
+}
+
+$resolvedZip = if ($ZipPath) {
+    (Resolve-Path -LiteralPath $ZipPath -ErrorAction Stop).Path
+} else {
+    Find-LatestSkyboxZip
+}
 $archive = $null
 $reader = $null
 

@@ -30,6 +30,8 @@ powershell -ExecutionPolicy Bypass -File .\tools\install-latest-skybox-to-roblox
 powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-zip.ps1 -ZipPath "C:\Users\saalh\Downloads\skybox_studio_pack_v2026.06.03.17_YYYYMMDDTHHMMSS.zip"
 ```
 
+`-ZipPath`를 생략하면 최신 skybox ZIP을 자동으로 찾습니다.
+
 ## 로그 확인
 
 ```powershell
