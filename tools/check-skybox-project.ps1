@@ -491,6 +491,7 @@ function Assert-SkyboxReadyStateWiring {
         "show-last-roblox-skybox-install.ps1",
         "export-current-roblox-skybox.ps1",
         "clean-skybox-generated-files.ps1",
+        "measure-skybox-reclaimable-space.ps1",
         "const APP_VERSION|app\.js\?v=",
         "LowDiskWarningGB",
         "WARN: free space is below",
@@ -511,6 +512,41 @@ function Assert-SkyboxReadyStateWiring {
     }
 
     Write-Host "OK skybox ready state wiring"
+}
+
+function Assert-SkyboxReclaimableSpaceWiring {
+    $measurePath = "tools\measure-skybox-reclaimable-space.ps1"
+    if (-not (Test-Path -LiteralPath $measurePath -PathType Leaf)) {
+        throw "Skybox reclaimable space script is missing: $measurePath"
+    }
+
+    $measureScript = Get-Content -LiteralPath $measurePath -Raw
+    $readyScript = Get-Content -LiteralPath "tools\show-skybox-ready-state.ps1" -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "Skybox reclaimable generated space",
+        "[switch]`$Json",
+        "ReclaimableBytes",
+        "skybox_studio_pack_*.zip",
+        "roblox-current-skybox-*.zip",
+        "skybox-diagnostics-*.txt",
+        "skybox-handoff-*.md",
+        "Mode: DRY RUN - no files will be removed",
+        "clean-skybox-generated-files.ps1 -Apply"
+    )
+    foreach ($needle in $required) {
+        if (-not $measureScript.Contains($needle)) {
+            throw "Skybox reclaimable space script is missing behavior: $needle"
+        }
+    }
+    if (-not $readyScript.Contains("Reclaimable Space Dry Run")) {
+        throw "Ready state does not show reclaimable space dry run."
+    }
+    if (-not $docs.Contains("measure-skybox-reclaimable-space.ps1")) {
+        throw "Roblox apply docs do not mention reclaimable space script."
+    }
+
+    Write-Host "OK skybox reclaimable space wiring"
 }
 
 function Assert-SkyboxGeneratedCleanupWiring {
@@ -732,6 +768,7 @@ Assert-SkyboxZipListWiring
 Assert-RobloxSkyboxBackupListWiring
 Assert-CurrentRobloxSkyboxExportWiring
 Assert-SkyboxReadyStateWiring
+Assert-SkyboxReclaimableSpaceWiring
 Assert-SkyboxGeneratedCleanupWiring
 Assert-LargeSkyboxFilesWiring
 Assert-SkyboxHandoffSummaryWiring

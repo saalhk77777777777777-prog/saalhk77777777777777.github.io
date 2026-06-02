@@ -113,6 +113,11 @@ Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\clean-skybox-generated-files.ps1"
 }
 
+Write-Section "Reclaimable Space Dry Run"
+Invoke-Soft {
+    powershell -ExecutionPolicy Bypass -File ".\tools\measure-skybox-reclaimable-space.ps1"
+}
+
 Write-Section "Large Skybox Files"
 Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\list-large-skybox-files.ps1" -Limit 8 -MinMB 1
@@ -128,6 +133,7 @@ Invoke-Soft {
     if ($freeGB -lt $LowDiskWarningGB) {
         Write-Host ("WARN: free space is below {0:N2} GB." -f $LowDiskWarningGB)
         Write-Host "Suggested dry run:"
+        Write-Host "powershell -ExecutionPolicy Bypass -File .\tools\measure-skybox-reclaimable-space.ps1"
         Write-Host "powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1"
     } else {
         Write-Host "Disk space OK."

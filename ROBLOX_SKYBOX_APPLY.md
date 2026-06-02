@@ -148,6 +148,15 @@ powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps
 
 The default command is a dry run. It only targets generated skybox ZIPs in `Downloads`/`exports`, old `skybox-diagnostics-*.txt` reports, and old `skybox-handoff-*.md` summaries in `exports`.
 
+## Measure reclaimable generated space
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\measure-skybox-reclaimable-space.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\measure-skybox-reclaimable-space.ps1 -Json
+```
+
+This is read-only. It estimates how much disk space can be recovered from old generated skybox ZIPs, diagnostics reports, and handoff summaries before running cleanup.
+
 ## Create compact handoff summary
 
 ```powershell
