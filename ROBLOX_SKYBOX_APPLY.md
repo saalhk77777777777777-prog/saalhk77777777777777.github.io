@@ -219,6 +219,8 @@ powershell -ExecutionPolicy Bypass -File .\tools\publish-skybox-changes.ps1 -Mes
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-local-assets.ps1
 powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-local-assets.ps1 -Json
+powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-ui-text.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-ui-text.ps1 -Json
 powershell -ExecutionPolicy Bypass -File .\tools\check-skybox-project.ps1
 git status --short
 git log -1 --oneline

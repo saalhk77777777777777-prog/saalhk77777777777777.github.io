@@ -236,6 +236,35 @@ function Assert-SkyboxLocalAssetsExist {
     powershell -ExecutionPolicy Bypass -File ".\tools\test-skybox-local-assets.ps1" | Out-Host
 }
 
+function Assert-SkyboxUiText {
+    $uiTextPath = "tools\test-skybox-ui-text.ps1"
+    if (-not (Test-Path -LiteralPath $uiTextPath -PathType Leaf)) {
+        throw "Skybox UI text tester is missing: $uiTextPath"
+    }
+
+    $uiTextScript = Get-Content -LiteralPath $uiTextPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "[switch]`$Json",
+        "0xAD6C",
+        "0xAC00",
+        "0xC138",
+        "????",
+        "Skybox UI text OK",
+        "ConvertTo-Json"
+    )
+    foreach ($needle in $required) {
+        if (-not $uiTextScript.Contains($needle)) {
+            throw "Skybox UI text tester is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("test-skybox-ui-text.ps1")) {
+        throw "Roblox apply docs do not mention UI text tester."
+    }
+
+    powershell -ExecutionPolicy Bypass -File ".\tools\test-skybox-ui-text.ps1" | Out-Host
+}
+
 function Assert-HttpLoads {
     if ($SkipHttp) {
         Write-Host "SKIP http"
@@ -1088,6 +1117,7 @@ Assert-GitIgnoreWiring
 Assert-ElementIdsExist
 Assert-SkyboxLocalAssetTesterWiring
 Assert-SkyboxLocalAssetsExist
+Assert-SkyboxUiText
 Assert-ExportManifestWiring
 Assert-RobloxBackupRetentionWiring
 Assert-SkyboxZipTesterWiring
