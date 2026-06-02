@@ -463,6 +463,35 @@ function Assert-CurrentRobloxSkyboxExportWiring {
     Write-Host "OK current Roblox skybox export wiring"
 }
 
+function Assert-SkyboxReadyStateWiring {
+    $readyPath = "tools\show-skybox-ready-state.ps1"
+    if (-not (Test-Path -LiteralPath $readyPath -PathType Leaf)) {
+        throw "Skybox ready state script is missing: $readyPath"
+    }
+
+    $readyScript = Get-Content -LiteralPath $readyPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "show-skybox-watcher-status.ps1",
+        "list-skybox-zips.ps1",
+        "test-roblox-sky-folder.ps1",
+        "list-roblox-skybox-backups.ps1",
+        "show-last-roblox-skybox-install.ps1",
+        "export-current-roblox-skybox.ps1",
+        "Invoke-Soft"
+    )
+    foreach ($needle in $required) {
+        if (-not $readyScript.Contains($needle)) {
+            throw "Skybox ready state script is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("show-skybox-ready-state.ps1")) {
+        throw "Roblox apply docs do not mention skybox ready state script."
+    }
+
+    Write-Host "OK skybox ready state wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -486,6 +515,7 @@ Assert-RobloxSkyboxRestoreWiring
 Assert-SkyboxZipListWiring
 Assert-RobloxSkyboxBackupListWiring
 Assert-CurrentRobloxSkyboxExportWiring
+Assert-SkyboxReadyStateWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."

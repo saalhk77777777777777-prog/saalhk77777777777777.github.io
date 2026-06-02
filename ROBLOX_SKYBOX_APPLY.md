@@ -130,3 +130,11 @@ powershell -ExecutionPolicy Bypass -File .\tools\export-current-roblox-skybox.ps
 ```
 
 This copies the current Roblox `sky512_*.tex` files into an `exports\roblox-current-skybox-*.zip` archive with a manifest, without modifying Roblox files.
+
+## Show skybox ready state
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\show-skybox-ready-state.ps1
+```
+
+This prints the local app version, server health, watcher status, ZIP candidates, Roblox sky folder, backups, install history, and current sky export dry run in one terminal view.
