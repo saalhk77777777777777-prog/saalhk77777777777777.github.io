@@ -42,6 +42,12 @@ Get-Content .\exports\skybox-download-watcher.log -Tail 40
 powershell -ExecutionPolicy Bypass -File .\tools\show-skybox-watcher-status.ps1
 ```
 
+watcher를 끄려면 아래 명령을 사용합니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\stop-skybox-watcher.ps1
+```
+
 ## 마지막 적용 이력 확인
 
 ```powershell

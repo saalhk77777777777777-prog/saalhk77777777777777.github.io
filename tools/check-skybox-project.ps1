@@ -206,6 +206,31 @@ function Assert-WatcherStatusWiring {
     Write-Host "OK watcher status wiring"
 }
 
+function Assert-WatcherStopWiring {
+    $stopPath = "tools\stop-skybox-watcher.ps1"
+    if (-not (Test-Path -LiteralPath $stopPath -PathType Leaf)) {
+        throw "Watcher stop script is missing: $stopPath"
+    }
+
+    $stopScript = Get-Content -LiteralPath $stopPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "watch-skybox-downloads.ps1",
+        "Stop-Process -Id `$watcher.ProcessId -Force",
+        "Would stop watcher"
+    )
+    foreach ($needle in $required) {
+        if (-not $stopScript.Contains($needle)) {
+            throw "Watcher stop script is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("stop-skybox-watcher.ps1")) {
+        throw "Roblox apply docs do not mention watcher stop script."
+    }
+
+    Write-Host "OK watcher stop wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -219,6 +244,7 @@ Assert-ExportManifestWiring
 Assert-RobloxBackupRetentionWiring
 Assert-SkyboxZipTesterWiring
 Assert-WatcherStatusWiring
+Assert-WatcherStopWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."
