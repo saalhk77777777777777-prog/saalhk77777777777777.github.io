@@ -1,12 +1,30 @@
+param(
+    [int]$Port = 4173,
+    [switch]$Open
+)
+
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$port = 4173
+$url = "http://127.0.0.1:$Port/index.html"
 
-Write-Host "Skybox Studio local server starting..." -ForegroundColor Cyan
+Write-Host "Skybox Studio local server" -ForegroundColor Cyan
 Write-Host "Project: $projectRoot"
-Write-Host "URL: http://127.0.0.1:$port/index.html" -ForegroundColor Green
-Write-Host "Stop: Ctrl+C"
+Write-Host "URL: $url" -ForegroundColor Green
 
-Set-Location $projectRoot
-python -m http.server $port
+$existing = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($existing) {
+    Write-Host "Port $Port is already in use. Reusing existing local server." -ForegroundColor Yellow
+    if ($Open) {
+        Start-Process $url
+    }
+    return
+}
+
+if ($Open) {
+    Start-Process $url
+}
+
+Write-Host "Stop: Ctrl+C"
+Set-Location -LiteralPath $projectRoot
+python -m http.server $Port

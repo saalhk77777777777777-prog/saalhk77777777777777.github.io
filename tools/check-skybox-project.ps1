@@ -318,6 +318,7 @@ Write-Host "OK node syntax"
 Get-ChildItem -LiteralPath "tools" -File -Filter "*.ps1" |
     Sort-Object Name |
     ForEach-Object { Assert-PowerShellScriptParses -Path $_.FullName }
+Assert-PowerShellScriptParses -Path ".\run-local.ps1"
 
 Assert-VersionCachebusterMatch
 Assert-ElementIdsExist
