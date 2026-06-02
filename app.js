@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.02.13';
+        const APP_VERSION = 'v2026.06.02.14';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -5550,8 +5550,8 @@ ${created.length} images arranged on the inside spherical wall.`;
             const selected = getSelectedElement();
             if (sphericalEditMode) {
                 if (sphereDragState?.mode === 'view') {
-                    sphereView.yaw = normalizeAngleDeg(sphereDragState.yaw - (point.x - sphereDragState.startX) * 0.18);
-                    sphereView.pitch = clamp(sphereDragState.pitch + (point.y - sphereDragState.startY) * 0.14, -80, 80);
+                    sphereView.yaw = normalizeAngleDeg(sphereDragState.yaw + (point.x - sphereDragState.startX) * 0.18);
+                    sphereView.pitch = clamp(sphereDragState.pitch - (point.y - sphereDragState.startY) * 0.14, -80, 80);
                     render();
                     return;
                 }
