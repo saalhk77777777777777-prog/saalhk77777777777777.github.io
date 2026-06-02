@@ -549,6 +549,8 @@ function Assert-SkyboxHandoffSummaryWiring {
         "check-skybox-project.ps1",
         "start-skybox-workflow.ps1",
         "git rev-list --left-right --count",
+        "Handoff Sensitive Text Scan",
+        "No obvious sensitive tokens found",
         "Use it as a compact handoff"
     )
     foreach ($needle in $required) {

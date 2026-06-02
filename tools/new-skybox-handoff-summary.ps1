@@ -74,6 +74,17 @@ Add-CommandBlock -Title "Validation" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\check-skybox-project.ps1"
 }
 
+Add-CommandBlock -Title "Handoff Sensitive Text Scan" -Body {
+    $patterns = "REMOVE_BG|API[_ -]?KEY|SECRET|TOKEN|PASSWORD"
+    $matches = Select-String -LiteralPath $summaryPath -Pattern $patterns -CaseSensitive:$false |
+        Where-Object { $_.Line -notmatch "Do not paste private API keys" }
+    if ($matches) {
+        $matches | ForEach-Object { "{0}:{1}: {2}" -f $_.Path, $_.LineNumber, $_.Line.Trim() }
+    } else {
+        "No obvious sensitive tokens found in this handoff summary."
+    }
+}
+
 Add-Line ""
 Add-Line "## Notes"
 Add-Line ""
