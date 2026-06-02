@@ -27,6 +27,29 @@ function Invoke-Soft {
 Write-Host "Skybox ready state"
 Write-Host ("Project: " + $projectRoot)
 
+Write-Section "Git Sync"
+Invoke-Soft {
+    $branch = git rev-parse --abbrev-ref HEAD
+    $commit = git rev-parse --short HEAD
+    $upstream = git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>$null
+    $dirty = @(git status --short)
+    Write-Host "Branch: $branch"
+    Write-Host "Commit: $commit"
+    if ($upstream) {
+        $counts = git rev-list --left-right --count "$upstream...HEAD"
+        Write-Host "Upstream: $upstream"
+        Write-Host "Behind/Ahead: $counts"
+    } else {
+        Write-Host "Upstream: none"
+    }
+    if ($dirty.Count -gt 0) {
+        Write-Host "Working tree: dirty"
+        $dirty | ForEach-Object { Write-Host $_ }
+    } else {
+        Write-Host "Working tree: clean"
+    }
+}
+
 Write-Section "Version"
 Invoke-Soft {
     Select-String -LiteralPath "app.js", "index.html" -Pattern "const APP_VERSION|app\.js\?v=" |

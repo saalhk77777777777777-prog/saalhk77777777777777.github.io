@@ -486,6 +486,9 @@ function Assert-SkyboxReadyStateWiring {
         "const APP_VERSION|app\.js\?v=",
         "LowDiskWarningGB",
         "WARN: free space is below",
+        "Git Sync",
+        "Behind/Ahead",
+        "Working tree: clean",
         "Invoke-Soft"
     )
     foreach ($needle in $required) {
