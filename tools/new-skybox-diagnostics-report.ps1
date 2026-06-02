@@ -61,6 +61,10 @@ Add-ReportSection -Title "Project Check" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\check-skybox-project.ps1" -SkipHttp
 }
 
+Add-ReportSection -Title "Installer Safety" -Body {
+    powershell -ExecutionPolicy Bypass -File ".\tools\test-skybox-installer-safety.ps1"
+}
+
 Add-ReportSection -Title "Watcher" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\show-skybox-watcher-status.ps1" -LogTail $LogTail
 }
@@ -100,6 +104,10 @@ Add-ReportSection -Title "Current Roblox Skybox Export Dry Run" -Body {
 
 Add-ReportSection -Title "Generated File Cleanup Dry Run" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\clean-skybox-generated-files.ps1"
+}
+
+Add-ReportSection -Title "TEMP Cleanup Dry Run" -Body {
+    powershell -ExecutionPolicy Bypass -File ".\tools\clean-skybox-temp-files.ps1"
 }
 
 Add-ReportSection -Title "Disks" -Body {

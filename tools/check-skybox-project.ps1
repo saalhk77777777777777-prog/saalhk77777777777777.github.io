@@ -556,6 +556,8 @@ function Assert-DiagnosticsReportWiring {
     $required = @(
         "skybox-diagnostics-",
         "check-skybox-project.ps1",
+        "test-skybox-installer-safety.ps1",
+        "Installer Safety",
         "get-skybox-version.ps1",
         "test-skybox-local-assets.ps1",
         "Local Asset References",
@@ -568,6 +570,8 @@ function Assert-DiagnosticsReportWiring {
         "-FullPath",
         "WARN:",
         "[Console]::OutputEncoding",
+        "clean-skybox-temp-files.ps1",
+        "TEMP Cleanup Dry Run",
         "-Encoding UTF8"
     )
     foreach ($needle in $required) {
