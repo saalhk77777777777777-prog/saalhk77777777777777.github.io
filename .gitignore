@@ -2,3 +2,8 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 exports/
+*.log
+*.tmp
+*.zip
+skybox_studio_pack_*.zip
+backup-*/
