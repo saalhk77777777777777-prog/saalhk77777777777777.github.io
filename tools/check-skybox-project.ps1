@@ -71,6 +71,42 @@ function Assert-HttpLoads {
     Write-Host "OK http $($response.StatusCode)"
 }
 
+function Assert-ExportManifestWiring {
+    $js = Get-Content -LiteralPath "app.js" -Raw
+    $installer = Get-Content -LiteralPath "tools\install-latest-skybox-to-roblox.ps1" -Raw
+    $summary = Get-Content -LiteralPath "tools\show-last-roblox-skybox-install.ps1" -Raw
+
+    $requiredJs = @(
+        "zip.file('manifest.json'",
+        "version: APP_VERSION",
+        "flow: 'Cube -> Globe edit -> Cube export'",
+        "skybox_studio_pack_`${APP_VERSION}_`${createExportFileStamp()}.zip"
+    )
+    foreach ($needle in $requiredJs) {
+        if ($js -notlike "*$needle*") {
+            throw "Missing export manifest wiring in app.js: $needle"
+        }
+    }
+
+    $requiredInstaller = @(
+        "function Read-SkyboxZipManifest",
+        "exportManifest = `$ExportManifest",
+        "Read-SkyboxZipManifest -Path `$resolvedZip",
+        "-ExportManifest `$exportManifest"
+    )
+    foreach ($needle in $requiredInstaller) {
+        if ($installer -notlike "*$needle*") {
+            throw "Missing install manifest wiring: $needle"
+        }
+    }
+
+    if ($summary -notlike "*Export ver:*" -or $summary -notlike "*Export flow:*") {
+        throw "Install summary does not show export manifest fields."
+    }
+
+    Write-Host "OK export manifest wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -80,6 +116,7 @@ Get-ChildItem -LiteralPath "tools" -File -Filter "*.ps1" |
 
 Assert-VersionCachebusterMatch
 Assert-ElementIdsExist
+Assert-ExportManifestWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."
