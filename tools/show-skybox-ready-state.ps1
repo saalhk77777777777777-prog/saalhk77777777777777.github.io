@@ -77,6 +77,22 @@ Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\test-roblox-sky-folder.ps1"
 }
 
+Write-Section "Roblox Process"
+Invoke-Soft {
+    $robloxProcesses = @(Get-Process -ErrorAction SilentlyContinue |
+        Where-Object { $_.ProcessName -match "Roblox" } |
+        Sort-Object ProcessName, Id)
+    if ($robloxProcesses.Count -eq 0) {
+        Write-Host "Roblox process: not running"
+    } else {
+        Write-Host "Roblox process: running ($($robloxProcesses.Count))"
+        $robloxProcesses | ForEach-Object {
+            Write-Host ("- {0} pid:{1}" -f $_.ProcessName, $_.Id)
+        }
+        Write-Host "Tip: restart Roblox after installing new sky textures."
+    }
+}
+
 Write-Section "Roblox Backups"
 Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\list-roblox-skybox-backups.ps1" -Limit 5

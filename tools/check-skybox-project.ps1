@@ -489,6 +489,8 @@ function Assert-SkyboxReadyStateWiring {
         "Git Sync",
         "Behind/Ahead",
         "Working tree: clean",
+        "Roblox Process",
+        "restart Roblox after installing new sky textures",
         "Invoke-Soft"
     )
     foreach ($needle in $required) {
