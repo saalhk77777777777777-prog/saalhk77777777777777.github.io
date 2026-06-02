@@ -1,5 +1,6 @@
 param(
     [string]$WatchDirectory = (Join-Path $HOME "Downloads"),
+    [int]$MaxLogMB = 2,
     [switch]$Restart,
     [switch]$NoBackup
 )
@@ -16,6 +17,16 @@ if (-not (Test-Path -LiteralPath $watcherScript -PathType Leaf)) {
 }
 
 New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
+
+if (Test-Path -LiteralPath $logPath -PathType Leaf) {
+    $logFile = Get-Item -LiteralPath $logPath
+    $maxBytes = [Math]::Max(1, $MaxLogMB) * 1MB
+    if ($logFile.Length -gt $maxBytes) {
+        $archiveLogPath = Join-Path $logDirectory ("skybox-download-watcher-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".log")
+        Move-Item -LiteralPath $logPath -Destination $archiveLogPath -Force
+        Write-Host "Rotated watcher log: $archiveLogPath"
+    }
+}
 
 $runningWatchers = Get-CimInstance Win32_Process |
     Where-Object {
