@@ -1,6 +1,7 @@
 param(
     [string]$WatchDirectory = (Join-Path $HOME "Downloads"),
     [int]$IntervalSeconds = 3,
+    [int]$MaxBackups = 5,
     [switch]$NoBackup
 )
 
@@ -65,7 +66,7 @@ while ($true) {
     if ($latest -and $latest.FullName -ne $lastInstalled) {
         $stable = Wait-ForStableFile -File $latest
         Write-Host "Detected: $($stable.FullName)"
-        $arguments = @("-ExecutionPolicy", "Bypass", "-File", $installer, "-ZipPath", $stable.FullName)
+        $arguments = @("-ExecutionPolicy", "Bypass", "-File", $installer, "-ZipPath", $stable.FullName, "-MaxBackups", "$MaxBackups")
         if ($NoBackup) {
             $arguments += "-NoBackup"
         }

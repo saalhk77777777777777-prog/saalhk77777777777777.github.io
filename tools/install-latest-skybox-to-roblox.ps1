@@ -1,6 +1,7 @@
 param(
     [string]$ZipPath = "",
     [string]$RobloxVersionPath = "",
+    [int]$MaxBackups = 5,
     [switch]$NoBackup
 )
 
@@ -145,6 +146,31 @@ function Write-InstallManifest {
     Write-Host "Manifest copy: $projectManifestPath"
 }
 
+function Remove-OldSkyboxBackups {
+    param(
+        [string]$SkyDirectory,
+        [int]$KeepCount
+    )
+
+    if ($KeepCount -lt 1) {
+        return
+    }
+
+    $resolvedSky = (Resolve-Path -LiteralPath $SkyDirectory -ErrorAction Stop).Path
+    if ($resolvedSky -notmatch "\\Roblox\\Versions\\[^\\]+\\PlatformContent\\pc\\textures\\sky$") {
+        throw "Safety check failed. Refusing to clean unexpected path: $resolvedSky"
+    }
+
+    $oldBackups = Get-ChildItem -LiteralPath $resolvedSky -Directory -Filter "backup-*" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -Skip $KeepCount
+
+    foreach ($backup in $oldBackups) {
+        Remove-Item -LiteralPath $backup.FullName -Recurse -Force
+        Write-Host "Removed old backup: $($backup.FullName)"
+    }
+}
+
 $resolvedZip = if ($ZipPath) {
     (Resolve-Path -LiteralPath $ZipPath -ErrorAction Stop).Path
 } else {
@@ -193,6 +219,7 @@ try {
         Sort-Object Name
     $exportManifest = Read-SkyboxZipManifest -Path $resolvedZip
     Write-InstallManifest -SourceZip $resolvedZip -TargetSkyDirectory $skyDirectory -InstalledTextures $installedTextures -BackupDirectory $backupDirectory -ExportManifest $exportManifest
+    Remove-OldSkyboxBackups -SkyDirectory $skyDirectory -KeepCount $MaxBackups
 
     Write-Host "Installed $($installedTextures.Count) sky textures"
     Write-Host "From: $resolvedZip"

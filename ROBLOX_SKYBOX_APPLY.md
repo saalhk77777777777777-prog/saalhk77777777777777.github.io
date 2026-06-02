@@ -10,7 +10,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\start-skybox-watcher.ps1 -Resta
 
 - `Downloads` 폴더를 감시합니다.
 - ZIP 안에 `sky512_*.tex`가 6개 이상 들어있는 경우에만 Roblox sky 폴더에 적용합니다.
-- 기존 Roblox `sky512_*.tex`는 `backup-yyyyMMdd-HHmmss` 폴더에 백업합니다.
+- 기존 Roblox `sky512_*.tex`는 `backup-yyyyMMdd-HHmmss` 폴더에 백업하고, 기본값으로 최근 5개 백업만 보존합니다.
 
 ## 수동으로 ZIP 적용
 
