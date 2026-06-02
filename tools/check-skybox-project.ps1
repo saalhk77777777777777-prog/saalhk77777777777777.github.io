@@ -196,6 +196,33 @@ function Assert-ElementIdsExist {
     Write-Host "OK element IDs"
 }
 
+function Assert-SkyboxLocalAssetTesterWiring {
+    $assetPath = "tools\test-skybox-local-assets.ps1"
+    if (-not (Test-Path -LiteralPath $assetPath -PathType Leaf)) {
+        throw "Skybox local asset tester is missing: $assetPath"
+    }
+
+    $assetScript = Get-Content -LiteralPath $assetPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "index.html",
+        "src",
+        "href",
+        "Missing local assets referenced by index.html",
+        "Skybox local asset references OK"
+    )
+    foreach ($needle in $required) {
+        if (-not $assetScript.Contains($needle)) {
+            throw "Skybox local asset tester is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("test-skybox-local-assets.ps1")) {
+        throw "Roblox apply docs do not mention local asset tester."
+    }
+
+    Write-Host "OK skybox local asset tester wiring"
+}
+
 function Assert-HttpLoads {
     if ($SkipHttp) {
         Write-Host "SKIP http"
@@ -960,6 +987,7 @@ Assert-NoEncodingMojibake
 Assert-GitAttributesWiring
 Assert-GitIgnoreWiring
 Assert-ElementIdsExist
+Assert-SkyboxLocalAssetTesterWiring
 Assert-ExportManifestWiring
 Assert-RobloxBackupRetentionWiring
 Assert-SkyboxZipTesterWiring

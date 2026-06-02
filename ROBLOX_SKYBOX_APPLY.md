@@ -211,9 +211,10 @@ powershell -ExecutionPolicy Bypass -File .\tools\publish-skybox-changes.ps1 -Mes
 ## 최종 검증
 
 ```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-local-assets.ps1
 powershell -ExecutionPolicy Bypass -File .\tools\check-skybox-project.ps1
 git status --short
 git log -1 --oneline
 ```
 
-모든 작업 후에는 `check-skybox-project.ps1` 통과, 워킹트리 clean, `origin/main` 동기화를 확인합니다.
+모든 작업 후에는 로컬 asset 참조 확인, `check-skybox-project.ps1` 통과, 워킹트리 clean, `origin/main` 동기화를 확인합니다.
