@@ -66,7 +66,9 @@ $candidates = foreach ($folder in $folders) {
             $isSkybox = Test-SkyboxZip -Path $_.FullName
             if ($All -or $isSkybox) {
                 $manifest = if ($isSkybox) { Read-SkyboxZipManifest -Path $_.FullName } else { $null }
-                $kind = if ($manifest -and $manifest.sourceSkyDirectory) {
+                $kind = if ($manifest -and $manifest.manifestType -eq "app-export") {
+                    "app-export"
+                } elseif ($manifest -and $manifest.sourceSkyDirectory) {
                     "roblox-current"
                 } elseif ($manifest -and $manifest.flow) {
                     "app-export"

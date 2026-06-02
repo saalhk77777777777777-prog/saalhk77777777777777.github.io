@@ -222,6 +222,7 @@ function Assert-ExportManifestWiring {
 
     $requiredJs = @(
         "zip.file('manifest.json'",
+        "manifestType: 'app-export'",
         "version: APP_VERSION",
         "flow: 'Cube -> Globe edit -> Cube export'",
         "skybox_studio_pack_`${APP_VERSION}_`${createExportFileStamp()}.zip"
@@ -572,6 +573,7 @@ function Assert-SkyboxZipListWiring {
         "Read-SkyboxZipManifest",
         "sky512_[^/]+\.tex",
         "app-export",
+        "manifestType",
         "roblox-current",
         "No app-export skybox ZIP candidates",
         "ExportedAt",
