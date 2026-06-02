@@ -116,3 +116,7 @@ Invoke-ZipCleanup -Directory $exportsDirectory
 Invoke-GeneratedFileCleanup -Directory $exportsDirectory -Filter "skybox-diagnostics-*.txt" -Label "Diagnostics" -KeepCount $KeepDiagnosticsCount
 Invoke-GeneratedFileCleanup -Directory $exportsDirectory -Filter "skybox-handoff-*.md" -Label "Handoff summaries" -KeepCount $KeepHandoffCount
 Write-ExportsSizeSummary -Directory $exportsDirectory
+
+Write-Host ""
+Write-Host "Large file hint:"
+Write-Host "powershell -ExecutionPolicy Bypass -File .\tools\list-large-skybox-files.ps1"

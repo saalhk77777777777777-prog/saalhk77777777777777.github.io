@@ -550,6 +550,41 @@ function Assert-SkyboxGeneratedCleanupWiring {
     Write-Host "OK skybox generated cleanup wiring"
 }
 
+function Assert-LargeSkyboxFilesWiring {
+    $largePath = "tools\list-large-skybox-files.ps1"
+    if (-not (Test-Path -LiteralPath $largePath -PathType Leaf)) {
+        throw "Large skybox file list script is missing: $largePath"
+    }
+
+    $largeScript = Get-Content -LiteralPath $largePath -Raw
+    $cleanupScript = Get-Content -LiteralPath "tools\clean-skybox-generated-files.ps1" -Raw
+    $readyScript = Get-Content -LiteralPath "tools\show-skybox-ready-state.ps1" -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "Large skybox-related files",
+        "roblox-current-skybox-*.zip",
+        "skybox_studio_pack_*.zip",
+        "imgly_*",
+        "Format-List"
+    )
+    foreach ($needle in $required) {
+        if (-not $largeScript.Contains($needle)) {
+            throw "Large skybox file list script is missing behavior: $needle"
+        }
+    }
+    if (-not $cleanupScript.Contains("list-large-skybox-files.ps1")) {
+        throw "Cleanup script does not hint large skybox file list script."
+    }
+    if (-not $readyScript.Contains("list-large-skybox-files.ps1")) {
+        throw "Ready state does not include large skybox file list script."
+    }
+    if (-not $docs.Contains("list-large-skybox-files.ps1")) {
+        throw "Roblox apply docs do not mention large skybox file list script."
+    }
+
+    Write-Host "OK large skybox file list wiring"
+}
+
 function Assert-SkyboxHandoffSummaryWiring {
     $handoffPath = "tools\new-skybox-handoff-summary.ps1"
     if (-not (Test-Path -LiteralPath $handoffPath -PathType Leaf)) {
@@ -694,6 +729,7 @@ Assert-RobloxSkyboxBackupListWiring
 Assert-CurrentRobloxSkyboxExportWiring
 Assert-SkyboxReadyStateWiring
 Assert-SkyboxGeneratedCleanupWiring
+Assert-LargeSkyboxFilesWiring
 Assert-SkyboxHandoffSummaryWiring
 Assert-SkyboxVersionBumpWiring
 Assert-SkyboxReleasePrepareWiring

@@ -181,3 +181,11 @@ powershell -ExecutionPolicy Bypass -File .\tools\publish-skybox-changes.ps1 -Mes
 ```
 
 This checks the project, verifies the staged changes include an `APP_VERSION`/`app.js?v=` bump, commits, pushes to `origin/main`, and verifies the branch is synchronized.
+
+## List large skybox files
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\list-large-skybox-files.ps1
+```
+
+This is read-only. It shows large skybox-related files in `exports` and `Downloads` so low disk warnings are easier to act on safely.

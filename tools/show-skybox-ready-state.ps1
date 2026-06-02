@@ -113,6 +113,11 @@ Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\clean-skybox-generated-files.ps1"
 }
 
+Write-Section "Large Skybox Files"
+Invoke-Soft {
+    powershell -ExecutionPolicy Bypass -File ".\tools\list-large-skybox-files.ps1" -Limit 8 -MinMB 1
+}
+
 Write-Section "Disk Warning"
 Invoke-Soft {
     $driveRoot = [System.IO.Path]::GetPathRoot($projectRoot)
