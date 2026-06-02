@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.03.03';
+        const APP_VERSION = 'v2026.06.03.04';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -4339,6 +4339,35 @@ ${created.length} images arranged on the inside spherical wall.`;
             });
         }
 
+        function drawGlobeFaceLabels(renderCtx) {
+            const labels = [
+                ['FT', 'ft'],
+                ['BK', 'bk'],
+                ['RT', 'rt'],
+                ['LF', 'lf'],
+                ['UP', 'up'],
+                ['DN', 'dn']
+            ];
+            renderCtx.save();
+            renderCtx.textAlign = 'center';
+            renderCtx.textBaseline = 'middle';
+            renderCtx.font = '900 26px Arial';
+            labels.forEach(([label, face]) => {
+                const direction = directionFromCubeFaceUV(face, 0.5, 0.5);
+                const point = projectDirectionToGlobeView(direction);
+                if (!point || point.depth < -0.01) return;
+                const alpha = clamp(0.25 + point.depth * 0.85, 0.25, 1);
+                renderCtx.fillStyle = `rgba(2,6,23,${0.62 * alpha})`;
+                renderCtx.strokeStyle = `rgba(103,232,249,${0.95 * alpha})`;
+                renderCtx.lineWidth = 5;
+                renderCtx.fillRect(point.x - 32, point.y - 19, 64, 38);
+                renderCtx.strokeRect(point.x - 32, point.y - 19, 64, 38);
+                renderCtx.fillStyle = `rgba(103,232,249,${alpha})`;
+                renderCtx.fillText(label, point.x, point.y + 1);
+            });
+            renderCtx.restore();
+        }
+
         function drawGlobeEditorOverlay(renderCtx) {
             const centerX = CANVAS_SIZE / 2;
             const centerY = CANVAS_SIZE / 2;
@@ -4355,6 +4384,7 @@ ${created.length} images arranged on the inside spherical wall.`;
 
             drawGlobeSurfaceGrid(renderCtx);
             drawGlobeCubeSeams(renderCtx);
+            drawGlobeFaceLabels(renderCtx);
 
             renderCtx.strokeStyle = 'rgba(103,232,249,0.9)';
             renderCtx.lineWidth = 4;
