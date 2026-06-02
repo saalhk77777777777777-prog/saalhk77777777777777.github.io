@@ -53,12 +53,12 @@ if ($items.Count -eq 0) {
     return
 }
 
-Write-Host "Large skybox-related files (read-only)"
-Write-Host "MinMB: $MinMB"
 if ($CopyPaths) {
     $items | ForEach-Object { $_.Path }
 } elseif ($Csv) {
     $items | ConvertTo-Csv -NoTypeInformation
 } else {
+    Write-Host "Large skybox-related files (read-only)"
+    Write-Host "MinMB: $MinMB"
     $items | Format-List LastWriteTime, SizeMB, Kind, Path
 }

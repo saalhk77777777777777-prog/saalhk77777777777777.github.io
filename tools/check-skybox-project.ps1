@@ -568,6 +568,7 @@ function Assert-LargeSkyboxFilesWiring {
         "[switch]`$Csv",
         "[switch]`$CopyPaths",
         "ConvertTo-Csv",
+        "if (`$CopyPaths)",
         "Format-List"
     )
     foreach ($needle in $required) {
