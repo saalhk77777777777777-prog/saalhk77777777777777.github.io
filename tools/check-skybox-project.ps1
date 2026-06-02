@@ -115,7 +115,10 @@ function Assert-RobloxBackupRetentionWiring {
 
     $requiredInstaller = @(
         "[int]`$MaxBackups = 5",
+        "[double]`$MinFreeGB = 0.5",
         "[switch]`$DryRun",
+        "function Assert-MinimumFreeSpace",
+        "Assert-MinimumFreeSpace -TargetDirectory `$skyDirectory -RequiredFreeGB `$MinFreeGB",
         "function Remove-OldSkyboxBackups",
         "Dry run OK. No Roblox files were changed.",
         "Select-Object -Skip `$KeepCount",
@@ -130,14 +133,23 @@ function Assert-RobloxBackupRetentionWiring {
     if (-not $watcher.Contains('[int]$MaxBackups = 5') -or -not $watcher.Contains('"-MaxBackups", "$MaxBackups"')) {
         throw "Watcher does not pass MaxBackups to installer."
     }
+    if (-not $watcher.Contains('[double]$MinFreeGB = 0.5') -or -not $watcher.Contains('"-MinFreeGB", "$MinFreeGB"')) {
+        throw "Watcher does not pass MinFreeGB to installer."
+    }
     if (-not $starter.Contains('[int]$MaxBackups = 5') -or -not $starter.Contains('-MaxBackups $MaxBackups')) {
         throw "Watcher launcher does not expose MaxBackups."
+    }
+    if (-not $starter.Contains('[double]$MinFreeGB = 0.5') -or -not $starter.Contains('-MinFreeGB $MinFreeGB')) {
+        throw "Watcher launcher does not expose MinFreeGB."
     }
     if ($docs -notlike '*MaxBackups*' -and $docs -notlike '*최근 5개*') {
         throw "Roblox apply docs do not mention backup retention."
     }
     if (-not $docs.Contains("-DryRun")) {
         throw "Roblox apply docs do not mention DryRun."
+    }
+    if (-not $docs.Contains("-MinFreeGB")) {
+        throw "Roblox apply docs do not mention MinFreeGB."
     }
 
     Write-Host "OK Roblox backup retention wiring"

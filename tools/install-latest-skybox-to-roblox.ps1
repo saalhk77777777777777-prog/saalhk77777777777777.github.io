@@ -2,6 +2,7 @@ param(
     [string]$ZipPath = "",
     [string]$RobloxVersionPath = "",
     [int]$MaxBackups = 5,
+    [double]$MinFreeGB = 0.5,
     [switch]$DryRun,
     [switch]$NoBackup
 )
@@ -172,6 +173,26 @@ function Remove-OldSkyboxBackups {
     }
 }
 
+function Assert-MinimumFreeSpace {
+    param(
+        [string]$TargetDirectory,
+        [double]$RequiredFreeGB
+    )
+
+    if ($RequiredFreeGB -le 0) {
+        return
+    }
+
+    $root = [System.IO.Path]::GetPathRoot((Resolve-Path -LiteralPath $TargetDirectory -ErrorAction Stop).Path)
+    $driveName = $root.TrimEnd('\').TrimEnd(':')
+    $drive = Get-PSDrive -Name $driveName -ErrorAction Stop
+    $freeGB = $drive.Free / 1GB
+    if ($freeGB -lt $RequiredFreeGB) {
+        throw ("Not enough free space on {0}. Required: {1:N2}GB, available: {2:N2}GB" -f $root, $RequiredFreeGB, $freeGB)
+    }
+    Write-Host ("Free space OK on {0}: {1:N2}GB available" -f $root, $freeGB)
+}
+
 $resolvedZip = if ($ZipPath) {
     (Resolve-Path -LiteralPath $ZipPath -ErrorAction Stop).Path
 } else {
@@ -207,6 +228,8 @@ try {
         }
         return
     }
+
+    Assert-MinimumFreeSpace -TargetDirectory $skyDirectory -RequiredFreeGB $MinFreeGB
 
     if (-not $NoBackup) {
         $backupDirectory = Join-Path $skyDirectory ("backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))

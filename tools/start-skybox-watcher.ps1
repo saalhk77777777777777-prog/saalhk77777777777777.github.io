@@ -2,6 +2,7 @@ param(
     [string]$WatchDirectory = (Join-Path $HOME "Downloads"),
     [int]$MaxLogMB = 2,
     [int]$MaxBackups = 5,
+    [double]$MinFreeGB = 0.5,
     [switch]$Restart,
     [switch]$NoBackup
 )
@@ -51,7 +52,7 @@ if ($Restart) {
 }
 
 $resolvedWatchDirectory = (Resolve-Path -LiteralPath $WatchDirectory -ErrorAction Stop).Path
-$command = "& '$watcherScript' -WatchDirectory '$resolvedWatchDirectory' -MaxBackups $MaxBackups"
+$command = "& '$watcherScript' -WatchDirectory '$resolvedWatchDirectory' -MaxBackups $MaxBackups -MinFreeGB $MinFreeGB"
 if ($NoBackup) {
     $command += " -NoBackup"
 }
