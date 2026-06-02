@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.02.9';
+        const APP_VERSION = 'v2026.06.02.10';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -348,16 +348,14 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         }
         function viewDirectionFromCanvasPoint(x, y, width = CANVAS_SIZE, height = CANVAS_SIZE) {
             const basis = getSphereBasis();
-            const radius = Math.min(width, height) * 0.46;
-            const nx = (x - width / 2) / radius;
-            const ny = (height / 2 - y) / radius;
-            const distanceSquared = nx * nx + ny * ny;
-            if (distanceSquared > 1) return null;
-            const sphereZ = Math.sqrt(Math.max(0, 1 - distanceSquared));
+            const aspect = width / Math.max(1, height);
+            const tanFov = Math.tan(degToRad(sphereView.fov) / 2);
+            const nx = ((x / width) * 2 - 1) * tanFov * aspect;
+            const ny = (1 - (y / height) * 2) * tanFov;
             return normalizeVector({
-                x: basis.forward.x * sphereZ + basis.right.x * nx + basis.up.x * ny,
-                y: basis.forward.y * sphereZ + basis.right.y * nx + basis.up.y * ny,
-                z: basis.forward.z * sphereZ + basis.right.z * nx + basis.up.z * ny
+                x: basis.forward.x + basis.right.x * nx + basis.up.x * ny,
+                y: basis.forward.y + basis.right.y * nx + basis.up.y * ny,
+                z: basis.forward.z + basis.right.z * nx + basis.up.z * ny
             });
         }
         function projectDirectionToSphereView(direction, width = CANVAS_SIZE, height = CANVAS_SIZE) {
@@ -365,13 +363,13 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             const dir = normalizeVector(direction);
             const depth = dot3(dir, basis.forward);
             if (depth <= 0.03) return null;
-            const radius = Math.min(width, height) * 0.46;
-            const px = dot3(dir, basis.right);
-            const py = dot3(dir, basis.up);
-            if (px * px + py * py > 1.04) return null;
+            const aspect = width / Math.max(1, height);
+            const tanFov = Math.tan(degToRad(sphereView.fov) / 2);
+            const px = dot3(dir, basis.right) / depth;
+            const py = dot3(dir, basis.up) / depth;
             return {
-                x: width / 2 + px * radius,
-                y: height / 2 - py * radius,
+                x: (px / (tanFov * aspect) + 1) * width / 2,
+                y: (1 - py / tanFov) * height / 2,
                 depth
             };
         }
@@ -4185,6 +4183,87 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.drawImage(overlay, 0, 0);
         }
 
+        function drawGameAvatarOverlay(renderCtx) {
+            const centerX = CANVAS_SIZE / 2;
+            const horizonY = CANVAS_SIZE * 0.57;
+            renderCtx.save();
+            renderCtx.globalAlpha = 0.92;
+            renderCtx.strokeStyle = 'rgba(103, 232, 249, 0.22)';
+            renderCtx.lineWidth = 2;
+            for (let row = 0; row < 9; row++) {
+                const t = row / 8;
+                const y = horizonY + Math.pow(t, 1.85) * CANVAS_SIZE * 0.38;
+                renderCtx.beginPath();
+                renderCtx.moveTo(0, y);
+                renderCtx.lineTo(CANVAS_SIZE, y);
+                renderCtx.stroke();
+            }
+            for (let col = -8; col <= 8; col++) {
+                const footX = centerX + col * 64;
+                renderCtx.beginPath();
+                renderCtx.moveTo(centerX + col * 13, horizonY);
+                renderCtx.lineTo(footX, CANVAS_SIZE);
+                renderCtx.stroke();
+            }
+
+            renderCtx.globalAlpha = 1;
+            renderCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+            renderCtx.lineWidth = 3;
+            renderCtx.beginPath();
+            renderCtx.moveTo(centerX - 18, CANVAS_SIZE * 0.48);
+            renderCtx.lineTo(centerX + 18, CANVAS_SIZE * 0.48);
+            renderCtx.moveTo(centerX, CANVAS_SIZE * 0.48 - 18);
+            renderCtx.lineTo(centerX, CANVAS_SIZE * 0.48 + 18);
+            renderCtx.stroke();
+
+            const feetY = CANVAS_SIZE * 0.92;
+            const avatarScale = CANVAS_SIZE / 1024;
+            renderCtx.shadowColor = 'rgba(0,0,0,0.65)';
+            renderCtx.shadowBlur = 18;
+            renderCtx.fillStyle = 'rgba(0,0,0,0.35)';
+            renderCtx.beginPath();
+            renderCtx.ellipse(centerX, feetY + 4 * avatarScale, 92 * avatarScale, 18 * avatarScale, 0, 0, Math.PI * 2);
+            renderCtx.fill();
+            renderCtx.shadowBlur = 0;
+
+            const skin = '#facc15';
+            const shirt = '#38bdf8';
+            const pants = '#1d4ed8';
+            const outline = '#0f172a';
+            renderCtx.lineWidth = 5 * avatarScale;
+            renderCtx.strokeStyle = outline;
+            renderCtx.fillStyle = pants;
+            renderCtx.fillRect(centerX - 42 * avatarScale, feetY - 118 * avatarScale, 32 * avatarScale, 82 * avatarScale);
+            renderCtx.fillRect(centerX + 10 * avatarScale, feetY - 118 * avatarScale, 32 * avatarScale, 82 * avatarScale);
+            renderCtx.strokeRect(centerX - 42 * avatarScale, feetY - 118 * avatarScale, 32 * avatarScale, 82 * avatarScale);
+            renderCtx.strokeRect(centerX + 10 * avatarScale, feetY - 118 * avatarScale, 32 * avatarScale, 82 * avatarScale);
+            renderCtx.fillStyle = shirt;
+            renderCtx.fillRect(centerX - 50 * avatarScale, feetY - 198 * avatarScale, 100 * avatarScale, 82 * avatarScale);
+            renderCtx.strokeRect(centerX - 50 * avatarScale, feetY - 198 * avatarScale, 100 * avatarScale, 82 * avatarScale);
+            renderCtx.fillStyle = skin;
+            renderCtx.fillRect(centerX - 88 * avatarScale, feetY - 190 * avatarScale, 32 * avatarScale, 68 * avatarScale);
+            renderCtx.fillRect(centerX + 56 * avatarScale, feetY - 190 * avatarScale, 32 * avatarScale, 68 * avatarScale);
+            renderCtx.strokeRect(centerX - 88 * avatarScale, feetY - 190 * avatarScale, 32 * avatarScale, 68 * avatarScale);
+            renderCtx.strokeRect(centerX + 56 * avatarScale, feetY - 190 * avatarScale, 32 * avatarScale, 68 * avatarScale);
+            renderCtx.fillRect(centerX - 36 * avatarScale, feetY - 262 * avatarScale, 72 * avatarScale, 58 * avatarScale);
+            renderCtx.strokeRect(centerX - 36 * avatarScale, feetY - 262 * avatarScale, 72 * avatarScale, 58 * avatarScale);
+            renderCtx.fillStyle = '#0f172a';
+            renderCtx.fillRect(centerX - 18 * avatarScale, feetY - 242 * avatarScale, 9 * avatarScale, 9 * avatarScale);
+            renderCtx.fillRect(centerX + 9 * avatarScale, feetY - 242 * avatarScale, 9 * avatarScale, 9 * avatarScale);
+            renderCtx.fillRect(centerX - 16 * avatarScale, feetY - 220 * avatarScale, 32 * avatarScale, 5 * avatarScale);
+
+            renderCtx.fillStyle = 'rgba(2, 6, 23, 0.74)';
+            renderCtx.fillRect(32, 32, 520, 88);
+            renderCtx.fillStyle = '#67e8f9';
+            renderCtx.font = '900 24px Arial';
+            renderCtx.fillText('IN-GAME SKYBOX EDIT - avatar preview', 52, 72);
+            renderCtx.font = '700 14px Arial';
+            renderCtx.fillStyle = 'rgba(226,232,240,0.9)';
+            renderCtx.fillText(`look yaw ${Math.round(sphereView.yaw)} deg / pitch ${Math.round(sphereView.pitch)} deg / FOV ${Math.round(sphereView.fov)} deg`, 52, 96);
+            renderCtx.fillText('drag empty sky = look around / drag image = place on sky / export = six cube faces', 52, 116);
+            renderCtx.restore();
+        }
+
         function drawSpherePreview(renderCtx) {
             const previewSize = 512;
             const preview = createEmptyCanvas(previewSize, previewSize);
@@ -4225,29 +4304,7 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.fillStyle = '#020617';
             renderCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
             renderCtx.drawImage(preview, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            const sphereRadius = CANVAS_SIZE * 0.46;
-            const sphereGradient = renderCtx.createRadialGradient(CANVAS_SIZE * 0.38, CANVAS_SIZE * 0.3, sphereRadius * 0.08, CANVAS_SIZE / 2, CANVAS_SIZE / 2, sphereRadius);
-            sphereGradient.addColorStop(0, 'rgba(255,255,255,0.18)');
-            sphereGradient.addColorStop(0.72, 'rgba(255,255,255,0)');
-            sphereGradient.addColorStop(1, 'rgba(2,6,23,0.38)');
-            renderCtx.fillStyle = sphereGradient;
-            renderCtx.beginPath();
-            renderCtx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, sphereRadius, 0, Math.PI * 2);
-            renderCtx.fill();
-            renderCtx.strokeStyle = 'rgba(103,232,249,0.84)';
-            renderCtx.lineWidth = 3;
-            renderCtx.beginPath();
-            renderCtx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, sphereRadius, 0, Math.PI * 2);
-            renderCtx.stroke();
-            renderCtx.fillStyle = 'rgba(2, 6, 23, 0.72)';
-            renderCtx.fillRect(32, 32, 450, 70);
-            renderCtx.fillStyle = '#67e8f9';
-            renderCtx.font = '900 24px Arial';
-            renderCtx.fillText('SPHERE EDIT - painted on inner sphere', 52, 76);
-            renderCtx.font = '700 14px Arial';
-            renderCtx.fillStyle = 'rgba(226,232,240,0.86)';
-            renderCtx.fillText(`yaw ${Math.round(sphereView.yaw)} deg / pitch ${Math.round(sphereView.pitch)} deg / FOV ${Math.round(sphereView.fov)} deg`, 52, 96);
-            renderCtx.fillText('surface projection: longitude/latitude patch, then baked to six cube faces', 52, 116);
+            drawGameAvatarOverlay(renderCtx);
             const selected = getSelectedElement();
             if (selected?.spherical) drawSphericalElementOutline(renderCtx, selected);
 
