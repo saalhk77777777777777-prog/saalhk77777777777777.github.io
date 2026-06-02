@@ -35,11 +35,51 @@ function Test-SkyboxZip {
     }
 }
 
+function Read-SkyboxZipManifest {
+    param([string]$Path)
+    $archive = $null
+    $reader = $null
+    try {
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($Path)
+        $entry = $archive.Entries | Where-Object { $_.FullName -eq "manifest.json" } | Select-Object -First 1
+        if (-not $entry) {
+            return $null
+        }
+        $reader = New-Object System.IO.StreamReader($entry.Open())
+        $json = $reader.ReadToEnd()
+        if (-not $json) {
+            return $null
+        }
+        return $json | ConvertFrom-Json
+    } catch {
+        return $null
+    } finally {
+        if ($reader) {
+            $reader.Dispose()
+        }
+        if ($archive) {
+            $archive.Dispose()
+        }
+    }
+}
+
+function Test-AppExportSkyboxZip {
+    param([string]$Path)
+    if (-not (Test-SkyboxZip -Path $Path)) {
+        return $false
+    }
+    $manifest = Read-SkyboxZipManifest -Path $Path
+    if (-not $manifest -or $manifest.sourceSkyDirectory) {
+        return $false
+    }
+    return ($manifest.manifestType -eq "app-export" -or [bool]$manifest.flow)
+}
+
 function Get-SkyboxZipCandidates {
     Get-ChildItem -LiteralPath $resolvedWatchDirectory -File -Filter "*.zip" -ErrorAction SilentlyContinue |
         Where-Object {
             $_.Name -notmatch "\.crdownload$|\.tmp$" -and
-            (Test-SkyboxZip -Path $_.FullName)
+            (Test-AppExportSkyboxZip -Path $_.FullName)
         } |
         Sort-Object LastWriteTime -Descending
 }

@@ -270,6 +270,9 @@ function Assert-ExportManifestWiring {
 
     $requiredInstaller = @(
         "function Read-SkyboxZipManifest",
+        "function Test-AppExportSkyboxZip",
+        "manifestType -eq `"app-export`"",
+        "Refusing to install a ZIP that is not an app-export skybox pack",
         "exportManifest = `$ExportManifest",
         "Read-SkyboxZipManifest -Path `$resolvedZip",
         "-ExportManifest `$exportManifest"
@@ -315,6 +318,9 @@ function Assert-RobloxBackupRetentionWiring {
 
     if (-not $watcher.Contains('[int]$MaxBackups = 5') -or -not $watcher.Contains('"-MaxBackups", "$MaxBackups"')) {
         throw "Watcher does not pass MaxBackups to installer."
+    }
+    if (-not $watcher.Contains('function Test-AppExportSkyboxZip') -or -not $watcher.Contains('manifestType -eq "app-export"')) {
+        throw "Watcher does not filter automatic installs to app-export ZIPs."
     }
     if (-not $watcher.Contains('[double]$MinFreeGB = 0.5') -or -not $watcher.Contains('"-MinFreeGB", "$MinFreeGB"')) {
         throw "Watcher does not pass MinFreeGB to installer."

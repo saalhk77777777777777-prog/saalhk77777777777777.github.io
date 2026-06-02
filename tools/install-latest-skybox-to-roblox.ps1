@@ -65,6 +65,21 @@ function Read-SkyboxZipManifest {
     }
 }
 
+function Test-AppExportSkyboxZip {
+    param([string]$Path)
+    if (-not (Test-SkyboxZip -Path $Path)) {
+        return $false
+    }
+    $manifest = Read-SkyboxZipManifest -Path $Path
+    if (-not $manifest) {
+        return $false
+    }
+    if ($manifest.sourceSkyDirectory) {
+        return $false
+    }
+    return ($manifest.manifestType -eq "app-export" -or [bool]$manifest.flow)
+}
+
 function Find-LatestSkyboxZip {
     $candidates = @()
     $downloads = Join-Path $HOME "Downloads"
@@ -75,7 +90,7 @@ function Find-LatestSkyboxZip {
             $candidates += Get-ChildItem -LiteralPath $folder -File -Filter "*.zip" -ErrorAction SilentlyContinue |
                 Where-Object {
                     $_.Name -notmatch "\.crdownload$|\.tmp$" -and
-                    (Test-SkyboxZip -Path $_.FullName)
+                    (Test-AppExportSkyboxZip -Path $_.FullName)
                 }
         }
     }
@@ -201,6 +216,10 @@ $resolvedZip = if ($ZipPath) {
 
 if (-not (Test-Path -LiteralPath $resolvedZip -PathType Leaf)) {
     throw "ZIP file not found: $resolvedZip"
+}
+
+if (-not (Test-AppExportSkyboxZip -Path $resolvedZip)) {
+    throw "Refusing to install a ZIP that is not an app-export skybox pack: $resolvedZip"
 }
 
 $skyDirectory = Find-LatestRobloxSkyDirectory

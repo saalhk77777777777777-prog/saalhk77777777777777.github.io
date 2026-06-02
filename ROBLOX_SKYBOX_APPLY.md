@@ -16,7 +16,7 @@
 powershell -ExecutionPolicy Bypass -File .\tools\start-skybox-workflow.ps1 -Open
 ```
 
-이 명령은 로컬 서버와 watcher를 함께 준비합니다. watcher는 기본적으로 `Downloads`를 감시하고, 유효한 skybox ZIP만 Roblox sky 폴더에 적용합니다.
+이 명령은 로컬 서버와 watcher를 함께 준비합니다. watcher는 기본적으로 `Downloads`를 감시하고, 웹앱에서 내보낸 `app-export` skybox ZIP만 Roblox sky 폴더에 적용합니다.
 
 ## 수동으로 ZIP 적용
 
@@ -24,7 +24,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\start-skybox-workflow.ps1 -Open
 powershell -ExecutionPolicy Bypass -File .\tools\install-latest-skybox-to-roblox.ps1 -ZipPath "C:\Users\saalh\Downloads\skybox_studio_pack_v2026.06.03.58_YYYYMMDDTHHMMSS.zip"
 ```
 
-`-ZipPath`를 비우면 `Downloads`와 `exports`에서 최신 skybox ZIP을 자동으로 찾습니다. 실제 Roblox 파일을 바꾸기 전에 확인만 하려면 `-DryRun`을 붙입니다.
+`-ZipPath`를 비우면 `Downloads`와 `exports`에서 최신 `app-export` skybox ZIP을 자동으로 찾습니다. Roblox-current 백업 ZIP은 자동 설치 대상으로 보지 않습니다. 실제 Roblox 파일을 바꾸기 전에 확인만 하려면 `-DryRun`을 붙입니다.
 
 ## 백업과 디스크 안전장치
 
