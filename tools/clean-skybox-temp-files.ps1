@@ -1,6 +1,7 @@
 param(
     [int]$OlderThanMinutes = 60,
-    [switch]$Apply
+    [switch]$Apply,
+    [switch]$Json
 )
 
 $ErrorActionPreference = "Stop"
@@ -44,29 +45,69 @@ foreach ($pattern in $patterns) {
 }
 $candidates = @($candidates | Sort-Object FullName -Unique | Sort-Object LastWriteTime)
 
-Write-Host "Skybox TEMP cleanup"
-Write-Host ("Mode: {0}" -f $(if ($dryRun) { "DRY RUN - no files will be removed" } else { "APPLY - matching old temp files will be removed" }))
-Write-Host "Temp: $tempRoot"
-Write-Host "OlderThanMinutes: $OlderThanMinutes"
-Write-Host ("Cutoff: {0:o}" -f $cutoff)
+if (-not $Json) {
+    Write-Host "Skybox TEMP cleanup"
+    Write-Host ("Mode: {0}" -f $(if ($dryRun) { "DRY RUN - no files will be removed" } else { "APPLY - matching old temp files will be removed" }))
+    Write-Host "Temp: $tempRoot"
+    Write-Host "OlderThanMinutes: $OlderThanMinutes"
+    Write-Host ("Cutoff: {0:o}" -f $cutoff)
+}
 
 if ($candidates.Count -eq 0) {
+    if ($Json) {
+        [pscustomobject]@{
+            TempRoot = $tempRoot
+            Mode = if ($dryRun) { "dry-run" } else { "apply" }
+            OlderThanMinutes = $OlderThanMinutes
+            Cutoff = $cutoff.ToString("o")
+            CandidateCount = 0
+            TotalBytes = 0
+            Candidates = @()
+        } | ConvertTo-Json -Depth 5
+        return
+    }
+
     Write-Host "No stale skybox temp candidates found."
     return
 }
 
 $totalBytes = 0L
+$candidateReports = @()
 foreach ($candidate in $candidates) {
     $sizeBytes = Get-ItemSizeBytes -Item $candidate
     $totalBytes += $sizeBytes
     $kind = if ($candidate.PSIsContainer) { "dir" } else { "file" }
+    $candidateReports += [pscustomobject]@{
+        Kind = $kind
+        Path = $candidate.FullName
+        LastWriteTime = $candidate.LastWriteTime.ToString("o")
+        Bytes = $sizeBytes
+    }
     if ($dryRun) {
-        Write-Host ("Would remove {0}: {1}  {2}" -f $kind, $candidate.FullName, (Format-Size -Bytes $sizeBytes))
+        if (-not $Json) {
+            Write-Host ("Would remove {0}: {1}  {2}" -f $kind, $candidate.FullName, (Format-Size -Bytes $sizeBytes))
+        }
     } else {
         Remove-Item -LiteralPath $candidate.FullName -Recurse:$candidate.PSIsContainer -Force
-        Write-Host ("Removed {0}: {1}  {2}" -f $kind, $candidate.FullName, (Format-Size -Bytes $sizeBytes))
+        if (-not $Json) {
+            Write-Host ("Removed {0}: {1}  {2}" -f $kind, $candidate.FullName, (Format-Size -Bytes $sizeBytes))
+        }
     }
 }
 
 $label = if ($dryRun) { "Would free" } else { "Freed" }
-Write-Host ("{0}: {1}" -f $label, (Format-Size -Bytes $totalBytes))
+if (-not $Json) {
+    Write-Host ("{0}: {1}" -f $label, (Format-Size -Bytes $totalBytes))
+}
+
+if ($Json) {
+    [pscustomobject]@{
+        TempRoot = $tempRoot
+        Mode = if ($dryRun) { "dry-run" } else { "apply" }
+        OlderThanMinutes = $OlderThanMinutes
+        Cutoff = $cutoff.ToString("o")
+        CandidateCount = $candidateReports.Count
+        TotalBytes = $totalBytes
+        Candidates = $candidateReports
+    } | ConvertTo-Json -Depth 5
+}

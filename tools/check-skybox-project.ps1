@@ -839,7 +839,10 @@ function Assert-SkyboxTempCleanupWiring {
     $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
     $required = @(
         "[switch]`$Apply",
+        "[switch]`$Json",
         "OlderThanMinutes",
+        "ConvertTo-Json",
+        "CandidateCount",
         "DRY RUN - no files will be removed",
         "skybox-*",
         "roblox-current-skybox-manifest-test-*",

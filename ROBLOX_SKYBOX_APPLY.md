@@ -143,6 +143,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps
 powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1 -IncludeImageSamples
 powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1 -Apply
 powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-temp-files.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-temp-files.ps1 -Json
 powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-temp-files.ps1 -Apply
 ```
 
