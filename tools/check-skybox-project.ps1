@@ -339,6 +339,34 @@ function Assert-WorkflowStarterWiring {
     Write-Host "OK workflow starter wiring"
 }
 
+function Assert-RobloxSkyboxRestoreWiring {
+    $restorePath = "tools\restore-roblox-skybox-backup.ps1"
+    if (-not (Test-Path -LiteralPath $restorePath -PathType Leaf)) {
+        throw "Roblox skybox restore script is missing: $restorePath"
+    }
+
+    $restoreScript = Get-Content -LiteralPath $restorePath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "[switch]`$DryRun",
+        "Find-LatestSkyboxBackup",
+        "Assert-SkyboxBackup",
+        "last-roblox-skybox-restore.json",
+        "Safety check failed",
+        "sky512_*.tex"
+    )
+    foreach ($needle in $required) {
+        if (-not $restoreScript.Contains($needle)) {
+            throw "Roblox skybox restore script is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("restore-roblox-skybox-backup.ps1")) {
+        throw "Roblox apply docs do not mention skybox restore script."
+    }
+
+    Write-Host "OK Roblox skybox restore wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -358,6 +386,7 @@ Assert-SkyboxZipCleanupWiring
 Assert-RobloxSkyFolderTesterWiring
 Assert-DiagnosticsReportWiring
 Assert-WorkflowStarterWiring
+Assert-RobloxSkyboxRestoreWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."

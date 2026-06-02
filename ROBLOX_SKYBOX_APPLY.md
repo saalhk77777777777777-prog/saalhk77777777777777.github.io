@@ -95,3 +95,12 @@ powershell -ExecutionPolicy Bypass -File .\tools\new-skybox-diagnostics-report.p
 - Roblox 경로가 `AppData\Local\Roblox\Versions\...\PlatformContent\pc\textures\sky` 형태가 아니면 중단합니다.
 - ZIP 이름만 믿지 않고 내부 파일 목록을 검사합니다.
 - 다운로드 사진이나 일반 파일은 건드리지 않습니다.
+
+## Restore previous Roblox skybox
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\restore-roblox-skybox-backup.ps1 -DryRun
+powershell -ExecutionPolicy Bypass -File .\tools\restore-roblox-skybox-backup.ps1
+```
+
+`-BackupDirectory` can point to a specific `backup-*` folder. If omitted, the latest backup in the Roblox sky folder is used.
