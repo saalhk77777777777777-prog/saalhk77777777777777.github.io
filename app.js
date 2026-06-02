@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.03.07';
+        const APP_VERSION = 'v2026.06.03.08';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -50,6 +50,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         let snapToGrid = false;
         let layoutMode = 'pc';
         let sphericalEditMode = true;
+        let sphereOverlayVisible = true;
         let sphereView = { yaw: 0, pitch: 0, fov: 96, zoom: 1 };
         let sphereDragState = null;
         const canvasPointers = new Map();
@@ -166,6 +167,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         const sphereEditToggleButton = document.getElementById('sphere-edit-toggle');
         const sphereResetViewButton = document.getElementById('sphere-reset-view');
         const sphereAutoLayoutButton = document.getElementById('sphere-auto-layout');
+        const sphereOverlayToggleButton = document.getElementById('sphere-overlay-toggle');
         const sphereEditStatus = document.getElementById('sphere-edit-status');
         let posterExpectedFileCount = 0;
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
@@ -4448,9 +4450,9 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.fillStyle = '#020617';
             renderCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
             renderCtx.drawImage(preview, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            drawGlobeEditorOverlay(renderCtx);
+            if (sphereOverlayVisible) drawGlobeEditorOverlay(renderCtx);
             const selected = getSelectedElement();
-            if (selected?.spherical) drawSphericalElementOutline(renderCtx, selected);
+            if (sphereOverlayVisible && selected?.spherical) drawSphericalElementOutline(renderCtx, selected);
 
             renderCtx.restore();
         }
@@ -4621,9 +4623,16 @@ ${created.length} images arranged on the inside spherical wall.`;
                     : 'Direct 6-face/pair editing mode. Click to return to globe workflow.';
             }
             if (sphereAutoLayoutButton) sphereAutoLayoutButton.disabled = count === 0;
+            if (sphereOverlayToggleButton) {
+                sphereOverlayToggleButton.textContent = sphereOverlayVisible ? '오버레이 숨기기' : '오버레이 보이기';
+                sphereOverlayToggleButton.classList.toggle('success', sphereOverlayVisible);
+                sphereOverlayToggleButton.title = sphereOverlayVisible
+                    ? 'Hide globe grid, cube seams, labels, and selection outline for a clean sky preview.'
+                    : 'Show globe grid, cube seams, labels, and selection outline again.';
+            }
             if (sphereEditStatus) {
                 sphereEditStatus.textContent = sphericalEditMode
-                    ? `Cube -> Globe edit -> Cube export - sphere layers ${count} - drag=place/view, empty wheel=globe zoom, selected wheel=size`
+                    ? `Cube -> Globe edit -> Cube export - sphere layers ${count} - overlay ${sphereOverlayVisible ? 'on' : 'off'} - drag=place/view, empty wheel=globe zoom, selected wheel=size`
                     : `Flat 6-face / edge-pair edit - sphere layers ${count} - click top button to return to globe workflow`;
             }
         }
@@ -5782,6 +5791,10 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 selectedId = getAllSphericalElements()[0]?.id || null;
                 lastBackgroundUploadReport = `[Sphere Auto Layout]\n${count} spherical layers arranged around the current view.`;
             }
+            render();
+        });
+        sphereOverlayToggleButton?.addEventListener('click', () => {
+            sphereOverlayVisible = !sphereOverlayVisible;
             render();
         });
         posterQuickStart?.addEventListener('click', async () => {
