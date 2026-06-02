@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.02.8';
+        const APP_VERSION = 'v2026.06.02.9';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -348,14 +348,16 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         }
         function viewDirectionFromCanvasPoint(x, y, width = CANVAS_SIZE, height = CANVAS_SIZE) {
             const basis = getSphereBasis();
-            const aspect = width / Math.max(1, height);
-            const tanFov = Math.tan(degToRad(sphereView.fov) / 2);
-            const nx = ((x / width) * 2 - 1) * tanFov * aspect;
-            const ny = (1 - (y / height) * 2) * tanFov;
+            const radius = Math.min(width, height) * 0.46;
+            const nx = (x - width / 2) / radius;
+            const ny = (height / 2 - y) / radius;
+            const distanceSquared = nx * nx + ny * ny;
+            if (distanceSquared > 1) return null;
+            const sphereZ = Math.sqrt(Math.max(0, 1 - distanceSquared));
             return normalizeVector({
-                x: basis.forward.x + basis.right.x * nx + basis.up.x * ny,
-                y: basis.forward.y + basis.right.y * nx + basis.up.y * ny,
-                z: basis.forward.z + basis.right.z * nx + basis.up.z * ny
+                x: basis.forward.x * sphereZ + basis.right.x * nx + basis.up.x * ny,
+                y: basis.forward.y * sphereZ + basis.right.y * nx + basis.up.y * ny,
+                z: basis.forward.z * sphereZ + basis.right.z * nx + basis.up.z * ny
             });
         }
         function projectDirectionToSphereView(direction, width = CANVAS_SIZE, height = CANVAS_SIZE) {
@@ -363,13 +365,13 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             const dir = normalizeVector(direction);
             const depth = dot3(dir, basis.forward);
             if (depth <= 0.03) return null;
-            const aspect = width / Math.max(1, height);
-            const tanFov = Math.tan(degToRad(sphereView.fov) / 2);
-            const px = dot3(dir, basis.right) / depth;
-            const py = dot3(dir, basis.up) / depth;
+            const radius = Math.min(width, height) * 0.46;
+            const px = dot3(dir, basis.right);
+            const py = dot3(dir, basis.up);
+            if (px * px + py * py > 1.04) return null;
             return {
-                x: (px / (tanFov * aspect) + 1) * width / 2,
-                y: (1 - py / tanFov) * height / 2,
+                x: width / 2 + px * radius,
+                y: height / 2 - py * radius,
                 depth
             };
         }
@@ -4196,6 +4198,14 @@ ${created.length} images arranged on the inside spherical wall.`;
             for (let y = 0; y < previewSize; y++) {
                 for (let x = 0; x < previewSize; x++) {
                     const direction = viewDirectionFromCanvasPoint(x + 0.5, y + 0.5, previewSize, previewSize);
+                    const targetIndex = (y * previewSize + x) * 4;
+                    if (!direction) {
+                        imageData.data[targetIndex] = 2;
+                        imageData.data[targetIndex + 1] = 6;
+                        imageData.data[targetIndex + 2] = 16;
+                        imageData.data[targetIndex + 3] = 255;
+                        continue;
+                    }
                     const sample = directionToCubeFaceUV(direction);
                     const u = clamp(sample.u, 0, 1);
                     const v = clamp(sample.v, 0, 1);
@@ -4203,7 +4213,6 @@ ${created.length} images arranged on the inside spherical wall.`;
                     const sy = Math.round(v * (CANVAS_SIZE - 1));
                     const source = faceData[sample.face].data;
                     const sourceIndex = (sy * CANVAS_SIZE + sx) * 4;
-                    const targetIndex = (y * previewSize + x) * 4;
                     imageData.data[targetIndex] = source[sourceIndex];
                     imageData.data[targetIndex + 1] = source[sourceIndex + 1];
                     imageData.data[targetIndex + 2] = source[sourceIndex + 2];
@@ -4216,9 +4225,20 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.fillStyle = '#020617';
             renderCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
             renderCtx.drawImage(preview, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            renderCtx.strokeStyle = 'rgba(103,232,249,0.75)';
+            const sphereRadius = CANVAS_SIZE * 0.46;
+            const sphereGradient = renderCtx.createRadialGradient(CANVAS_SIZE * 0.38, CANVAS_SIZE * 0.3, sphereRadius * 0.08, CANVAS_SIZE / 2, CANVAS_SIZE / 2, sphereRadius);
+            sphereGradient.addColorStop(0, 'rgba(255,255,255,0.18)');
+            sphereGradient.addColorStop(0.72, 'rgba(255,255,255,0)');
+            sphereGradient.addColorStop(1, 'rgba(2,6,23,0.38)');
+            renderCtx.fillStyle = sphereGradient;
+            renderCtx.beginPath();
+            renderCtx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, sphereRadius, 0, Math.PI * 2);
+            renderCtx.fill();
+            renderCtx.strokeStyle = 'rgba(103,232,249,0.84)';
             renderCtx.lineWidth = 3;
-            renderCtx.strokeRect(24, 24, CANVAS_SIZE - 48, CANVAS_SIZE - 48);
+            renderCtx.beginPath();
+            renderCtx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, sphereRadius, 0, Math.PI * 2);
+            renderCtx.stroke();
             renderCtx.fillStyle = 'rgba(2, 6, 23, 0.72)';
             renderCtx.fillRect(32, 32, 450, 70);
             renderCtx.fillStyle = '#67e8f9';
@@ -5253,8 +5273,8 @@ ${created.length} images arranged on the inside spherical wall.`;
                     if (!element.visible) continue;
                     const point = projectDirectionToSphereView(directionFromYawPitch(element.sphereYaw || 0, element.spherePitch || 0));
                     if (!point) continue;
-                    const width = CANVAS_SIZE * ((element.sphereWidth || 24) / sphereView.fov);
-                    const height = CANVAS_SIZE * ((element.sphereHeight || 12) / sphereView.fov);
+                    const width = CANVAS_SIZE * 0.92 * ((element.sphereWidth || 24) / 180);
+                    const height = CANVAS_SIZE * 0.92 * ((element.sphereHeight || 12) / 180);
                     if (Math.abs(x - point.x) <= width / 2 && Math.abs(y - point.y) <= height / 2) return element;
                 }
                 return null;
@@ -5433,7 +5453,9 @@ ${created.length} images arranged on the inside spherical wall.`;
                     return;
                 }
                 if (sphereDragState?.mode === 'element' && selected?.spherical) {
-                    const center = yawPitchFromDirection(viewDirectionFromCanvasPoint(point.x, point.y));
+                    const direction = viewDirectionFromCanvasPoint(point.x, point.y);
+                    if (!direction) return;
+                    const center = yawPitchFromDirection(direction);
                     selected.sphereYaw = center.yaw;
                     selected.spherePitch = center.pitch;
                     render();
