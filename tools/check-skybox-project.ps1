@@ -197,7 +197,9 @@ function Assert-WatcherStatusWiring {
         "watch-skybox-downloads.ps1",
         "-MaxBackups\s+([0-9]+)",
         "-MinFreeGB\s+([0-9.]+)",
-        "skybox-download-watcher.log"
+        "skybox-download-watcher.log",
+        "Select-Object -Unique",
+        "no non-empty log lines"
     )
     foreach ($needle in $required) {
         if (-not $statusScript.Contains($needle)) {

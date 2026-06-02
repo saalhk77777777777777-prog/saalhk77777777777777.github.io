@@ -39,7 +39,15 @@ if (Test-Path -LiteralPath $logPath -PathType Leaf) {
     $logFile = Get-Item -LiteralPath $logPath
     Write-Host ("Log size: {0:N2} KB" -f ($logFile.Length / 1KB))
     Write-Host "Recent log:"
-    Get-Content -LiteralPath $logPath -Tail $LogTail
+    $recentLines = @(Get-Content -LiteralPath $logPath -Tail ([Math]::Max($LogTail * 4, $LogTail)) |
+        Where-Object { $_.Trim() } |
+        Select-Object -Unique |
+        Select-Object -Last $LogTail)
+    if ($recentLines.Count -eq 0) {
+        Write-Host "(no non-empty log lines)"
+    } else {
+        $recentLines | ForEach-Object { Write-Host $_ }
+    }
 } else {
     Write-Host "Log file does not exist yet."
 }
