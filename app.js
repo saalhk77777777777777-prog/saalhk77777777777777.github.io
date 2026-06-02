@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.03.02';
+        const APP_VERSION = 'v2026.06.03.03';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -4298,6 +4298,47 @@ ${created.length} images arranged on the inside spherical wall.`;
             });
         }
 
+        function drawGlobeCubeSeams(renderCtx) {
+            const seamStyle = {
+                color: 'rgba(250,204,21,0.66)',
+                width: 2.4,
+                dash: [10, 8]
+            };
+            for (let step = 0; step <= 4; step++) {
+                const value = step / 4;
+                const verticalPoints = [];
+                const horizontalPoints = [];
+                for (let offset = 0; offset <= 1; offset += 1 / 80) {
+                    verticalPoints.push(directionFromCubeFaceUV('ft', value, offset));
+                    horizontalPoints.push(directionFromCubeFaceUV('ft', offset, value));
+                }
+                drawProjectedGlobeLine(renderCtx, verticalPoints, seamStyle);
+                drawProjectedGlobeLine(renderCtx, horizontalPoints, seamStyle);
+            }
+            const edgePairs = [
+                ['ft', 'lf', 1],
+                ['ft', 'rt', 0],
+                ['ft', 'up', 0],
+                ['ft', 'dn', 1],
+                ['bk', 'lf', 0],
+                ['bk', 'rt', 1]
+            ];
+            edgePairs.forEach(([face, , edge]) => {
+                const points = [];
+                for (let offset = 0; offset <= 1; offset += 1 / 96) {
+                    if (edge === 0) points.push(directionFromCubeFaceUV(face, 0, offset));
+                    if (edge === 1) points.push(directionFromCubeFaceUV(face, 1, offset));
+                    if (edge === 2) points.push(directionFromCubeFaceUV(face, offset, 0));
+                    if (edge === 3) points.push(directionFromCubeFaceUV(face, offset, 1));
+                }
+                drawProjectedGlobeLine(renderCtx, points, {
+                    color: 'rgba(251,113,133,0.72)',
+                    width: 3,
+                    dash: [14, 8]
+                });
+            });
+        }
+
         function drawGlobeEditorOverlay(renderCtx) {
             const centerX = CANVAS_SIZE / 2;
             const centerY = CANVAS_SIZE / 2;
@@ -4313,6 +4354,7 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.fill();
 
             drawGlobeSurfaceGrid(renderCtx);
+            drawGlobeCubeSeams(renderCtx);
 
             renderCtx.strokeStyle = 'rgba(103,232,249,0.9)';
             renderCtx.lineWidth = 4;
