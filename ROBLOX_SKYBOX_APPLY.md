@@ -113,3 +113,11 @@ powershell -ExecutionPolicy Bypass -File .\tools\list-skybox-zips.ps1 -All
 ```
 
 This lists recent valid skybox ZIP files from `Downloads` and `exports`, including manifest version and export flow when available.
+
+## List Roblox skybox backups
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\list-roblox-skybox-backups.ps1
+```
+
+This shows recent `backup-*` folders inside the active Roblox sky texture folder, including texture count, size, and full restore path.
