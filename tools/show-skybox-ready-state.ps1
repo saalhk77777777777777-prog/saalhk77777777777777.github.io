@@ -117,6 +117,11 @@ Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\clean-skybox-generated-files.ps1"
 }
 
+Write-Section "TEMP Cleanup Dry Run"
+Invoke-Soft {
+    powershell -ExecutionPolicy Bypass -File ".\tools\clean-skybox-temp-files.ps1"
+}
+
 Write-Section "Reclaimable Space Dry Run"
 Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\measure-skybox-reclaimable-space.ps1"
@@ -145,6 +150,7 @@ Invoke-Soft {
         Write-Host "powershell -ExecutionPolicy Bypass -File .\tools\measure-skybox-reclaimable-space.ps1"
         Write-Host "powershell -ExecutionPolicy Bypass -File .\tools\measure-skybox-reclaimable-space.ps1 -IncludeImageSamples"
         Write-Host "powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1"
+        Write-Host "powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-temp-files.ps1"
     } else {
         Write-Host "Disk space OK."
     }

@@ -142,9 +142,12 @@ Git 동기화, 앱 버전, 로컬 서버, watcher, 전체 ZIP 후보, 배포용 
 powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1
 powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1 -IncludeImageSamples
 powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1 -Apply
+powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-temp-files.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-temp-files.ps1 -Apply
 ```
 
 기본 실행은 dry run입니다. `Downloads`/`exports`의 생성된 skybox ZIP, 오래된 `skybox-diagnostics-*.txt`, 오래된 `skybox-handoff-*.md`만 대상으로 삼습니다. `-IncludeImageSamples`를 붙이면 `exports\imgly_*` 샘플 이미지도 정리 후보에 포함합니다.
+`clean-skybox-temp-files.ps1`는 `%TEMP%` 바로 아래의 오래된 `skybox-*` 임시 항목만 대상으로 삼습니다.
 
 ## 확보 가능 용량 계산
 

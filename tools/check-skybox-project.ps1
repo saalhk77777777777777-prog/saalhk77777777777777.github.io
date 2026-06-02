@@ -824,6 +824,39 @@ function Assert-SkyboxReclaimableSpaceWiring {
     Write-Host "OK skybox reclaimable space wiring"
 }
 
+function Assert-SkyboxTempCleanupWiring {
+    $cleanupPath = "tools\clean-skybox-temp-files.ps1"
+    if (-not (Test-Path -LiteralPath $cleanupPath -PathType Leaf)) {
+        throw "Skybox TEMP cleanup script is missing: $cleanupPath"
+    }
+
+    $cleanupScript = Get-Content -LiteralPath $cleanupPath -Raw
+    $readyScript = Get-Content -LiteralPath "tools\show-skybox-ready-state.ps1" -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "[switch]`$Apply",
+        "OlderThanMinutes",
+        "DRY RUN - no files will be removed",
+        "skybox-*",
+        "roblox-current-skybox-manifest-test-*",
+        "Remove-Item -LiteralPath `$candidate.FullName",
+        "Would free"
+    )
+    foreach ($needle in $required) {
+        if (-not $cleanupScript.Contains($needle)) {
+            throw "Skybox TEMP cleanup script is missing behavior: $needle"
+        }
+    }
+    if (-not $readyScript.Contains("TEMP Cleanup Dry Run")) {
+        throw "Ready state does not include TEMP cleanup dry run."
+    }
+    if (-not $docs.Contains("clean-skybox-temp-files.ps1")) {
+        throw "Roblox apply docs do not mention TEMP cleanup script."
+    }
+
+    Write-Host "OK skybox TEMP cleanup wiring"
+}
+
 function Assert-SkyboxGeneratedCleanupWiring {
     $cleanupPath = "tools\clean-skybox-generated-files.ps1"
     if (-not (Test-Path -LiteralPath $cleanupPath -PathType Leaf)) {
@@ -1055,6 +1088,7 @@ Assert-RobloxSkyboxBackupListWiring
 Assert-CurrentRobloxSkyboxExportWiring
 Assert-SkyboxReadyStateWiring
 Assert-SkyboxReclaimableSpaceWiring
+Assert-SkyboxTempCleanupWiring
 Assert-SkyboxGeneratedCleanupWiring
 Assert-LargeSkyboxFilesWiring
 Assert-SkyboxHandoffSummaryWiring
