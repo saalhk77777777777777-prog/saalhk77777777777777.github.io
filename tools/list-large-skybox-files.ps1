@@ -1,6 +1,8 @@
 param(
     [int]$Limit = 20,
-    [double]$MinMB = 1
+    [double]$MinMB = 1,
+    [switch]$Csv,
+    [switch]$CopyPaths
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,4 +55,10 @@ if ($items.Count -eq 0) {
 
 Write-Host "Large skybox-related files (read-only)"
 Write-Host "MinMB: $MinMB"
-$items | Format-List LastWriteTime, SizeMB, Kind, Path
+if ($CopyPaths) {
+    $items | ForEach-Object { $_.Path }
+} elseif ($Csv) {
+    $items | ConvertTo-Csv -NoTypeInformation
+} else {
+    $items | Format-List LastWriteTime, SizeMB, Kind, Path
+}

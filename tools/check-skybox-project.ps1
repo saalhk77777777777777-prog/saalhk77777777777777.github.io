@@ -565,6 +565,9 @@ function Assert-LargeSkyboxFilesWiring {
         "roblox-current-skybox-*.zip",
         "skybox_studio_pack_*.zip",
         "imgly_*",
+        "[switch]`$Csv",
+        "[switch]`$CopyPaths",
+        "ConvertTo-Csv",
         "Format-List"
     )
     foreach ($needle in $required) {

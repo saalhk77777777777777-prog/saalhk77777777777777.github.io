@@ -186,6 +186,8 @@ This checks the project, verifies the staged changes include an `APP_VERSION`/`a
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\list-large-skybox-files.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\list-large-skybox-files.ps1 -CopyPaths
+powershell -ExecutionPolicy Bypass -File .\tools\list-large-skybox-files.ps1 -Csv
 ```
 
 This is read-only. It shows large skybox-related files in `exports` and `Downloads` so low disk warnings are easier to act on safely.
