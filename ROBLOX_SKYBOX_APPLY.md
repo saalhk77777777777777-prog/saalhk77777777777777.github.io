@@ -48,9 +48,11 @@ ZIP 안의 `sky512_*.tex` 구성과 `manifest.json` 참조를 검사합니다. �
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-deploy-readiness.ps1
 powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-deploy-readiness.ps1 -ZipPath "C:\Users\saalh\Downloads\skybox_studio_pack_v2026.06.03.58_YYYYMMDDTHHMMSS.zip"
+powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-installer-safety.ps1
 ```
 
 ZIP 검사, Roblox sky 폴더 검사, 설치 `-DryRun`을 한 번에 실행합니다. 실제 Roblox 파일은 수정하지 않습니다. `-ZipPath`를 비우면 웹앱에서 내보낸 최신 `skybox_studio_pack_*.zip`을 찾습니다.
+`test-skybox-installer-safety.ps1`는 임시 ZIP으로 `app-export`는 dry run 통과, Roblox-current 백업 ZIP은 설치 거부되는지 확인합니다.
 
 ## 오래된 skybox ZIP 정리
 

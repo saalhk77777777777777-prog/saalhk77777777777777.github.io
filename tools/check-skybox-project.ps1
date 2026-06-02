@@ -409,6 +409,36 @@ function Assert-SkyboxDeployReadinessWiring {
     Write-Host "OK skybox deploy readiness wiring"
 }
 
+function Assert-SkyboxInstallerSafetyWiring {
+    $safetyPath = "tools\test-skybox-installer-safety.ps1"
+    if (-not (Test-Path -LiteralPath $safetyPath -PathType Leaf)) {
+        throw "Skybox installer safety test is missing: $safetyPath"
+    }
+
+    $safetyScript = Get-Content -LiteralPath $safetyPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "Skybox installer safety OK",
+        "skybox_studio_pack_vtest_app",
+        "roblox-current-skybox-test",
+        "not an app-export skybox pack",
+        "Start-Process -FilePath `"powershell`"",
+        "RedirectStandardError",
+        "-DryRun",
+        "Remove-Item -LiteralPath `$tempRoot -Recurse -Force"
+    )
+    foreach ($needle in $required) {
+        if (-not $safetyScript.Contains($needle)) {
+            throw "Skybox installer safety test is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("test-skybox-installer-safety.ps1")) {
+        throw "Roblox apply docs do not mention installer safety test."
+    }
+
+    Write-Host "OK skybox installer safety wiring"
+}
+
 function Assert-WatcherStatusWiring {
     $statusPath = "tools\show-skybox-watcher-status.ps1"
     if (-not (Test-Path -LiteralPath $statusPath -PathType Leaf)) {
@@ -1012,6 +1042,7 @@ Assert-ExportManifestWiring
 Assert-RobloxBackupRetentionWiring
 Assert-SkyboxZipTesterWiring
 Assert-SkyboxDeployReadinessWiring
+Assert-SkyboxInstallerSafetyWiring
 Assert-WatcherStatusWiring
 Assert-WatcherStopWiring
 Assert-SkyboxZipCleanupWiring
