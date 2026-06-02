@@ -121,3 +121,12 @@ powershell -ExecutionPolicy Bypass -File .\tools\list-roblox-skybox-backups.ps1
 ```
 
 This shows recent `backup-*` folders inside the active Roblox sky texture folder, including texture count, size, and full restore path.
+
+## Export current Roblox skybox
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\export-current-roblox-skybox.ps1 -DryRun
+powershell -ExecutionPolicy Bypass -File .\tools\export-current-roblox-skybox.ps1
+```
+
+This copies the current Roblox `sky512_*.tex` files into an `exports\roblox-current-skybox-*.zip` archive with a manifest, without modifying Roblox files.

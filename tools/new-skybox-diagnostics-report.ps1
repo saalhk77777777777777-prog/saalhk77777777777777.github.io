@@ -70,6 +70,10 @@ Add-ReportSection -Title "Roblox Skybox Backups" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\list-roblox-skybox-backups.ps1" -Limit 10
 }
 
+Add-ReportSection -Title "Current Roblox Skybox Export Dry Run" -Body {
+    powershell -ExecutionPolicy Bypass -File ".\tools\export-current-roblox-skybox.ps1" -DryRun
+}
+
 Add-ReportSection -Title "Disks" -Body {
     Get-PSDrive -PSProvider FileSystem |
         Select-Object Name, @{Name='FreeGB';Expression={[math]::Round($_.Free / 1GB, 2)}}, Root |

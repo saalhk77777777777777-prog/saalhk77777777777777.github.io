@@ -431,6 +431,38 @@ function Assert-RobloxSkyboxBackupListWiring {
     Write-Host "OK Roblox skybox backup list wiring"
 }
 
+function Assert-CurrentRobloxSkyboxExportWiring {
+    $exportPath = "tools\export-current-roblox-skybox.ps1"
+    if (-not (Test-Path -LiteralPath $exportPath -PathType Leaf)) {
+        throw "Current Roblox skybox export script is missing: $exportPath"
+    }
+
+    $exportScript = Get-Content -LiteralPath $exportPath -Raw
+    $reportScript = Get-Content -LiteralPath "tools\new-skybox-diagnostics-report.ps1" -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "[switch]`$DryRun",
+        "CreateFromDirectory",
+        "roblox-current-skybox-",
+        "manifest.json",
+        "sky512_*.tex",
+        "Safety check failed"
+    )
+    foreach ($needle in $required) {
+        if (-not $exportScript.Contains($needle)) {
+            throw "Current Roblox skybox export script is missing behavior: $needle"
+        }
+    }
+    if (-not $reportScript.Contains("export-current-roblox-skybox.ps1")) {
+        throw "Diagnostics report does not include current Roblox skybox export dry run."
+    }
+    if (-not $docs.Contains("export-current-roblox-skybox.ps1")) {
+        throw "Roblox apply docs do not mention current Roblox skybox export script."
+    }
+
+    Write-Host "OK current Roblox skybox export wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -453,6 +485,7 @@ Assert-WorkflowStarterWiring
 Assert-RobloxSkyboxRestoreWiring
 Assert-SkyboxZipListWiring
 Assert-RobloxSkyboxBackupListWiring
+Assert-CurrentRobloxSkyboxExportWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."
