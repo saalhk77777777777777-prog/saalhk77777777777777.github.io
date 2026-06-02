@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.02.17';
+        const APP_VERSION = 'v2026.06.02.18';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -447,6 +447,9 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                 URL.revokeObjectURL(url);
                 link.remove();
             }, 1000);
+        }
+        function createExportFileStamp() {
+            return new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, '');
         }
         function rgbaWithOpacity(hex, opacity) {
             const safeHex = (hex || '#000000').replace('#', '');
@@ -5285,7 +5288,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                     zip.file(`preview_${item.face}.png`, item.base64, { base64: true });
                 });
                 const blob = await zip.generateAsync({ type: 'blob' });
-                downloadBlob(blob, 'skybox_studio_pack.zip');
+                downloadBlob(blob, `skybox_studio_pack_${APP_VERSION}_${createExportFileStamp()}.zip`);
             } catch (error) {
                 alert(`내보내기 실패\n${getErrorMessage(error)}`);
             } finally {
