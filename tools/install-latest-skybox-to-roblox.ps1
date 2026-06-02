@@ -2,6 +2,7 @@ param(
     [string]$ZipPath = "",
     [string]$RobloxVersionPath = "",
     [int]$MaxBackups = 5,
+    [switch]$DryRun,
     [switch]$NoBackup
 )
 
@@ -194,6 +195,19 @@ try {
         throw "Expected at least 6 sky512_*.tex files in ZIP, found $($newTextures.Count)."
     }
 
+    $exportManifest = Read-SkyboxZipManifest -Path $resolvedZip
+    if ($DryRun) {
+        Write-Host "Dry run OK. No Roblox files were changed."
+        Write-Host "Would install $($newTextures.Count) sky textures"
+        Write-Host "From: $resolvedZip"
+        Write-Host "To:   $skyDirectory"
+        if ($exportManifest) {
+            Write-Host "Export version: $($exportManifest.version)"
+            Write-Host "Export flow:    $($exportManifest.flow)"
+        }
+        return
+    }
+
     if (-not $NoBackup) {
         $backupDirectory = Join-Path $skyDirectory ("backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
         New-Item -ItemType Directory -Force -Path $backupDirectory | Out-Null
@@ -217,7 +231,6 @@ try {
 
     $installedTextures = Get-ChildItem -LiteralPath $skyDirectory -File -Filter "sky512_*.tex" |
         Sort-Object Name
-    $exportManifest = Read-SkyboxZipManifest -Path $resolvedZip
     Write-InstallManifest -SourceZip $resolvedZip -TargetSkyDirectory $skyDirectory -InstalledTextures $installedTextures -BackupDirectory $backupDirectory -ExportManifest $exportManifest
     Remove-OldSkyboxBackups -SkyDirectory $skyDirectory -KeepCount $MaxBackups
 

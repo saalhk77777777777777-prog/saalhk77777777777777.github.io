@@ -21,6 +21,8 @@ powershell -ExecutionPolicy Bypass -File .\tools\install-latest-skybox-to-roblox
 
 `-ZipPath`를 빼면 `Downloads`와 프로젝트 `exports` 폴더에서 skybox ZIP을 자동으로 찾습니다.
 
+실제 Roblox 파일을 바꾸기 전에 확인만 하려면 `-DryRun`을 붙입니다.
+
 ## ZIP 적용 전 검사
 
 ```powershell

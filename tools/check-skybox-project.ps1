@@ -115,7 +115,9 @@ function Assert-RobloxBackupRetentionWiring {
 
     $requiredInstaller = @(
         "[int]`$MaxBackups = 5",
+        "[switch]`$DryRun",
         "function Remove-OldSkyboxBackups",
+        "Dry run OK. No Roblox files were changed.",
         "Select-Object -Skip `$KeepCount",
         "Remove-OldSkyboxBackups -SkyDirectory `$skyDirectory -KeepCount `$MaxBackups"
     )
@@ -133,6 +135,9 @@ function Assert-RobloxBackupRetentionWiring {
     }
     if ($docs -notlike '*MaxBackups*' -and $docs -notlike '*최근 5개*') {
         throw "Roblox apply docs do not mention backup retention."
+    }
+    if (-not $docs.Contains("-DryRun")) {
+        throw "Roblox apply docs do not mention DryRun."
     }
 
     Write-Host "OK Roblox backup retention wiring"
