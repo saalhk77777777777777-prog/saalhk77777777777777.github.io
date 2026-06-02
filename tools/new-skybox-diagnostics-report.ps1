@@ -53,6 +53,10 @@ Add-ReportSection -Title "App Version" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\get-skybox-version.ps1"
 }
 
+Add-ReportSection -Title "Ready State" -Body {
+    powershell -ExecutionPolicy Bypass -File ".\tools\show-skybox-ready-state.ps1" -LogTail $LogTail
+}
+
 Add-ReportSection -Title "Local Asset References" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\test-skybox-local-assets.ps1"
 }

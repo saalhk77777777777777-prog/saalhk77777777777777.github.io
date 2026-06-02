@@ -556,6 +556,8 @@ function Assert-DiagnosticsReportWiring {
     $required = @(
         "skybox-diagnostics-",
         "check-skybox-project.ps1",
+        "show-skybox-ready-state.ps1",
+        "Ready State",
         "test-skybox-installer-safety.ps1",
         "Installer Safety",
         "get-skybox-version.ps1",
