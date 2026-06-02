@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.03.12';
+        const APP_VERSION = 'v2026.06.03.13';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -5368,6 +5368,18 @@ ${created.length} images arranged on the inside spherical wall.`;
                     zip.file(`sky512_${item.face}.tex`, item.base64, { base64: true });
                     zip.file(`preview_${item.face}.png`, item.base64, { base64: true });
                 });
+                zip.file('manifest.json', JSON.stringify({
+                    app: 'Skybox Studio',
+                    version: APP_VERSION,
+                    exportedAt: new Date().toISOString(),
+                    canvasSize: CANVAS_SIZE,
+                    flow: 'Cube -> Globe edit -> Cube export',
+                    faces: renderedFaces.map(item => ({
+                        face: item.face,
+                        texture: `sky512_${item.face}.tex`,
+                        preview: `preview_${item.face}.png`
+                    }))
+                }, null, 2));
                 const blob = await zip.generateAsync({ type: 'blob' });
                 downloadBlob(blob, `skybox_studio_pack_${APP_VERSION}_${createExportFileStamp()}.zip`);
             } catch (error) {
