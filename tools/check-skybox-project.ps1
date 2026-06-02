@@ -281,7 +281,23 @@ function Assert-HttpLoads {
     if ($response.StatusCode -ne 200) {
         throw "HTTP check failed: $($response.StatusCode)"
     }
-    Write-Host "OK http $($response.StatusCode)"
+
+    $scriptMatch = [regex]::Match($response.Content, '<script\s+src="([^"]*app\.js\?v=[^"]+)"')
+    if (-not $scriptMatch.Success) {
+        throw "HTTP check could not find app.js cachebuster script."
+    }
+
+    $scriptPath = $scriptMatch.Groups[1].Value.TrimStart("./")
+    $scriptResponse = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/$scriptPath" -UseBasicParsing -TimeoutSec 10
+    if ($scriptResponse.StatusCode -ne 200) {
+        throw "HTTP app.js check failed: $($scriptResponse.StatusCode)"
+    }
+    if ($scriptResponse.Content -notmatch "APP_VERSION") {
+        throw "HTTP app.js check did not return the application script."
+    }
+
+    Write-Host "OK http index $($response.StatusCode)"
+    Write-Host "OK http app.js $($scriptResponse.StatusCode)"
 }
 
 function Assert-ExportManifestWiring {
