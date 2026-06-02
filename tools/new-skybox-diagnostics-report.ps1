@@ -54,8 +54,16 @@ Add-ReportSection -Title "Watcher" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\show-skybox-watcher-status.ps1" -LogTail $LogTail
 }
 
+Add-ReportSection -Title "Skybox ZIP Candidates" -Body {
+    powershell -ExecutionPolicy Bypass -File ".\tools\list-skybox-zips.ps1" -Limit 10
+}
+
 Add-ReportSection -Title "Roblox Sky Folder" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\test-roblox-sky-folder.ps1"
+}
+
+Add-ReportSection -Title "Roblox Restore Dry Run" -Body {
+    powershell -ExecutionPolicy Bypass -File ".\tools\restore-roblox-skybox-backup.ps1" -DryRun
 }
 
 Add-ReportSection -Title "Disks" -Body {
