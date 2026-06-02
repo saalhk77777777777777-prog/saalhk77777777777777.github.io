@@ -367,6 +367,34 @@ function Assert-RobloxSkyboxRestoreWiring {
     Write-Host "OK Roblox skybox restore wiring"
 }
 
+function Assert-SkyboxZipListWiring {
+    $listPath = "tools\list-skybox-zips.ps1"
+    if (-not (Test-Path -LiteralPath $listPath -PathType Leaf)) {
+        throw "Skybox ZIP list script is missing: $listPath"
+    }
+
+    $listScript = Get-Content -LiteralPath $listPath -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "[switch]`$All",
+        "Read-SkyboxZipManifest",
+        "sky512_[^/]+\.tex",
+        "Format-Table",
+        "Downloads",
+        "exports"
+    )
+    foreach ($needle in $required) {
+        if (-not $listScript.Contains($needle)) {
+            throw "Skybox ZIP list script is missing behavior: $needle"
+        }
+    }
+    if (-not $docs.Contains("list-skybox-zips.ps1")) {
+        throw "Roblox apply docs do not mention skybox ZIP list script."
+    }
+
+    Write-Host "OK skybox ZIP list wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -387,6 +415,7 @@ Assert-RobloxSkyFolderTesterWiring
 Assert-DiagnosticsReportWiring
 Assert-WorkflowStarterWiring
 Assert-RobloxSkyboxRestoreWiring
+Assert-SkyboxZipListWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."

@@ -104,3 +104,12 @@ powershell -ExecutionPolicy Bypass -File .\tools\restore-roblox-skybox-backup.ps
 ```
 
 `-BackupDirectory` can point to a specific `backup-*` folder. If omitted, the latest backup in the Roblox sky folder is used.
+
+## List skybox ZIP candidates
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\list-skybox-zips.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\list-skybox-zips.ps1 -All
+```
+
+This lists recent valid skybox ZIP files from `Downloads` and `exports`, including manifest version and export flow when available.
