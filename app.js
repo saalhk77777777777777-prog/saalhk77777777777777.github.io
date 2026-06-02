@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.02.11';
+        const APP_VERSION = 'v2026.06.02.12';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -370,6 +370,35 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             return {
                 x: (px / (tanFov * aspect) + 1) * width / 2,
                 y: (1 - py / tanFov) * height / 2,
+                depth
+            };
+        }
+        function globeDirectionFromCanvasPoint(x, y, width = CANVAS_SIZE, height = CANVAS_SIZE) {
+            const basis = getSphereBasis();
+            const radius = Math.min(width, height) * 0.43;
+            const nx = (x - width / 2) / radius;
+            const ny = (height / 2 - y) / radius;
+            const distanceSquared = nx * nx + ny * ny;
+            if (distanceSquared > 1) return null;
+            const outward = Math.sqrt(Math.max(0, 1 - distanceSquared));
+            return normalizeVector({
+                x: basis.forward.x * outward + basis.right.x * nx + basis.up.x * ny,
+                y: basis.forward.y * outward + basis.right.y * nx + basis.up.y * ny,
+                z: basis.forward.z * outward + basis.right.z * nx + basis.up.z * ny
+            });
+        }
+        function projectDirectionToGlobeView(direction, width = CANVAS_SIZE, height = CANVAS_SIZE) {
+            const basis = getSphereBasis();
+            const dir = normalizeVector(direction);
+            const depth = dot3(dir, basis.forward);
+            if (depth < -0.02) return null;
+            const px = dot3(dir, basis.right);
+            const py = dot3(dir, basis.up);
+            if (px * px + py * py > 1.04) return null;
+            const radius = Math.min(width, height) * 0.43;
+            return {
+                x: width / 2 + px * radius,
+                y: height / 2 - py * radius,
                 depth
             };
         }
@@ -4112,7 +4141,7 @@ ${created.length} images arranged on the inside spherical wall.`;
             edges.forEach(edge => {
                 for (let step = 0; step <= 32; step++) {
                     const [localX, localY] = edge(step / 32);
-                    const point = projectDirectionToSphereView(directionFromSphericalSurfaceLocal(frame, localX, localY));
+                    const point = projectDirectionToGlobeView(directionFromSphericalSurfaceLocal(frame, localX, localY));
                     if (!point) {
                         started = false;
                         continue;
@@ -4252,12 +4281,12 @@ ${created.length} images arranged on the inside spherical wall.`;
             }));
             for (let y = 0; y < previewSize; y++) {
                 for (let x = 0; x < previewSize; x++) {
-                    const direction = viewDirectionFromCanvasPoint(x + 0.5, y + 0.5, previewSize, previewSize);
+                    const direction = globeDirectionFromCanvasPoint(x + 0.5, y + 0.5, previewSize, previewSize);
                     const targetIndex = (y * previewSize + x) * 4;
                     if (!direction) {
                         imageData.data[targetIndex] = 2;
                         imageData.data[targetIndex + 1] = 6;
-                        imageData.data[targetIndex + 2] = 16;
+                        imageData.data[targetIndex + 2] = 23;
                         imageData.data[targetIndex + 3] = 255;
                         continue;
                     }
@@ -4275,7 +4304,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                 }
             }
             previewCtx.putImageData(imageData, 0, 0);
-            drawSphericalElementsOnDirectionCanvas(preview, (x, y, width, height) => viewDirectionFromCanvasPoint(x + 0.5, y + 0.5, width, height));
+            drawSphericalElementsOnDirectionCanvas(preview, (x, y, width, height) => globeDirectionFromCanvasPoint(x + 0.5, y + 0.5, width, height));
             renderCtx.save();
             renderCtx.fillStyle = '#020617';
             renderCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
@@ -5304,7 +5333,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                 for (let i = elements.length - 1; i >= 0; i--) {
                     const element = elements[i];
                     if (!element.visible) continue;
-                    const point = projectDirectionToSphereView(directionFromYawPitch(element.sphereYaw || 0, element.spherePitch || 0));
+                    const point = projectDirectionToGlobeView(directionFromYawPitch(element.sphereYaw || 0, element.spherePitch || 0));
                     if (!point) continue;
                     const width = CANVAS_SIZE * 0.92 * ((element.sphereWidth || 24) / 180);
                     const height = CANVAS_SIZE * 0.92 * ((element.sphereHeight || 12) / 180);
@@ -5486,7 +5515,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                     return;
                 }
                 if (sphereDragState?.mode === 'element' && selected?.spherical) {
-                    const direction = viewDirectionFromCanvasPoint(point.x, point.y);
+                    const direction = globeDirectionFromCanvasPoint(point.x, point.y);
                     if (!direction) return;
                     const center = yawPitchFromDirection(direction);
                     selected.sphereYaw = center.yaw;
