@@ -120,10 +120,11 @@ powershell -ExecutionPolicy Bypass -File .\tools\export-current-roblox-skybox.ps
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\list-skybox-zips.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\list-skybox-zips.ps1 -DeployOnly
 powershell -ExecutionPolicy Bypass -File .\tools\list-skybox-zips.ps1 -All
 ```
 
-`Downloads`와 `exports`에서 유효한 skybox ZIP을 찾고, manifest version과 export flow를 함께 보여줍니다.
+`Downloads`와 `exports`에서 유효한 skybox ZIP을 찾고, manifest version과 export flow를 함께 보여줍니다. `-DeployOnly`는 웹앱에서 내보낸 `app-export` ZIP만 보여줘서 Roblox 현재 백업 ZIP과 헷갈리지 않게 합니다.
 
 ## 전체 준비 상태 보기
 

@@ -1,6 +1,7 @@
 param(
     [int]$Limit = 10,
     [switch]$All,
+    [switch]$DeployOnly,
     [switch]$FullPath
 )
 
@@ -74,15 +75,17 @@ $candidates = foreach ($folder in $folders) {
                 } else {
                     "zip"
                 }
-                [pscustomobject]@{
-                    LastWriteTime = $_.LastWriteTime
-                    SizeMB = [math]::Round($_.Length / 1MB, 2)
-                    Kind = $kind
-                    IsSkybox = $isSkybox
-                    Version = if ($manifest -and $manifest.version) { $manifest.version } else { "" }
-                    Flow = if ($manifest -and $manifest.flow) { $manifest.flow } else { "" }
-                    ExportedAt = if ($manifest -and $manifest.exportedAt) { $manifest.exportedAt } else { "" }
-                    Path = $_.FullName
+                if (-not $DeployOnly -or $kind -eq "app-export") {
+                    [pscustomobject]@{
+                        LastWriteTime = $_.LastWriteTime
+                        SizeMB = [math]::Round($_.Length / 1MB, 2)
+                        Kind = $kind
+                        IsSkybox = $isSkybox
+                        Version = if ($manifest -and $manifest.version) { $manifest.version } else { "" }
+                        Flow = if ($manifest -and $manifest.flow) { $manifest.flow } else { "" }
+                        ExportedAt = if ($manifest -and $manifest.exportedAt) { $manifest.exportedAt } else { "" }
+                        Path = $_.FullName
+                    }
                 }
             }
         }
@@ -90,7 +93,11 @@ $candidates = foreach ($folder in $folders) {
 
 $items = @($candidates | Sort-Object LastWriteTime -Descending | Select-Object -First $Limit)
 if ($items.Count -eq 0) {
-    Write-Host "No skybox ZIP candidates found in Downloads or exports."
+    if ($DeployOnly) {
+        Write-Host "No app-export skybox ZIP candidates found in Downloads or exports."
+    } else {
+        Write-Host "No skybox ZIP candidates found in Downloads or exports."
+    }
     return
 }
 

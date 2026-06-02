@@ -485,10 +485,13 @@ function Assert-SkyboxZipListWiring {
     $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
     $required = @(
         "[switch]`$All",
+        "[switch]`$DeployOnly",
         "[switch]`$FullPath",
         "Read-SkyboxZipManifest",
         "sky512_[^/]+\.tex",
+        "app-export",
         "roblox-current",
+        "No app-export skybox ZIP candidates",
         "ExportedAt",
         "Format-List",
         "Format-Table",
