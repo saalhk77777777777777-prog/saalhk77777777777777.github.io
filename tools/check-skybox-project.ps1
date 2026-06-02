@@ -384,6 +384,8 @@ function Assert-SkyboxZipListWiring {
         "[switch]`$All",
         "Read-SkyboxZipManifest",
         "sky512_[^/]+\.tex",
+        "roblox-current",
+        "ExportedAt",
         "Format-Table",
         "Downloads",
         "exports"

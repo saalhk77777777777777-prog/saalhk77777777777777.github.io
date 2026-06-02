@@ -64,12 +64,23 @@ $candidates = foreach ($folder in $folders) {
             $isSkybox = Test-SkyboxZip -Path $_.FullName
             if ($All -or $isSkybox) {
                 $manifest = if ($isSkybox) { Read-SkyboxZipManifest -Path $_.FullName } else { $null }
+                $kind = if ($manifest -and $manifest.flow) {
+                    "app-export"
+                } elseif ($manifest -and $manifest.sourceSkyDirectory) {
+                    "roblox-current"
+                } elseif ($isSkybox) {
+                    "skybox"
+                } else {
+                    "zip"
+                }
                 [pscustomobject]@{
                     LastWriteTime = $_.LastWriteTime
                     SizeMB = [math]::Round($_.Length / 1MB, 2)
+                    Kind = $kind
                     IsSkybox = $isSkybox
                     Version = if ($manifest -and $manifest.version) { $manifest.version } else { "" }
                     Flow = if ($manifest -and $manifest.flow) { $manifest.flow } else { "" }
+                    ExportedAt = if ($manifest -and $manifest.exportedAt) { $manifest.exportedAt } else { "" }
                     Path = $_.FullName
                 }
             }
@@ -82,4 +93,4 @@ if ($items.Count -eq 0) {
     return
 }
 
-$items | Format-Table -AutoSize LastWriteTime, SizeMB, IsSkybox, Version, Flow, Path
+$items | Format-Table -AutoSize LastWriteTime, SizeMB, Kind, IsSkybox, Version, Flow, ExportedAt, Path
