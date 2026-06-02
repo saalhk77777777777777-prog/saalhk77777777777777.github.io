@@ -1,6 +1,7 @@
 param(
     [int]$Limit = 10,
-    [switch]$All
+    [switch]$All,
+    [switch]$FullPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -93,4 +94,8 @@ if ($items.Count -eq 0) {
     return
 }
 
-$items | Format-Table -AutoSize LastWriteTime, SizeMB, Kind, IsSkybox, Version, Flow, ExportedAt, Path
+if ($FullPath) {
+    $items | Format-List LastWriteTime, SizeMB, Kind, IsSkybox, Version, Flow, ExportedAt, Path
+} else {
+    $items | Format-Table -AutoSize LastWriteTime, SizeMB, Kind, IsSkybox, Version, Flow, ExportedAt, Path
+}
