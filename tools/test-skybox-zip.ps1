@@ -73,21 +73,41 @@ try {
     $reader = New-Object System.IO.StreamReader($stream)
     $manifest = $reader.ReadToEnd() | ConvertFrom-Json
 
-    if (-not $manifest.version) {
-        throw "manifest.json is missing version."
-    }
-    if (-not $manifest.faces -or $manifest.faces.Count -lt 6) {
-        throw "manifest.json is missing face entries."
-    }
+    $isRobloxCurrent = [bool]$manifest.sourceSkyDirectory
+    $isAppExport = $manifest.manifestType -eq "app-export" -or [bool]$manifest.flow
 
     $textureNames = @($textures | ForEach-Object { Split-Path -Leaf $_.FullName })
-    foreach ($face in $manifest.faces) {
-        if (-not $face.texture -or $textureNames -notcontains $face.texture) {
-            throw "Manifest references missing texture: $($face.texture)"
+    if ($isRobloxCurrent) {
+        if (-not $manifest.textureCount -or [int]$manifest.textureCount -lt 6) {
+            throw "Roblox-current manifest is missing textureCount."
+        }
+        if (-not $manifest.textures -or $manifest.textures.Count -lt 6) {
+            throw "Roblox-current manifest is missing texture entries."
+        }
+        foreach ($texture in $manifest.textures) {
+            if (-not $texture.name -or $textureNames -notcontains $texture.name) {
+                throw "Manifest references missing texture: $($texture.name)"
+            }
+        }
+    } else {
+        if (-not $isAppExport) {
+            throw "manifest.json is not recognized as app-export or roblox-current."
+        }
+        if (-not $manifest.version) {
+            throw "manifest.json is missing version."
+        }
+        if (-not $manifest.faces -or $manifest.faces.Count -lt 6) {
+            throw "manifest.json is missing face entries."
+        }
+        foreach ($face in $manifest.faces) {
+            if (-not $face.texture -or $textureNames -notcontains $face.texture) {
+                throw "Manifest references missing texture: $($face.texture)"
+            }
         }
     }
 
     Write-Host "OK skybox ZIP: $resolvedZip"
+    Write-Host "Kind: $(if ($isRobloxCurrent) { 'roblox-current' } else { 'app-export' })"
     Write-Host "Version: $($manifest.version)"
     Write-Host "Textures: $($textures.Count)"
     Write-Host "Previews: $($previews.Count)"

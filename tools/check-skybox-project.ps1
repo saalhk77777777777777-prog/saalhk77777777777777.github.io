@@ -316,6 +316,11 @@ function Assert-SkyboxZipTesterWiring {
         "Test-ZipContainsSkyboxTextures",
         "sky512_[^/]+\.tex",
         "manifest.json",
+        "sourceSkyDirectory",
+        "manifestType -eq `"app-export`"",
+        "Roblox-current manifest is missing textureCount",
+        "manifest.json is not recognized as app-export or roblox-current",
+        "roblox-current' } else { 'app-export'",
         "Manifest references missing texture"
     )
     foreach ($needle in $requiredTester) {

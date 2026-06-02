@@ -41,7 +41,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-zip.ps1
 powershell -ExecutionPolicy Bypass -File .\tools\test-skybox-zip.ps1 -ZipPath "C:\Users\saalh\Downloads\skybox_studio_pack_v2026.06.03.58_YYYYMMDDTHHMMSS.zip"
 ```
 
-ZIP 안의 `sky512_*.tex` 구성과 `manifest.json` 참조를 검사합니다.
+ZIP 안의 `sky512_*.tex` 구성과 `manifest.json` 참조를 검사합니다. 웹앱 `app-export` ZIP과 Roblox-current 백업 ZIP을 구분해서 검사합니다.
 
 ## Roblox 적용 준비 테스트
 
