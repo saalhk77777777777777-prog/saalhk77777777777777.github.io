@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.02.7';
+        const APP_VERSION = 'v2026.06.02.8';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -4066,6 +4066,70 @@ ${created.length} images arranged on the inside spherical wall.`;
             data[index + 3] = Math.round(Math.min(255, data[index + 3] + color[3] * opacity * (1 - data[index + 3] / 255)));
         }
 
+        function getSphericalSurfaceLocal(direction, frame) {
+            const dir = normalizeVector(direction);
+            const centerDepth = dot3(dir, frame.center);
+            if (centerDepth <= -0.08) return null;
+            const localX = Math.atan2(dot3(dir, frame.right), centerDepth);
+            const meridianCenter = normalizeVector({
+                x: frame.center.x * Math.cos(localX) + frame.right.x * Math.sin(localX),
+                y: frame.center.y * Math.cos(localX) + frame.right.y * Math.sin(localX),
+                z: frame.center.z * Math.cos(localX) + frame.right.z * Math.sin(localX)
+            });
+            const localY = Math.atan2(dot3(dir, frame.up), dot3(dir, meridianCenter));
+            return { localX, localY };
+        }
+
+        function directionFromSphericalSurfaceLocal(frame, localX, localY) {
+            const meridianCenter = normalizeVector({
+                x: frame.center.x * Math.cos(localX) + frame.right.x * Math.sin(localX),
+                y: frame.center.y * Math.cos(localX) + frame.right.y * Math.sin(localX),
+                z: frame.center.z * Math.cos(localX) + frame.right.z * Math.sin(localX)
+            });
+            return normalizeVector({
+                x: meridianCenter.x * Math.cos(localY) + frame.up.x * Math.sin(localY),
+                y: meridianCenter.y * Math.cos(localY) + frame.up.y * Math.sin(localY),
+                z: meridianCenter.z * Math.cos(localY) + frame.up.z * Math.sin(localY)
+            });
+        }
+
+        function drawSphericalElementOutline(renderCtx, element) {
+            const frame = getSphericalElementFrame(element);
+            const halfWidth = degToRad(Math.max(1, Number(element.sphereWidth || 24)) / 2);
+            const halfHeight = degToRad(Math.max(1, Number(element.sphereHeight || 12)) / 2);
+            const edges = [
+                t => [-halfWidth + t * halfWidth * 2, -halfHeight],
+                t => [halfWidth, -halfHeight + t * halfHeight * 2],
+                t => [halfWidth - t * halfWidth * 2, halfHeight],
+                t => [-halfWidth, halfHeight - t * halfHeight * 2]
+            ];
+            renderCtx.save();
+            renderCtx.strokeStyle = '#facc15';
+            renderCtx.lineWidth = 3;
+            renderCtx.setLineDash([12, 8]);
+            renderCtx.beginPath();
+            let started = false;
+            edges.forEach(edge => {
+                for (let step = 0; step <= 32; step++) {
+                    const [localX, localY] = edge(step / 32);
+                    const point = projectDirectionToSphereView(directionFromSphericalSurfaceLocal(frame, localX, localY));
+                    if (!point) {
+                        started = false;
+                        continue;
+                    }
+                    if (!started) {
+                        renderCtx.moveTo(point.x, point.y);
+                        started = true;
+                    } else {
+                        renderCtx.lineTo(point.x, point.y);
+                    }
+                }
+            });
+            renderCtx.stroke();
+            renderCtx.setLineDash([]);
+            renderCtx.restore();
+        }
+
         function drawSphericalElementsOnDirectionCanvas(targetCanvas, directionForPixel, elements = getAllSphericalElements()) {
             const visibleElements = elements.filter(element => element.visible && element.spherical);
             if (!visibleElements.length) return;
@@ -4093,15 +4157,17 @@ ${created.length} images arranged on the inside spherical wall.`;
                     const index = (y * targetCanvas.width + x) * 4;
                     sourceCache.forEach(item => {
                         const { element, sourceCanvas, sourceData, frame, halfWidth, halfHeight } = item;
-                        const depth = dot3(direction, frame.center);
-                        if (depth <= 0.02) return;
-                        const localX = Math.atan2(dot3(direction, frame.right), depth);
-                        const localY = Math.atan2(dot3(direction, frame.up), depth);
+                        const local = getSphericalSurfaceLocal(direction, frame);
+                        if (!local) return;
+                        const { localX, localY } = local;
                         if (Math.abs(localX) > halfWidth || Math.abs(localY) > halfHeight) return;
                         const sx = ((localX / halfWidth) + 1) * 0.5 * (sourceCanvas.width - 1);
                         const sy = (1 - ((localY / halfHeight) + 1) * 0.5) * (sourceCanvas.height - 1);
                         const color = sampleCanvasPixel(sourceData, sourceCanvas, sx, sy);
-                        alphaBlendPixel(imageData.data, index, color, element.opacity ?? 1);
+                        const edgeFeather = Math.max(degToRad(0.35), Math.min(halfWidth, halfHeight) * 0.018);
+                        const edgeDistance = Math.min(halfWidth - Math.abs(localX), halfHeight - Math.abs(localY));
+                        const edgeOpacity = clamp(edgeDistance / edgeFeather, 0, 1);
+                        alphaBlendPixel(imageData.data, index, color, (element.opacity ?? 1) * edgeOpacity);
                     });
                 }
             }
@@ -4157,22 +4223,14 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.fillRect(32, 32, 450, 70);
             renderCtx.fillStyle = '#67e8f9';
             renderCtx.font = '900 24px Arial';
-            renderCtx.fillText('SPHERE EDIT · inside skybox', 52, 76);
+            renderCtx.fillText('SPHERE EDIT - painted on inner sphere', 52, 76);
             renderCtx.font = '700 14px Arial';
             renderCtx.fillStyle = 'rgba(226,232,240,0.86)';
-            renderCtx.fillText(`yaw ${Math.round(sphereView.yaw)}° / pitch ${Math.round(sphereView.pitch)}° / FOV ${Math.round(sphereView.fov)}°`, 52, 96);
+            renderCtx.fillText(`yaw ${Math.round(sphereView.yaw)} deg / pitch ${Math.round(sphereView.pitch)} deg / FOV ${Math.round(sphereView.fov)} deg`, 52, 96);
+            renderCtx.fillText('surface projection: longitude/latitude patch, then baked to six cube faces', 52, 116);
             const selected = getSelectedElement();
-            if (selected?.spherical) {
-                const point = projectDirectionToSphereView(directionFromYawPitch(selected.sphereYaw, selected.spherePitch));
-                if (point) {
-                    const width = CANVAS_SIZE * ((selected.sphereWidth || 24) / sphereView.fov);
-                    const height = CANVAS_SIZE * ((selected.sphereHeight || 12) / sphereView.fov);
-                    renderCtx.strokeStyle = '#facc15';
-                    renderCtx.setLineDash([12, 8]);
-                    renderCtx.strokeRect(point.x - width / 2, point.y - height / 2, width, height);
-                    renderCtx.setLineDash([]);
-                }
-            }
+            if (selected?.spherical) drawSphericalElementOutline(renderCtx, selected);
+
             renderCtx.restore();
         }
 
