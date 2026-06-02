@@ -1,6 +1,7 @@
 param(
     [int]$Port = 4173,
-    [int]$LogTail = 8
+    [int]$LogTail = 8,
+    [double]$LowDiskWarningGB = 3
 )
 
 $ErrorActionPreference = "Stop"
@@ -71,4 +72,20 @@ Invoke-Soft {
 Write-Section "Generated File Cleanup Dry Run"
 Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\clean-skybox-generated-files.ps1"
+}
+
+Write-Section "Disk Warning"
+Invoke-Soft {
+    $driveRoot = [System.IO.Path]::GetPathRoot($projectRoot)
+    $driveName = $driveRoot.TrimEnd('\').TrimEnd(':')
+    $drive = Get-PSDrive -Name $driveName -ErrorAction Stop
+    $freeGB = [math]::Round($drive.Free / 1GB, 2)
+    Write-Host ("{0} free: {1:N2} GB" -f $driveRoot, $freeGB)
+    if ($freeGB -lt $LowDiskWarningGB) {
+        Write-Host ("WARN: free space is below {0:N2} GB." -f $LowDiskWarningGB)
+        Write-Host "Suggested dry run:"
+        Write-Host "powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1"
+    } else {
+        Write-Host "Disk space OK."
+    }
 }

@@ -482,6 +482,8 @@ function Assert-SkyboxReadyStateWiring {
         "export-current-roblox-skybox.ps1",
         "clean-skybox-generated-files.ps1",
         "const APP_VERSION|app\.js\?v=",
+        "LowDiskWarningGB",
+        "WARN: free space is below",
         "Invoke-Soft"
     )
     foreach ($needle in $required) {
