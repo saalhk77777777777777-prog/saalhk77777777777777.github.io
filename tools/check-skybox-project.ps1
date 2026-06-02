@@ -307,7 +307,9 @@ function Assert-DiagnosticsReportWiring {
         "Roblox Process",
         "Behind/Ahead",
         "-FullPath",
-        "WARN:"
+        "WARN:",
+        "[Console]::OutputEncoding",
+        "-Encoding UTF8"
     )
     foreach ($needle in $required) {
         if (-not $reportScript.Contains($needle)) {
@@ -557,6 +559,7 @@ function Assert-SkyboxHandoffSummaryWiring {
         "git rev-list --left-right --count",
         "Handoff Sensitive Text Scan",
         "No obvious sensitive tokens found",
+        "[Console]::OutputEncoding",
         "Use it as a compact handoff"
     )
     foreach ($needle in $required) {

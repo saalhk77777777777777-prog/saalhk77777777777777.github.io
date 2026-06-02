@@ -3,6 +3,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $utf8NoBom
+$OutputEncoding = $utf8NoBom
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $exportsDirectory = Join-Path $projectRoot "exports"
@@ -16,24 +19,24 @@ function Add-ReportSection {
         [scriptblock]$Body
     )
 
-    Add-Content -LiteralPath $reportPath -Value ""
-    Add-Content -LiteralPath $reportPath -Value "## $Title"
-    Add-Content -LiteralPath $reportPath -Value ""
+    Add-Content -LiteralPath $reportPath -Value "" -Encoding UTF8
+    Add-Content -LiteralPath $reportPath -Value "## $Title" -Encoding UTF8
+    Add-Content -LiteralPath $reportPath -Value "" -Encoding UTF8
     try {
         $output = & $Body 2>&1 | Out-String
         if ($output.Trim()) {
-            Add-Content -LiteralPath $reportPath -Value $output.TrimEnd()
+            Add-Content -LiteralPath $reportPath -Value $output.TrimEnd() -Encoding UTF8
         } else {
-            Add-Content -LiteralPath $reportPath -Value "(no output)"
+            Add-Content -LiteralPath $reportPath -Value "(no output)" -Encoding UTF8
         }
     } catch {
-        Add-Content -LiteralPath $reportPath -Value ("ERROR: " + $_.Exception.Message)
+        Add-Content -LiteralPath $reportPath -Value ("ERROR: " + $_.Exception.Message) -Encoding UTF8
     }
 }
 
-Set-Content -LiteralPath $reportPath -Value "# Skybox Diagnostics"
-Add-Content -LiteralPath $reportPath -Value ("Generated: " + (Get-Date).ToString("o"))
-Add-Content -LiteralPath $reportPath -Value ("Project: " + $projectRoot)
+Set-Content -LiteralPath $reportPath -Value "# Skybox Diagnostics" -Encoding UTF8
+Add-Content -LiteralPath $reportPath -Value ("Generated: " + (Get-Date).ToString("o")) -Encoding UTF8
+Add-Content -LiteralPath $reportPath -Value ("Project: " + $projectRoot) -Encoding UTF8
 
 Set-Location -LiteralPath $projectRoot
 
