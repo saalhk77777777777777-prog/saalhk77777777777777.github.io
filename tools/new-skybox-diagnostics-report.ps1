@@ -74,6 +74,10 @@ Add-ReportSection -Title "Current Roblox Skybox Export Dry Run" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\export-current-roblox-skybox.ps1" -DryRun
 }
 
+Add-ReportSection -Title "Generated File Cleanup Dry Run" -Body {
+    powershell -ExecutionPolicy Bypass -File ".\tools\clean-skybox-generated-files.ps1"
+}
+
 Add-ReportSection -Title "Disks" -Body {
     Get-PSDrive -PSProvider FileSystem |
         Select-Object Name, @{Name='FreeGB';Expression={[math]::Round($_.Free / 1GB, 2)}}, Root |

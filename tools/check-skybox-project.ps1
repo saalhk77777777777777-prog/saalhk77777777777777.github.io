@@ -480,6 +480,7 @@ function Assert-SkyboxReadyStateWiring {
         "list-roblox-skybox-backups.ps1",
         "show-last-roblox-skybox-install.ps1",
         "export-current-roblox-skybox.ps1",
+        "clean-skybox-generated-files.ps1",
         "const APP_VERSION|app\.js\?v=",
         "Invoke-Soft"
     )
@@ -493,6 +494,38 @@ function Assert-SkyboxReadyStateWiring {
     }
 
     Write-Host "OK skybox ready state wiring"
+}
+
+function Assert-SkyboxGeneratedCleanupWiring {
+    $cleanupPath = "tools\clean-skybox-generated-files.ps1"
+    if (-not (Test-Path -LiteralPath $cleanupPath -PathType Leaf)) {
+        throw "Skybox generated cleanup script is missing: $cleanupPath"
+    }
+
+    $cleanupScript = Get-Content -LiteralPath $cleanupPath -Raw
+    $reportScript = Get-Content -LiteralPath "tools\new-skybox-diagnostics-report.ps1" -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "[switch]`$Apply",
+        "`$dryRun = -not `$Apply",
+        "clean-old-skybox-zips.ps1",
+        "skybox-diagnostics-*.txt",
+        "KeepZipCount",
+        "KeepDiagnosticsCount"
+    )
+    foreach ($needle in $required) {
+        if (-not $cleanupScript.Contains($needle)) {
+            throw "Skybox generated cleanup script is missing behavior: $needle"
+        }
+    }
+    if (-not $reportScript.Contains("clean-skybox-generated-files.ps1")) {
+        throw "Diagnostics report does not include generated cleanup dry run."
+    }
+    if (-not $docs.Contains("clean-skybox-generated-files.ps1")) {
+        throw "Roblox apply docs do not mention generated cleanup script."
+    }
+
+    Write-Host "OK skybox generated cleanup wiring"
 }
 
 node --check app.js | Out-Host
@@ -519,6 +552,7 @@ Assert-SkyboxZipListWiring
 Assert-RobloxSkyboxBackupListWiring
 Assert-CurrentRobloxSkyboxExportWiring
 Assert-SkyboxReadyStateWiring
+Assert-SkyboxGeneratedCleanupWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."

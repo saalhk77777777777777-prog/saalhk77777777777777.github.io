@@ -67,3 +67,8 @@ Write-Section "Current Sky Export Dry Run"
 Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\export-current-roblox-skybox.ps1" -DryRun
 }
+
+Write-Section "Generated File Cleanup Dry Run"
+Invoke-Soft {
+    powershell -ExecutionPolicy Bypass -File ".\tools\clean-skybox-generated-files.ps1"
+}

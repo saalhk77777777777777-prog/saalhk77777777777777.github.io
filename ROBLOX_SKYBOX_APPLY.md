@@ -138,3 +138,12 @@ powershell -ExecutionPolicy Bypass -File .\tools\show-skybox-ready-state.ps1
 ```
 
 This prints the local app version, server health, watcher status, ZIP candidates, Roblox sky folder, backups, install history, and current sky export dry run in one terminal view.
+
+## Clean generated skybox files safely
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1 -Apply
+```
+
+The default command is a dry run. It only targets generated skybox ZIPs in `Downloads`/`exports` and old `skybox-diagnostics-*.txt` reports in `exports`.
