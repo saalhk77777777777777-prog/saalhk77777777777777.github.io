@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.02.10';
+        const APP_VERSION = 'v2026.06.02.11';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -4183,84 +4183,60 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.drawImage(overlay, 0, 0);
         }
 
-        function drawGameAvatarOverlay(renderCtx) {
+        function drawGlobeEditorOverlay(renderCtx) {
             const centerX = CANVAS_SIZE / 2;
-            const horizonY = CANVAS_SIZE * 0.57;
+            const centerY = CANVAS_SIZE / 2;
+            const radius = CANVAS_SIZE * 0.43;
             renderCtx.save();
-            renderCtx.globalAlpha = 0.92;
-            renderCtx.strokeStyle = 'rgba(103, 232, 249, 0.22)';
-            renderCtx.lineWidth = 2;
-            for (let row = 0; row < 9; row++) {
-                const t = row / 8;
-                const y = horizonY + Math.pow(t, 1.85) * CANVAS_SIZE * 0.38;
-                renderCtx.beginPath();
-                renderCtx.moveTo(0, y);
-                renderCtx.lineTo(CANVAS_SIZE, y);
-                renderCtx.stroke();
-            }
-            for (let col = -8; col <= 8; col++) {
-                const footX = centerX + col * 64;
-                renderCtx.beginPath();
-                renderCtx.moveTo(centerX + col * 13, horizonY);
-                renderCtx.lineTo(footX, CANVAS_SIZE);
-                renderCtx.stroke();
-            }
-
-            renderCtx.globalAlpha = 1;
-            renderCtx.strokeStyle = 'rgba(255,255,255,0.5)';
-            renderCtx.lineWidth = 3;
+            const shade = renderCtx.createRadialGradient(centerX - radius * 0.34, centerY - radius * 0.42, radius * 0.08, centerX, centerY, radius);
+            shade.addColorStop(0, 'rgba(255,255,255,0.22)');
+            shade.addColorStop(0.55, 'rgba(255,255,255,0.02)');
+            shade.addColorStop(1, 'rgba(2,6,23,0.5)');
+            renderCtx.fillStyle = shade;
             renderCtx.beginPath();
-            renderCtx.moveTo(centerX - 18, CANVAS_SIZE * 0.48);
-            renderCtx.lineTo(centerX + 18, CANVAS_SIZE * 0.48);
-            renderCtx.moveTo(centerX, CANVAS_SIZE * 0.48 - 18);
-            renderCtx.lineTo(centerX, CANVAS_SIZE * 0.48 + 18);
+            renderCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            renderCtx.fill();
+
+            renderCtx.save();
+            renderCtx.beginPath();
+            renderCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            renderCtx.clip();
+            renderCtx.strokeStyle = 'rgba(103,232,249,0.22)';
+            renderCtx.lineWidth = 2;
+            for (let i = -3; i <= 3; i++) {
+                const y = centerY + i * radius / 4;
+                const w = Math.sqrt(Math.max(0, radius * radius - (y - centerY) * (y - centerY)));
+                renderCtx.beginPath();
+                renderCtx.ellipse(centerX, y, w, Math.max(5, radius * 0.055), 0, 0, Math.PI * 2);
+                renderCtx.stroke();
+            }
+            for (let i = -3; i <= 3; i++) {
+                renderCtx.beginPath();
+                renderCtx.ellipse(centerX + i * radius / 7, centerY, Math.max(6, radius * 0.08), radius, 0, 0, Math.PI * 2);
+                renderCtx.stroke();
+            }
+            renderCtx.restore();
+
+            renderCtx.strokeStyle = 'rgba(103,232,249,0.9)';
+            renderCtx.lineWidth = 4;
+            renderCtx.beginPath();
+            renderCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            renderCtx.stroke();
+            renderCtx.strokeStyle = 'rgba(15,23,42,0.82)';
+            renderCtx.lineWidth = 12;
+            renderCtx.beginPath();
+            renderCtx.arc(centerX, centerY, radius + 8, 0, Math.PI * 2);
             renderCtx.stroke();
 
-            const feetY = CANVAS_SIZE * 0.92;
-            const avatarScale = CANVAS_SIZE / 1024;
-            renderCtx.shadowColor = 'rgba(0,0,0,0.65)';
-            renderCtx.shadowBlur = 18;
-            renderCtx.fillStyle = 'rgba(0,0,0,0.35)';
-            renderCtx.beginPath();
-            renderCtx.ellipse(centerX, feetY + 4 * avatarScale, 92 * avatarScale, 18 * avatarScale, 0, 0, Math.PI * 2);
-            renderCtx.fill();
-            renderCtx.shadowBlur = 0;
-
-            const skin = '#facc15';
-            const shirt = '#38bdf8';
-            const pants = '#1d4ed8';
-            const outline = '#0f172a';
-            renderCtx.lineWidth = 5 * avatarScale;
-            renderCtx.strokeStyle = outline;
-            renderCtx.fillStyle = pants;
-            renderCtx.fillRect(centerX - 42 * avatarScale, feetY - 118 * avatarScale, 32 * avatarScale, 82 * avatarScale);
-            renderCtx.fillRect(centerX + 10 * avatarScale, feetY - 118 * avatarScale, 32 * avatarScale, 82 * avatarScale);
-            renderCtx.strokeRect(centerX - 42 * avatarScale, feetY - 118 * avatarScale, 32 * avatarScale, 82 * avatarScale);
-            renderCtx.strokeRect(centerX + 10 * avatarScale, feetY - 118 * avatarScale, 32 * avatarScale, 82 * avatarScale);
-            renderCtx.fillStyle = shirt;
-            renderCtx.fillRect(centerX - 50 * avatarScale, feetY - 198 * avatarScale, 100 * avatarScale, 82 * avatarScale);
-            renderCtx.strokeRect(centerX - 50 * avatarScale, feetY - 198 * avatarScale, 100 * avatarScale, 82 * avatarScale);
-            renderCtx.fillStyle = skin;
-            renderCtx.fillRect(centerX - 88 * avatarScale, feetY - 190 * avatarScale, 32 * avatarScale, 68 * avatarScale);
-            renderCtx.fillRect(centerX + 56 * avatarScale, feetY - 190 * avatarScale, 32 * avatarScale, 68 * avatarScale);
-            renderCtx.strokeRect(centerX - 88 * avatarScale, feetY - 190 * avatarScale, 32 * avatarScale, 68 * avatarScale);
-            renderCtx.strokeRect(centerX + 56 * avatarScale, feetY - 190 * avatarScale, 32 * avatarScale, 68 * avatarScale);
-            renderCtx.fillRect(centerX - 36 * avatarScale, feetY - 262 * avatarScale, 72 * avatarScale, 58 * avatarScale);
-            renderCtx.strokeRect(centerX - 36 * avatarScale, feetY - 262 * avatarScale, 72 * avatarScale, 58 * avatarScale);
-            renderCtx.fillStyle = '#0f172a';
-            renderCtx.fillRect(centerX - 18 * avatarScale, feetY - 242 * avatarScale, 9 * avatarScale, 9 * avatarScale);
-            renderCtx.fillRect(centerX + 9 * avatarScale, feetY - 242 * avatarScale, 9 * avatarScale, 9 * avatarScale);
-            renderCtx.fillRect(centerX - 16 * avatarScale, feetY - 220 * avatarScale, 32 * avatarScale, 5 * avatarScale);
-
-            renderCtx.fillStyle = 'rgba(2, 6, 23, 0.74)';
-            renderCtx.fillRect(32, 32, 520, 88);
+            renderCtx.fillStyle = 'rgba(2, 6, 23, 0.76)';
+            renderCtx.fillRect(32, 32, 560, 88);
             renderCtx.fillStyle = '#67e8f9';
             renderCtx.font = '900 24px Arial';
-            renderCtx.fillText('IN-GAME SKYBOX EDIT - avatar preview', 52, 72);
+            renderCtx.fillText('GLOBE SKYBOX EDIT - outside sphere', 52, 72);
             renderCtx.font = '700 14px Arial';
             renderCtx.fillStyle = 'rgba(226,232,240,0.9)';
-            renderCtx.fillText(`look yaw ${Math.round(sphereView.yaw)} deg / pitch ${Math.round(sphereView.pitch)} deg / FOV ${Math.round(sphereView.fov)} deg`, 52, 96);
-            renderCtx.fillText('drag empty sky = look around / drag image = place on sky / export = six cube faces', 52, 116);
+            renderCtx.fillText(`rotate yaw ${Math.round(sphereView.yaw)} deg / pitch ${Math.round(sphereView.pitch)} deg`, 52, 96);
+            renderCtx.fillText('drag empty globe = rotate / drag image = stick to globe / export = six cube faces', 52, 116);
             renderCtx.restore();
         }
 
@@ -4304,7 +4280,7 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.fillStyle = '#020617';
             renderCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
             renderCtx.drawImage(preview, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            drawGameAvatarOverlay(renderCtx);
+            drawGlobeEditorOverlay(renderCtx);
             const selected = getSelectedElement();
             if (selected?.spherical) drawSphericalElementOutline(renderCtx, selected);
 
@@ -4469,18 +4445,18 @@ ${created.length} images arranged on the inside spherical wall.`;
         function updateSphereEditUI() {
             const count = getAllSphericalElements().length;
             if (sphereEditToggleButton) {
-                sphereEditToggleButton.textContent = sphericalEditMode ? 'Sphere Workflow ON' : 'Flat Face Mode';
+                sphereEditToggleButton.textContent = sphericalEditMode ? 'Globe Edit ON' : 'Flat Face Mode';
                 sphereEditToggleButton.classList.toggle('success', sphericalEditMode);
                 sphereEditToggleButton.classList.toggle('primary', !sphericalEditMode);
                 sphereEditToggleButton.title = sphericalEditMode
-                    ? 'Cube map is edited as an inside sphere, then baked back into six faces on export.'
-                    : 'Direct 6-face/pair editing mode. Click to return to sphere workflow.';
+                    ? 'Cube map is wrapped onto an outside globe for editing, then baked back into six faces on export.'
+                    : 'Direct 6-face/pair editing mode. Click to return to globe workflow.';
             }
             if (sphereAutoLayoutButton) sphereAutoLayoutButton.disabled = count === 0;
             if (sphereEditStatus) {
                 sphereEditStatus.textContent = sphericalEditMode
-                    ? `Cube -> Sphere edit -> Cube export - sphere layers ${count} - drag=place/view, wheel=size`
-                    : `Flat 6-face / edge-pair edit - sphere layers ${count} - click top button to return to sphere workflow`;
+                    ? `Cube -> Globe edit -> Cube export - sphere layers ${count} - drag=place/view, wheel=size`
+                    : `Flat 6-face / edge-pair edit - sphere layers ${count} - click top button to return to globe workflow`;
             }
         }
 
@@ -5611,10 +5587,10 @@ ${created.length} images arranged on the inside spherical wall.`;
             selectedFacePair = '';
             selectedId = sphericalEditMode ? (getAllSphericalElements()[0]?.id || null) : null;
             lastBackgroundUploadReport = sphericalEditMode
-                ? `[Sphere Workflow]
-Cube map is now edited as an inside sphere. Export bakes it back into six warped faces.`
+                ? `[Globe Workflow]
+Cube map is now wrapped onto an outside globe. Export bakes it back into six warped faces.`
                 : `[Flat Face Mode]
-Direct 6-face editing helper mode. Click Sphere Workflow to return.`;
+Direct 6-face editing helper mode. Click Globe Edit to return.`;
             render();
         });
         sphereResetViewButton?.addEventListener('click', () => {
