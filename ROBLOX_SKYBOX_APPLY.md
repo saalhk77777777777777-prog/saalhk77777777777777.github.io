@@ -181,11 +181,13 @@ powershell -ExecutionPolicy Bypass -File .\tools\new-skybox-handoff-summary.ps1
 ## 버전 올리기
 
 ```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\get-skybox-version.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\get-skybox-version.ps1 -Json
 powershell -ExecutionPolicy Bypass -File .\tools\bump-skybox-version.ps1
 powershell -ExecutionPolicy Bypass -File .\tools\bump-skybox-version.ps1 -Version 2026.06.03.59
 ```
 
-`app.js`의 `APP_VERSION`과 `index.html`의 `app.js?v=` 캐시버스터를 함께 바꿉니다.
+`get-skybox-version.ps1`은 `APP_VERSION`과 `app.js?v=` 캐시버스터가 일치하는지 읽기 전용으로 확인합니다. `bump-skybox-version.ps1`은 두 값을 함께 바꿉니다.
 
 ## 릴리스 준비
 

@@ -52,8 +52,7 @@ Invoke-Soft {
 
 Write-Section "Version"
 Invoke-Soft {
-    Select-String -LiteralPath "app.js", "index.html" -Pattern "const APP_VERSION|app\.js\?v=" |
-        ForEach-Object { Write-Host ("{0}:{1}: {2}" -f $_.Path, $_.LineNumber, $_.Line.Trim()) }
+    powershell -ExecutionPolicy Bypass -File ".\tools\get-skybox-version.ps1"
 }
 
 Write-Section "Local Server"

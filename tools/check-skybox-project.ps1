@@ -34,6 +34,38 @@ function Assert-VersionCachebusterMatch {
     Write-Host "OK version $appVersion"
 }
 
+function Assert-SkyboxVersionReaderWiring {
+    $versionPath = "tools\get-skybox-version.ps1"
+    if (-not (Test-Path -LiteralPath $versionPath -PathType Leaf)) {
+        throw "Skybox version reader is missing: $versionPath"
+    }
+
+    $versionScript = Get-Content -LiteralPath $versionPath -Raw
+    $readyScript = Get-Content -LiteralPath "tools\show-skybox-ready-state.ps1" -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+    $required = @(
+        "[switch]`$Json",
+        "APP_VERSION",
+        "app.js?v=",
+        "ExpectedAppVersion",
+        "Version/cachebuster mismatch",
+        "Skybox version"
+    )
+    foreach ($needle in $required) {
+        if (-not $versionScript.Contains($needle)) {
+            throw "Skybox version reader is missing behavior: $needle"
+        }
+    }
+    if (-not $readyScript.Contains("get-skybox-version.ps1")) {
+        throw "Ready state does not use skybox version reader."
+    }
+    if (-not $docs.Contains("get-skybox-version.ps1")) {
+        throw "Roblox apply docs do not mention skybox version reader."
+    }
+
+    Write-Host "OK skybox version reader wiring"
+}
+
 function Assert-NoEncodingMojibake {
     $utf8 = [System.Text.Encoding]::UTF8
     $paths = @(
@@ -649,7 +681,7 @@ function Assert-SkyboxReadyStateWiring {
         "export-current-roblox-skybox.ps1",
         "clean-skybox-generated-files.ps1",
         "measure-skybox-reclaimable-space.ps1",
-        "const APP_VERSION|app\.js\?v=",
+        "get-skybox-version.ps1",
         "LowDiskWarningGB",
         "WARN: free space is below",
         "Git Sync",
@@ -910,6 +942,7 @@ Get-ChildItem -LiteralPath "tools" -File -Filter "*.ps1" |
 Assert-PowerShellScriptParses -Path ".\run-local.ps1"
 
 Assert-VersionCachebusterMatch
+Assert-SkyboxVersionReaderWiring
 Assert-NoEncodingMojibake
 Assert-GitAttributesWiring
 Assert-GitIgnoreWiring
