@@ -5,6 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function Resolve-ExistingDirectory {
     param([string]$Path, [string]$Label)
@@ -13,6 +14,22 @@ function Resolve-ExistingDirectory {
         throw "$Label is not a directory: $Path"
     }
     return $resolved.Path
+}
+
+function Test-SkyboxZip {
+    param([string]$Path)
+    $archive = $null
+    try {
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($Path)
+        $textureCount = @($archive.Entries | Where-Object { $_.FullName -match "(^|/)sky512_[^/]+\.tex$" }).Count
+        return $textureCount -ge 6
+    } catch {
+        return $false
+    } finally {
+        if ($archive) {
+            $archive.Dispose()
+        }
+    }
 }
 
 function Find-LatestSkyboxZip {
@@ -24,8 +41,8 @@ function Find-LatestSkyboxZip {
         if (Test-Path -LiteralPath $folder) {
             $candidates += Get-ChildItem -LiteralPath $folder -File -Filter "*.zip" -ErrorAction SilentlyContinue |
                 Where-Object {
-                    $_.Name -match "skybox|sky512|studio|pack|comparison" -or
-                    (Select-String -LiteralPath $_.FullName -Pattern "sky512_" -Quiet -ErrorAction SilentlyContinue)
+                    $_.Name -notmatch "\.crdownload$|\.tmp$" -and
+                    (Test-SkyboxZip -Path $_.FullName)
                 }
         }
     }

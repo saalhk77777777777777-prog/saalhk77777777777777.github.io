@@ -5,6 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $installer = Join-Path $PSScriptRoot "install-latest-skybox-to-roblox.ps1"
 if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
@@ -16,11 +17,27 @@ if (-not (Test-Path -LiteralPath $resolvedWatchDirectory -PathType Container)) {
     throw "WatchDirectory is not a directory: $resolvedWatchDirectory"
 }
 
+function Test-SkyboxZip {
+    param([string]$Path)
+    $archive = $null
+    try {
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($Path)
+        $textureCount = @($archive.Entries | Where-Object { $_.FullName -match "(^|/)sky512_[^/]+\.tex$" }).Count
+        return $textureCount -ge 6
+    } catch {
+        return $false
+    } finally {
+        if ($archive) {
+            $archive.Dispose()
+        }
+    }
+}
+
 function Get-SkyboxZipCandidates {
     Get-ChildItem -LiteralPath $resolvedWatchDirectory -File -Filter "*.zip" -ErrorAction SilentlyContinue |
         Where-Object {
-            $_.Name -match "skybox|sky512|studio|pack|comparison" -and
-            $_.Name -notmatch "\.crdownload$|\.tmp$"
+            $_.Name -notmatch "\.crdownload$|\.tmp$" -and
+            (Test-SkyboxZip -Path $_.FullName)
         } |
         Sort-Object LastWriteTime -Descending
 }
