@@ -823,6 +823,8 @@ function Assert-SkyboxReadyStateWiring {
         "Optional Image Sample Reclaimable Dry Run",
         "-IncludeImageSamples",
         "get-skybox-version.ps1",
+        "test-skybox-ui-text.ps1",
+        "UI Text",
         "LowDiskWarningGB",
         "WARN: free space is below",
         "Git Sync",

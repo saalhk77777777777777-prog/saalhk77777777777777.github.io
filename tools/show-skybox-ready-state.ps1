@@ -55,6 +55,11 @@ Invoke-Soft {
     powershell -ExecutionPolicy Bypass -File ".\tools\get-skybox-version.ps1"
 }
 
+Write-Section "UI Text"
+Invoke-Soft {
+    powershell -ExecutionPolicy Bypass -File ".\tools\test-skybox-ui-text.ps1"
+}
+
 Write-Section "Local Server"
 Invoke-Soft {
     $response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$Port/index.html" -TimeoutSec 3
