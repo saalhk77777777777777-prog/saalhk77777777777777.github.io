@@ -77,6 +77,25 @@ Add-CommandBlock -Title "Validation" -Body {
     powershell -ExecutionPolicy Bypass -File ".\tools\check-skybox-project.ps1"
 }
 
+Add-CommandBlock -Title "Generated Artifacts" -Body {
+    $artifactPatterns = @(
+        "skybox-diagnostics-*.txt",
+        "skybox-handoff-*.md",
+        "skybox_studio_pack_*.zip"
+    )
+    $artifacts = foreach ($pattern in $artifactPatterns) {
+        Get-ChildItem -LiteralPath $exportsDirectory -Filter $pattern -File -ErrorAction SilentlyContinue
+    }
+    $artifacts = @($artifacts | Sort-Object LastWriteTime -Descending | Select-Object -First 12)
+    if ($artifacts.Count -eq 0) {
+        "No generated artifacts found in exports."
+    } else {
+        $artifacts | ForEach-Object {
+            "- {0}  {1:N2} MB  {2:o}" -f $_.FullName, ($_.Length / 1MB), $_.LastWriteTime
+        }
+    }
+}
+
 Add-CommandBlock -Title "Handoff Sensitive Text Scan" -Body {
     $patterns = "REMOVE_BG|API[_ -]?KEY|SECRET|TOKEN|PASSWORD"
     $matches = Select-String -LiteralPath $summaryPath -Pattern $patterns -CaseSensitive:$false |
