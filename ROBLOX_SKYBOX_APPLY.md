@@ -26,6 +26,12 @@ powershell -ExecutionPolicy Bypass -File .\tools\install-latest-skybox-to-roblox
 Get-Content .\exports\skybox-download-watcher.log -Tail 40
 ```
 
+## 마지막 적용 이력 확인
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\show-last-roblox-skybox-install.ps1
+```
+
 ## Roblox 확인 흐름
 
 1. 앱에서 `Sphere -> 6 Faces ZIP` 다운로드
