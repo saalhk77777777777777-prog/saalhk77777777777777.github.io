@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.02.12';
+        const APP_VERSION = 'v2026.06.02.13';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -50,7 +50,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         let snapToGrid = false;
         let layoutMode = 'pc';
         let sphericalEditMode = true;
-        let sphereView = { yaw: 0, pitch: 0, fov: 96 };
+        let sphereView = { yaw: 0, pitch: 0, fov: 96, zoom: 1 };
         let sphereDragState = null;
         const canvasPointers = new Map();
         let pinchState = null;
@@ -373,9 +373,12 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                 depth
             };
         }
+        function getGlobeViewRadius(width = CANVAS_SIZE, height = CANVAS_SIZE) {
+            return Math.min(width, height) * 0.43 * clamp(Number(sphereView.zoom || 1), 0.55, 1.8);
+        }
         function globeDirectionFromCanvasPoint(x, y, width = CANVAS_SIZE, height = CANVAS_SIZE) {
             const basis = getSphereBasis();
-            const radius = Math.min(width, height) * 0.43;
+            const radius = getGlobeViewRadius(width, height);
             const nx = (x - width / 2) / radius;
             const ny = (height / 2 - y) / radius;
             const distanceSquared = nx * nx + ny * ny;
@@ -395,7 +398,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             const px = dot3(dir, basis.right);
             const py = dot3(dir, basis.up);
             if (px * px + py * py > 1.04) return null;
-            const radius = Math.min(width, height) * 0.43;
+            const radius = getGlobeViewRadius(width, height);
             return {
                 x: width / 2 + px * radius,
                 y: height / 2 - py * radius,
@@ -4212,10 +4215,66 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.drawImage(overlay, 0, 0);
         }
 
+        function directionFromGlobeLonLat(lonDeg, latDeg) {
+            const lon = degToRad(lonDeg);
+            const lat = degToRad(latDeg);
+            const cosLat = Math.cos(lat);
+            return normalizeVector({
+                x: Math.sin(lon) * cosLat,
+                y: Math.sin(lat),
+                z: Math.cos(lon) * cosLat
+            });
+        }
+
+        function drawProjectedGlobeLine(renderCtx, points, style = {}) {
+            renderCtx.save();
+            renderCtx.strokeStyle = style.color || 'rgba(103,232,249,0.28)';
+            renderCtx.lineWidth = style.width || 2;
+            if (style.dash) renderCtx.setLineDash(style.dash);
+            renderCtx.beginPath();
+            let drawing = false;
+            points.forEach(direction => {
+                const point = projectDirectionToGlobeView(direction);
+                if (!point || point.depth < -0.01) {
+                    drawing = false;
+                    return;
+                }
+                if (!drawing) {
+                    renderCtx.moveTo(point.x, point.y);
+                    drawing = true;
+                } else {
+                    renderCtx.lineTo(point.x, point.y);
+                }
+            });
+            renderCtx.stroke();
+            renderCtx.restore();
+        }
+
+        function drawGlobeSurfaceGrid(renderCtx) {
+            const latitudes = [-60, -30, 0, 30, 60];
+            const longitudes = Array.from({ length: 12 }, (_, index) => index * 30);
+            latitudes.forEach(lat => {
+                const points = [];
+                for (let lon = -180; lon <= 180; lon += 3) points.push(directionFromGlobeLonLat(lon, lat));
+                drawProjectedGlobeLine(renderCtx, points, {
+                    color: lat === 0 ? 'rgba(250,204,21,0.45)' : 'rgba(103,232,249,0.24)',
+                    width: lat === 0 ? 2.6 : 1.6
+                });
+            });
+            longitudes.forEach(lon => {
+                const points = [];
+                for (let lat = -86; lat <= 86; lat += 3) points.push(directionFromGlobeLonLat(lon, lat));
+                drawProjectedGlobeLine(renderCtx, points, {
+                    color: lon % 90 === 0 ? 'rgba(248,113,113,0.34)' : 'rgba(103,232,249,0.2)',
+                    width: lon % 90 === 0 ? 2.2 : 1.4
+                });
+            });
+        }
+
         function drawGlobeEditorOverlay(renderCtx) {
             const centerX = CANVAS_SIZE / 2;
             const centerY = CANVAS_SIZE / 2;
-            const radius = CANVAS_SIZE * 0.43;
+            const radius = getGlobeViewRadius();
             renderCtx.save();
             const shade = renderCtx.createRadialGradient(centerX - radius * 0.34, centerY - radius * 0.42, radius * 0.08, centerX, centerY, radius);
             shade.addColorStop(0, 'rgba(255,255,255,0.22)');
@@ -4226,25 +4285,7 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
             renderCtx.fill();
 
-            renderCtx.save();
-            renderCtx.beginPath();
-            renderCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            renderCtx.clip();
-            renderCtx.strokeStyle = 'rgba(103,232,249,0.22)';
-            renderCtx.lineWidth = 2;
-            for (let i = -3; i <= 3; i++) {
-                const y = centerY + i * radius / 4;
-                const w = Math.sqrt(Math.max(0, radius * radius - (y - centerY) * (y - centerY)));
-                renderCtx.beginPath();
-                renderCtx.ellipse(centerX, y, w, Math.max(5, radius * 0.055), 0, 0, Math.PI * 2);
-                renderCtx.stroke();
-            }
-            for (let i = -3; i <= 3; i++) {
-                renderCtx.beginPath();
-                renderCtx.ellipse(centerX + i * radius / 7, centerY, Math.max(6, radius * 0.08), radius, 0, 0, Math.PI * 2);
-                renderCtx.stroke();
-            }
-            renderCtx.restore();
+            drawGlobeSurfaceGrid(renderCtx);
 
             renderCtx.strokeStyle = 'rgba(103,232,249,0.9)';
             renderCtx.lineWidth = 4;
@@ -4264,8 +4305,8 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.fillText('GLOBE SKYBOX EDIT - outside sphere', 52, 72);
             renderCtx.font = '700 14px Arial';
             renderCtx.fillStyle = 'rgba(226,232,240,0.9)';
-            renderCtx.fillText(`rotate yaw ${Math.round(sphereView.yaw)} deg / pitch ${Math.round(sphereView.pitch)} deg`, 52, 96);
-            renderCtx.fillText('drag empty globe = rotate / drag image = stick to globe / export = six cube faces', 52, 116);
+            renderCtx.fillText(`rotate yaw ${Math.round(sphereView.yaw)} deg / pitch ${Math.round(sphereView.pitch)} deg / zoom ${Number(sphereView.zoom || 1).toFixed(2)}x`, 52, 96);
+            renderCtx.fillText('drag empty globe = rotate / wheel empty globe = zoom / drag image = stick to globe', 52, 116);
             renderCtx.restore();
         }
 
@@ -4484,7 +4525,7 @@ ${created.length} images arranged on the inside spherical wall.`;
             if (sphereAutoLayoutButton) sphereAutoLayoutButton.disabled = count === 0;
             if (sphereEditStatus) {
                 sphereEditStatus.textContent = sphericalEditMode
-                    ? `Cube -> Globe edit -> Cube export - sphere layers ${count} - drag=place/view, wheel=size`
+                    ? `Cube -> Globe edit -> Cube export - sphere layers ${count} - drag=place/view, empty wheel=globe zoom, selected wheel=size`
                     : `Flat 6-face / edge-pair edit - sphere layers ${count} - click top button to return to globe workflow`;
             }
         }
@@ -5555,18 +5596,27 @@ ${created.length} images arranged on the inside spherical wall.`;
                 syncCanvasView();
                 return;
             }
-            const selected = getSelectedElement();
-            if (!selected || selected.locked) return;
-            if (sphericalEditMode && selected.spherical) {
-                if (event.shiftKey) selected.rotation = clamp(selected.rotation + (event.deltaY > 0 ? 3 : -3), -180, 180);
-                else {
-                    const delta = event.deltaY > 0 ? -1.4 : 1.4;
-                    selected.sphereWidth = clamp((selected.sphereWidth || 24) + delta, 2, 140);
-                    selected.sphereHeight = clamp((selected.sphereHeight || 12) + delta * 0.6, 2, 100);
+            if (sphericalEditMode) {
+                const point = pointToCanvasPosition(event);
+                const hoverTarget = findTopElementAt(point.x, point.y);
+                const selected = getSelectedElement();
+                if (hoverTarget && selected && hoverTarget.id === selected.id && selected.spherical) {
+                    if (selected.locked) return;
+                    if (event.shiftKey) selected.rotation = clamp(selected.rotation + (event.deltaY > 0 ? 3 : -3), -180, 180);
+                    else {
+                        const delta = event.deltaY > 0 ? -1.4 : 1.4;
+                        selected.sphereWidth = clamp((selected.sphereWidth || 24) + delta, 2, 140);
+                        selected.sphereHeight = clamp((selected.sphereHeight || 12) + delta * 0.6, 2, 100);
+                    }
+                    render();
+                    return;
                 }
+                sphereView.zoom = clamp((sphereView.zoom || 1) + (event.deltaY > 0 ? -0.08 : 0.08), 0.55, 1.8);
                 render();
                 return;
             }
+            const selected = getSelectedElement();
+            if (!selected || selected.locked) return;
             if (event.shiftKey) selected.rotation = clamp(selected.rotation + (event.deltaY > 0 ? 3 : -3), -180, 180);
             else selected.scale = clamp(selected.scale + (event.deltaY > 0 ? -0.04 : 0.04), 0.05, 4);
             render();
@@ -5623,7 +5673,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             render();
         });
         sphereResetViewButton?.addEventListener('click', () => {
-            sphereView = { yaw: 0, pitch: 0, fov: 96 };
+            sphereView = { yaw: 0, pitch: 0, fov: 96, zoom: 1 };
             render();
         });
         sphereAutoLayoutButton?.addEventListener('click', () => {
