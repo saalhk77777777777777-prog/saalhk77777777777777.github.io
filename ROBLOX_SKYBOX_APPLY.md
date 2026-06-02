@@ -146,7 +146,7 @@ powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps
 powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1 -Apply
 ```
 
-The default command is a dry run. It only targets generated skybox ZIPs in `Downloads`/`exports` and old `skybox-diagnostics-*.txt` reports in `exports`.
+The default command is a dry run. It only targets generated skybox ZIPs in `Downloads`/`exports`, old `skybox-diagnostics-*.txt` reports, and old `skybox-handoff-*.md` summaries in `exports`.
 
 ## Create compact handoff summary
 

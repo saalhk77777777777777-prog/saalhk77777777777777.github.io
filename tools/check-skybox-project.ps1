@@ -525,8 +525,11 @@ function Assert-SkyboxGeneratedCleanupWiring {
         "`$dryRun = -not `$Apply",
         "clean-old-skybox-zips.ps1",
         "skybox-diagnostics-*.txt",
+        "skybox-handoff-*.md",
         "KeepZipCount",
-        "KeepDiagnosticsCount"
+        "KeepDiagnosticsCount",
+        "KeepHandoffCount",
+        "Invoke-GeneratedFileCleanup"
     )
     foreach ($needle in $required) {
         if (-not $cleanupScript.Contains($needle)) {

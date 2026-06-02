@@ -1,6 +1,7 @@
 param(
     [int]$KeepZipCount = 5,
     [int]$KeepDiagnosticsCount = 5,
+    [int]$KeepHandoffCount = 5,
     [switch]$Apply
 )
 
@@ -32,21 +33,26 @@ function Invoke-ZipCleanup {
     powershell @args
 }
 
-function Invoke-DiagnosticsCleanup {
-    param([string]$Directory)
+function Invoke-GeneratedFileCleanup {
+    param(
+        [string]$Directory,
+        [string]$Filter,
+        [string]$Label,
+        [int]$KeepCount
+    )
     if (-not (Test-Path -LiteralPath $Directory -PathType Container)) {
-        Write-Host "Skip missing diagnostics directory: $Directory"
+        Write-Host "Skip missing $Label directory: $Directory"
         return
     }
 
-    $reports = @(Get-ChildItem -LiteralPath $Directory -File -Filter "skybox-diagnostics-*.txt" -ErrorAction SilentlyContinue |
+    $files = @(Get-ChildItem -LiteralPath $Directory -File -Filter $Filter -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending)
-    $removeTargets = @($reports | Select-Object -Skip $KeepDiagnosticsCount)
+    $removeTargets = @($files | Select-Object -Skip $KeepCount)
 
     Write-Host ""
-    Write-Host "Diagnostics cleanup: $Directory"
-    Write-Host "Diagnostics found: $($reports.Count)"
-    Write-Host "Keeping newest: $KeepDiagnosticsCount"
+    Write-Host "$Label cleanup: $Directory"
+    Write-Host "$Label found: $($files.Count)"
+    Write-Host "Keeping newest: $KeepCount"
 
     if ($removeTargets.Count -eq 0) {
         Write-Host "Nothing to remove."
@@ -73,7 +79,9 @@ Write-Host "Skybox generated file cleanup"
 Write-Host $modeText
 Write-Host "KeepZipCount: $KeepZipCount"
 Write-Host "KeepDiagnosticsCount: $KeepDiagnosticsCount"
+Write-Host "KeepHandoffCount: $KeepHandoffCount"
 
 Invoke-ZipCleanup -Directory $downloadsDirectory
 Invoke-ZipCleanup -Directory $exportsDirectory
-Invoke-DiagnosticsCleanup -Directory $exportsDirectory
+Invoke-GeneratedFileCleanup -Directory $exportsDirectory -Filter "skybox-diagnostics-*.txt" -Label "Diagnostics" -KeepCount $KeepDiagnosticsCount
+Invoke-GeneratedFileCleanup -Directory $exportsDirectory -Filter "skybox-handoff-*.md" -Label "Handoff summaries" -KeepCount $KeepHandoffCount
