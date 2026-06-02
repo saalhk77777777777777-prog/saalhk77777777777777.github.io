@@ -74,6 +74,36 @@ function Invoke-GeneratedFileCleanup {
     Write-Host ("{0}: {1:N2} KB" -f $mode, ($totalBytes / 1KB))
 }
 
+function Write-ExportsSizeSummary {
+    param([string]$Directory)
+    if (-not (Test-Path -LiteralPath $Directory -PathType Container)) {
+        return
+    }
+
+    $files = @(Get-ChildItem -LiteralPath $Directory -File -ErrorAction SilentlyContinue)
+    if ($files.Count -eq 0) {
+        return
+    }
+
+    $groups = [ordered]@{
+        "Skybox ZIPs" = @($files | Where-Object { $_.Extension -eq ".zip" })
+        "Diagnostics" = @($files | Where-Object { $_.Name -like "skybox-diagnostics-*.txt" })
+        "Handoff summaries" = @($files | Where-Object { $_.Name -like "skybox-handoff-*.md" })
+        "Watcher logs" = @($files | Where-Object { $_.Name -like "skybox-*.log" })
+    }
+
+    $knownNames = @($groups.Values | ForEach-Object { $_ } | ForEach-Object { $_.FullName })
+    $groups["Other exports"] = @($files | Where-Object { $knownNames -notcontains $_.FullName })
+
+    Write-Host ""
+    Write-Host "Exports size summary: $Directory"
+    foreach ($entry in $groups.GetEnumerator()) {
+        $count = @($entry.Value).Count
+        $bytes = (@($entry.Value) | Measure-Object -Property Length -Sum).Sum
+        Write-Host ("- {0}: {1} files, {2:N2} MB" -f $entry.Key, $count, ($bytes / 1MB))
+    }
+}
+
 $modeText = if ($dryRun) { "DRY RUN - no files will be removed" } else { "APPLY - matching old generated files will be removed" }
 Write-Host "Skybox generated file cleanup"
 Write-Host $modeText
@@ -85,3 +115,4 @@ Invoke-ZipCleanup -Directory $downloadsDirectory
 Invoke-ZipCleanup -Directory $exportsDirectory
 Invoke-GeneratedFileCleanup -Directory $exportsDirectory -Filter "skybox-diagnostics-*.txt" -Label "Diagnostics" -KeepCount $KeepDiagnosticsCount
 Invoke-GeneratedFileCleanup -Directory $exportsDirectory -Filter "skybox-handoff-*.md" -Label "Handoff summaries" -KeepCount $KeepHandoffCount
+Write-ExportsSizeSummary -Directory $exportsDirectory

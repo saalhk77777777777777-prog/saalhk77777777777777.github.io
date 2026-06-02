@@ -531,7 +531,9 @@ function Assert-SkyboxGeneratedCleanupWiring {
         "KeepZipCount",
         "KeepDiagnosticsCount",
         "KeepHandoffCount",
-        "Invoke-GeneratedFileCleanup"
+        "Invoke-GeneratedFileCleanup",
+        "Write-ExportsSizeSummary",
+        "Other exports"
     )
     foreach ($needle in $required) {
         if (-not $cleanupScript.Contains($needle)) {
