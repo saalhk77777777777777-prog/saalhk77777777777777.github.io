@@ -50,7 +50,11 @@ Add-ReportSection -Title "Git" -Body {
 }
 
 Add-ReportSection -Title "App Version" -Body {
-    Select-String -LiteralPath "app.js", "index.html" -Pattern "APP_VERSION|app\.js\?v="
+    powershell -ExecutionPolicy Bypass -File ".\tools\get-skybox-version.ps1"
+}
+
+Add-ReportSection -Title "Local Asset References" -Body {
+    powershell -ExecutionPolicy Bypass -File ".\tools\test-skybox-local-assets.ps1"
 }
 
 Add-ReportSection -Title "Project Check" -Body {

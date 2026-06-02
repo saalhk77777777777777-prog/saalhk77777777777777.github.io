@@ -512,6 +512,9 @@ function Assert-DiagnosticsReportWiring {
     $required = @(
         "skybox-diagnostics-",
         "check-skybox-project.ps1",
+        "get-skybox-version.ps1",
+        "test-skybox-local-assets.ps1",
+        "Local Asset References",
         "show-skybox-watcher-status.ps1",
         "test-roblox-sky-folder.ps1",
         "list-skybox-zips.ps1",
