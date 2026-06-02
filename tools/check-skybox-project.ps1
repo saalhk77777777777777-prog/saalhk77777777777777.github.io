@@ -107,6 +107,37 @@ function Assert-ExportManifestWiring {
     Write-Host "OK export manifest wiring"
 }
 
+function Assert-RobloxBackupRetentionWiring {
+    $installer = Get-Content -LiteralPath "tools\install-latest-skybox-to-roblox.ps1" -Raw
+    $watcher = Get-Content -LiteralPath "tools\watch-skybox-downloads.ps1" -Raw
+    $starter = Get-Content -LiteralPath "tools\start-skybox-watcher.ps1" -Raw
+    $docs = Get-Content -LiteralPath "ROBLOX_SKYBOX_APPLY.md" -Raw
+
+    $requiredInstaller = @(
+        "[int]`$MaxBackups = 5",
+        "function Remove-OldSkyboxBackups",
+        "Select-Object -Skip `$KeepCount",
+        "Remove-OldSkyboxBackups -SkyDirectory `$skyDirectory -KeepCount `$MaxBackups"
+    )
+    foreach ($needle in $requiredInstaller) {
+        if (-not $installer.Contains($needle)) {
+            throw "Missing Roblox backup retention wiring in installer: $needle"
+        }
+    }
+
+    if (-not $watcher.Contains('[int]$MaxBackups = 5') -or -not $watcher.Contains('"-MaxBackups", "$MaxBackups"')) {
+        throw "Watcher does not pass MaxBackups to installer."
+    }
+    if (-not $starter.Contains('[int]$MaxBackups = 5') -or -not $starter.Contains('-MaxBackups $MaxBackups')) {
+        throw "Watcher launcher does not expose MaxBackups."
+    }
+    if ($docs -notlike '*MaxBackups*' -and $docs -notlike '*최근 5개*') {
+        throw "Roblox apply docs do not mention backup retention."
+    }
+
+    Write-Host "OK Roblox backup retention wiring"
+}
+
 node --check app.js | Out-Host
 Write-Host "OK node syntax"
 
@@ -117,6 +148,7 @@ Get-ChildItem -LiteralPath "tools" -File -Filter "*.ps1" |
 Assert-VersionCachebusterMatch
 Assert-ElementIdsExist
 Assert-ExportManifestWiring
+Assert-RobloxBackupRetentionWiring
 Assert-HttpLoads
 
 Write-Host "All skybox project checks passed."
