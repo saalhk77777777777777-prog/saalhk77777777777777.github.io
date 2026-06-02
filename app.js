@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.03.82';
+        const APP_VERSION = 'v2026.06.03.83';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -3365,11 +3365,11 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                 await addImagesToFacePair(files);
                 return;
             }
-            showLoading('???? ???? ???? ???.');
+            showLoading('이미지를 불러오는 중입니다.');
             const created = [];
             try {
                 for (const file of files) {
-                    showLoading(`??? ??? ?? ?...
+                    showLoading(`이미지 처리 중...
 ${file.name}`);
                     try {
                         const image = await fileToImage(file);
@@ -3381,7 +3381,7 @@ ${file.name}`);
                         getFaceState().elements.push(element);
                         selectedId = element.id;
                     } catch (error) {
-                        alert(`??? ?? ??: ${file.name}
+                        alert(`이미지 추가 실패: ${file.name}
 ${error.message}`);
                     }
                 }
@@ -4731,8 +4731,8 @@ ${created.length} images arranged on the inside spherical wall.`;
                         <div class="flex items-center gap-3">
                             ${thumb}
                             <div class="min-w-0 flex-1">
-                                <div class="text-sm font-bold truncate">${element.locked ? '?? ' : ''}${element.name}</div>
-                                <div class="text-[11px] text-slate-400 uppercase tracking-[0.18em]">${element.spherical ? 'SPHERE' : element.type} ? ${elements.length - index}</div>
+                                <div class="text-sm font-bold truncate">${element.locked ? '잠금 ' : ''}${element.name}</div>
+                                <div class="text-[11px] text-slate-400 uppercase tracking-[0.18em]">${element.spherical ? 'SPHERE' : element.type} · ${elements.length - index}</div>
                             </div>
                             <button class="text-xs font-black text-slate-400 hover:text-white transition-colors" data-toggle-id="${element.id}">${element.visible ? 'ON' : 'OFF'}</button>
                         </div>
@@ -5088,11 +5088,11 @@ ${created.length} images arranged on the inside spherical wall.`;
                 </div>
                 ${selected.spherical ? `
                 <div class="property-group space-y-4">
-                    <div class="property-label">?? ??</div>
-                    ${rangeField({ label: 'Yaw', key: 'sphereYaw', min: -180, max: 180, step: 1, value: Math.round(selected.sphereYaw || 0), unit: '?' })}
-                    ${rangeField({ label: 'Pitch', key: 'spherePitch', min: -85, max: 85, step: 1, value: Math.round(selected.spherePitch || 0), unit: '?' })}
-                    ${rangeField({ label: '?? ??', key: 'sphereWidth', min: 2, max: 140, step: 1, value: Math.round(selected.sphereWidth || 24), unit: '?' })}
-                    ${rangeField({ label: '?? ??', key: 'sphereHeight', min: 2, max: 100, step: 1, value: Math.round(selected.sphereHeight || 12), unit: '?' })}
+                    <div class="property-label">구형 위치</div>
+                    ${rangeField({ label: 'Yaw', key: 'sphereYaw', min: -180, max: 180, step: 1, value: Math.round(selected.sphereYaw || 0), unit: '°' })}
+                    ${rangeField({ label: 'Pitch', key: 'spherePitch', min: -85, max: 85, step: 1, value: Math.round(selected.spherePitch || 0), unit: '°' })}
+                    ${rangeField({ label: '가로 각도', key: 'sphereWidth', min: 2, max: 140, step: 1, value: Math.round(selected.sphereWidth || 24), unit: '°' })}
+                    ${rangeField({ label: '세로 각도', key: 'sphereHeight', min: 2, max: 100, step: 1, value: Math.round(selected.sphereHeight || 12), unit: '°' })}
                 </div>` : ''}
                 <div class="property-group space-y-4">
                     <div class="property-label">캔바 스타일 빠른 작업</div>

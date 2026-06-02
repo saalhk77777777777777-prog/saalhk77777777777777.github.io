@@ -86,7 +86,12 @@ function Assert-NoEncodingMojibake {
         [string]::new([char[]]@(0x8E42, 0xB301)),
         [string]::new([char[]]@(0x6E72, 0xACD5)),
         [string]::new([char[]]@(0x73E5, 0xB347)),
-        [string]::new([char[]]@(0x6FE1, 0xC496))
+        [string]::new([char[]]@(0x6FE1, 0xC496)),
+        "showLoading('????",
+        "?? ??",
+        "element.locked ? '?? ",
+        "} ? `${elements.length",
+        "unit: '?'"
     )
     $hits = @()
 
