@@ -96,6 +96,31 @@ function Assert-NoEncodingMojibake {
     Write-Host "OK no mojibake text"
 }
 
+function Assert-GitAttributesWiring {
+    $attributesPath = ".gitattributes"
+    if (-not (Test-Path -LiteralPath $attributesPath -PathType Leaf)) {
+        throw ".gitattributes is missing."
+    }
+
+    $attributes = Get-Content -LiteralPath $attributesPath -Raw
+    $required = @(
+        "*.html text eol=lf",
+        "*.js text eol=lf",
+        "*.md text eol=lf",
+        "*.ps1 text eol=lf",
+        "*.png binary",
+        "*.zip binary",
+        "*.tex binary"
+    )
+    foreach ($needle in $required) {
+        if (-not $attributes.Contains($needle)) {
+            throw ".gitattributes is missing rule: $needle"
+        }
+    }
+
+    Write-Host "OK gitattributes"
+}
+
 function Assert-ElementIdsExist {
     $html = Get-Content -LiteralPath "index.html" -Raw
     $js = Get-Content -LiteralPath "app.js" -Raw
@@ -861,6 +886,7 @@ Assert-PowerShellScriptParses -Path ".\run-local.ps1"
 
 Assert-VersionCachebusterMatch
 Assert-NoEncodingMojibake
+Assert-GitAttributesWiring
 Assert-ElementIdsExist
 Assert-ExportManifestWiring
 Assert-RobloxBackupRetentionWiring
