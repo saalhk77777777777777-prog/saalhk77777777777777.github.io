@@ -34,6 +34,68 @@ function Assert-VersionCachebusterMatch {
     Write-Host "OK version $appVersion"
 }
 
+function Assert-NoEncodingMojibake {
+    $utf8 = [System.Text.Encoding]::UTF8
+    $paths = @(
+        "index.html",
+        "app.js",
+        "ROBLOX_SKYBOX_APPLY.md"
+    )
+    $mojibakeFragments = @(
+        [string]([char]0xFFFD),
+        [string]::new([char[]]@(0x003F, 0xAFA9)),
+        [string]::new([char[]]@(0x003F, 0xB300)),
+        [string]::new([char[]]@(0x003F, 0xB6AF)),
+        [string]::new([char[]]@(0x003F, 0xC10E)),
+        [string]::new([char[]]@(0x8ADB, 0xACCC)),
+        [string]::new([char[]]@(0x63F4, 0x044B)),
+        [string]::new([char[]]@(0x5A9B, 0x0080)),
+        [string]::new([char[]]@(0xF9CE, 0x003F)),
+        [string]::new([char[]]@(0x8E42, 0xB301)),
+        [string]::new([char[]]@(0x6E72, 0xACD5)),
+        [string]::new([char[]]@(0x73E5, 0xB347)),
+        [string]::new([char[]]@(0x6FE1, 0xC496))
+    )
+    $hits = @()
+
+    foreach ($path in $paths) {
+        $text = [System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $path).Path, $utf8)
+        $hasMojibake = $false
+        foreach ($fragment in $mojibakeFragments) {
+            if ($text.Contains($fragment)) {
+                $hasMojibake = $true
+                break
+            }
+        }
+        if (-not $hasMojibake) {
+            continue
+        }
+
+        $lines = $text -split "`r?`n"
+        for ($index = 0; $index -lt $lines.Count; $index++) {
+            $lineHasMojibake = $false
+            foreach ($fragment in $mojibakeFragments) {
+                if ($lines[$index].Contains($fragment)) {
+                    $lineHasMojibake = $true
+                    break
+                }
+            }
+            if ($lineHasMojibake) {
+                $hits += ("{0}:{1}: {2}" -f $path, ($index + 1), $lines[$index].Trim())
+                if ($hits.Count -ge 8) {
+                    break
+                }
+            }
+        }
+    }
+
+    if ($hits.Count -gt 0) {
+        throw "Possible UTF-8/mojibake text found:`n$($hits -join "`n")"
+    }
+
+    Write-Host "OK no mojibake text"
+}
+
 function Assert-ElementIdsExist {
     $html = Get-Content -LiteralPath "index.html" -Raw
     $js = Get-Content -LiteralPath "app.js" -Raw
@@ -786,6 +848,7 @@ Get-ChildItem -LiteralPath "tools" -File -Filter "*.ps1" |
 Assert-PowerShellScriptParses -Path ".\run-local.ps1"
 
 Assert-VersionCachebusterMatch
+Assert-NoEncodingMojibake
 Assert-ElementIdsExist
 Assert-ExportManifestWiring
 Assert-RobloxBackupRetentionWiring
