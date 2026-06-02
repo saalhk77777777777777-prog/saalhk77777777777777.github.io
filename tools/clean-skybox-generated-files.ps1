@@ -2,6 +2,8 @@ param(
     [int]$KeepZipCount = 5,
     [int]$KeepDiagnosticsCount = 5,
     [int]$KeepHandoffCount = 5,
+    [int]$KeepImageSampleCount = 0,
+    [switch]$IncludeImageSamples,
     [switch]$Apply
 )
 
@@ -110,13 +112,22 @@ Write-Host $modeText
 Write-Host "KeepZipCount: $KeepZipCount"
 Write-Host "KeepDiagnosticsCount: $KeepDiagnosticsCount"
 Write-Host "KeepHandoffCount: $KeepHandoffCount"
+Write-Host "IncludeImageSamples: $([bool]$IncludeImageSamples)"
+if ($IncludeImageSamples) {
+    Write-Host "KeepImageSampleCount: $KeepImageSampleCount"
+}
 
 Invoke-ZipCleanup -Directory $downloadsDirectory
 Invoke-ZipCleanup -Directory $exportsDirectory
 Invoke-GeneratedFileCleanup -Directory $exportsDirectory -Filter "skybox-diagnostics-*.txt" -Label "Diagnostics" -KeepCount $KeepDiagnosticsCount
 Invoke-GeneratedFileCleanup -Directory $exportsDirectory -Filter "skybox-handoff-*.md" -Label "Handoff summaries" -KeepCount $KeepHandoffCount
+if ($IncludeImageSamples) {
+    Invoke-GeneratedFileCleanup -Directory $exportsDirectory -Filter "imgly_*" -Label "Image sample exports" -KeepCount $KeepImageSampleCount
+}
 Write-ExportsSizeSummary -Directory $exportsDirectory
 
 Write-Host ""
 Write-Host "Large file hint:"
 Write-Host "powershell -ExecutionPolicy Bypass -File .\tools\list-large-skybox-files.ps1"
+Write-Host "Optional image sample cleanup dry run:"
+Write-Host "powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1 -IncludeImageSamples"

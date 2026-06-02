@@ -2,6 +2,8 @@ param(
     [int]$KeepZipCount = 5,
     [int]$KeepDiagnosticsCount = 5,
     [int]$KeepHandoffCount = 5,
+    [int]$KeepImageSampleCount = 0,
+    [switch]$IncludeImageSamples,
     [switch]$Json
 )
 
@@ -59,6 +61,9 @@ $targets += @(Get-GeneratedTargets -Directory $downloadsDirectory -Filters @("sk
 $targets += @(Get-GeneratedTargets -Directory $exportsDirectory -Filters @("skybox_studio_pack_*.zip", "roblox-current-skybox-*.zip") -KeepCount $KeepZipCount -Category "Exports skybox ZIPs")
 $targets += @(Get-GeneratedTargets -Directory $exportsDirectory -Filters @("skybox-diagnostics-*.txt") -KeepCount $KeepDiagnosticsCount -Category "Diagnostics reports")
 $targets += @(Get-GeneratedTargets -Directory $exportsDirectory -Filters @("skybox-handoff-*.md") -KeepCount $KeepHandoffCount -Category "Handoff summaries")
+if ($IncludeImageSamples) {
+    $targets += @(Get-GeneratedTargets -Directory $exportsDirectory -Filters @("imgly_*") -KeepCount $KeepImageSampleCount -Category "Image sample exports")
+}
 
 $totalBytes = [int64](($targets | Measure-Object -Property SizeBytes -Sum).Sum)
 if ($null -eq $totalBytes) {
@@ -72,6 +77,8 @@ $summary = [pscustomobject]@{
     KeepZipCount = $KeepZipCount
     KeepDiagnosticsCount = $KeepDiagnosticsCount
     KeepHandoffCount = $KeepHandoffCount
+    KeepImageSampleCount = $KeepImageSampleCount
+    IncludeImageSamples = [bool]$IncludeImageSamples
     Targets = @($targets)
 }
 
@@ -85,6 +92,10 @@ Write-Host "Mode: DRY RUN - no files will be removed"
 Write-Host "KeepZipCount: $KeepZipCount"
 Write-Host "KeepDiagnosticsCount: $KeepDiagnosticsCount"
 Write-Host "KeepHandoffCount: $KeepHandoffCount"
+Write-Host "IncludeImageSamples: $([bool]$IncludeImageSamples)"
+if ($IncludeImageSamples) {
+    Write-Host "KeepImageSampleCount: $KeepImageSampleCount"
+}
 Write-Host ("Reclaimable: {0} across {1} generated files" -f $summary.ReclaimableText, $summary.TargetCount)
 
 $groups = @($targets | Group-Object Category | Sort-Object Name)
@@ -96,3 +107,5 @@ foreach ($group in $groups) {
 Write-Host ""
 Write-Host "Apply command, if the dry run looks safe:"
 Write-Host "powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1 -Apply"
+Write-Host "Optional image sample dry run:"
+Write-Host "powershell -ExecutionPolicy Bypass -File .\tools\measure-skybox-reclaimable-space.ps1 -IncludeImageSamples"

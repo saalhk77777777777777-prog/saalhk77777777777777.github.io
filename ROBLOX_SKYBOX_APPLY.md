@@ -138,19 +138,21 @@ Git 동기화, 앱 버전, 로컬 서버, watcher, 전체 ZIP 후보, 배포용 
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1 -IncludeImageSamples
 powershell -ExecutionPolicy Bypass -File .\tools\clean-skybox-generated-files.ps1 -Apply
 ```
 
-기본 실행은 dry run입니다. `Downloads`/`exports`의 생성된 skybox ZIP, 오래된 `skybox-diagnostics-*.txt`, 오래된 `skybox-handoff-*.md`만 대상으로 삼습니다.
+기본 실행은 dry run입니다. `Downloads`/`exports`의 생성된 skybox ZIP, 오래된 `skybox-diagnostics-*.txt`, 오래된 `skybox-handoff-*.md`만 대상으로 삼습니다. `-IncludeImageSamples`를 붙이면 `exports\imgly_*` 샘플 이미지도 정리 후보에 포함합니다.
 
 ## 확보 가능 용량 계산
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\measure-skybox-reclaimable-space.ps1
+powershell -ExecutionPolicy Bypass -File .\tools\measure-skybox-reclaimable-space.ps1 -IncludeImageSamples
 powershell -ExecutionPolicy Bypass -File .\tools\measure-skybox-reclaimable-space.ps1 -Json
 ```
 
-읽기 전용입니다. 정리 실행 전에 오래된 생성 파일을 지우면 확보 가능한 용량을 계산합니다.
+읽기 전용입니다. 정리 실행 전에 오래된 생성 파일을 지우면 확보 가능한 용량을 계산합니다. `-IncludeImageSamples`는 `exports\imgly_*` 샘플 이미지까지 포함한 회수 가능 용량을 보여줍니다.
 
 ## 큰 skybox 관련 파일 찾기
 
