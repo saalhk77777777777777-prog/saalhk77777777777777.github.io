@@ -1,9 +1,10 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.03.93';
+        const APP_VERSION = 'v2026.06.03.94';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
         const SPHERE_EXPORT_OUTER_CUBE_ITERATIONS = 5;
+        const SPHERE_EXPORT_OUTER_CUBE_PUSH = 1.34;
         const PAIR_WARP_SETTINGS_KEY = 'skybox-pair-warp-settings-v1';
         const savedPairWarpSettings = readPairWarpSettings();
         let pairCornerStretch = savedPairWarpSettings.stretch;
@@ -4495,8 +4496,8 @@ ${created.length} images arranged on the inside spherical wall.`;
             const sphereY = y * Math.sqrt(Math.max(0.000001, 0.5 - x2 / 6));
             const sphereZ = Math.sqrt(Math.max(0.000001, 1 - x2 / 2 - y2 / 2 + (x2 * y2) / 3));
             return {
-                x: clamp(sphereX / sphereZ, -1, 1),
-                y: clamp(sphereY / sphereZ, -1, 1)
+                x: clamp((sphereX / sphereZ) * SPHERE_EXPORT_OUTER_CUBE_PUSH, -1, 1),
+                y: clamp((sphereY / sphereZ) * SPHERE_EXPORT_OUTER_CUBE_PUSH, -1, 1)
             };
         }
 

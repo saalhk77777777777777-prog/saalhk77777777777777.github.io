@@ -311,6 +311,7 @@ function Assert-ExportManifestWiring {
         "version: APP_VERSION",
         "flow: 'Cube -> Globe edit -> Cube export'",
         "SPHERE_EXPORT_OUTER_CUBE_ITERATIONS",
+        "SPHERE_EXPORT_OUTER_CUBE_PUSH",
         "drawSphereToOuterCubePrewarpedFace",
         "solveOuterCubePointToInnerCube",
         "skybox_studio_pack_`${APP_VERSION}_`${createExportFileStamp()}.zip"
