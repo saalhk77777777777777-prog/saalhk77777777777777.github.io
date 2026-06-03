@@ -310,8 +310,9 @@ function Assert-ExportManifestWiring {
         "manifestType: 'app-export'",
         "version: APP_VERSION",
         "flow: 'Cube -> Globe edit -> Cube export'",
-        "SPHERE_EXPORT_FACE_PREWARP",
-        "drawAngularPrewarpedFace",
+        "SPHERE_EXPORT_OUTER_CUBE_ITERATIONS",
+        "drawSphereToOuterCubePrewarpedFace",
+        "solveOuterCubePointToInnerCube",
         "skybox_studio_pack_`${APP_VERSION}_`${createExportFileStamp()}.zip"
     )
     foreach ($needle in $requiredJs) {

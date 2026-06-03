@@ -1,9 +1,9 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.03.92';
+        const APP_VERSION = 'v2026.06.03.93';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
-        const SPHERE_EXPORT_FACE_PREWARP = 1;
+        const SPHERE_EXPORT_OUTER_CUBE_ITERATIONS = 5;
         const PAIR_WARP_SETTINGS_KEY = 'skybox-pair-warp-settings-v1';
         const savedPairWarpSettings = readPairWarpSettings();
         let pairCornerStretch = savedPairWarpSettings.stretch;
@@ -4488,24 +4488,57 @@ ${created.length} images arranged on the inside spherical wall.`;
             return exportElement;
         }
 
-        function drawAngularPrewarpedFace(sourceCanvas, renderCtx, strength = SPHERE_EXPORT_FACE_PREWARP) {
+        function mapInnerCubePointToOuterCube(x, y) {
+            const x2 = x * x;
+            const y2 = y * y;
+            const sphereX = x * Math.sqrt(Math.max(0.000001, 0.5 - y2 / 6));
+            const sphereY = y * Math.sqrt(Math.max(0.000001, 0.5 - x2 / 6));
+            const sphereZ = Math.sqrt(Math.max(0.000001, 1 - x2 / 2 - y2 / 2 + (x2 * y2) / 3));
+            return {
+                x: clamp(sphereX / sphereZ, -1, 1),
+                y: clamp(sphereY / sphereZ, -1, 1)
+            };
+        }
+
+        function solveOuterCubePointToInnerCube(targetX, targetY) {
+            let x = clamp(targetX, -1, 1);
+            let y = clamp(targetY, -1, 1);
+            for (let iteration = 0; iteration < SPHERE_EXPORT_OUTER_CUBE_ITERATIONS; iteration++) {
+                const mapped = mapInnerCubePointToOuterCube(x, y);
+                const errorX = mapped.x - targetX;
+                const errorY = mapped.y - targetY;
+                if (Math.abs(errorX) + Math.abs(errorY) < 0.00001) break;
+
+                const step = 0.001;
+                const mappedDx = mapInnerCubePointToOuterCube(clamp(x + step, -1, 1), y);
+                const mappedDy = mapInnerCubePointToOuterCube(x, clamp(y + step, -1, 1));
+                const a = (mappedDx.x - mapped.x) / step;
+                const b = (mappedDy.x - mapped.x) / step;
+                const c = (mappedDx.y - mapped.y) / step;
+                const d = (mappedDy.y - mapped.y) / step;
+                const determinant = a * d - b * c;
+                if (Math.abs(determinant) < 0.000001) break;
+
+                x = clamp(x - (d * errorX - b * errorY) / determinant, -1, 1);
+                y = clamp(y - (-c * errorX + a * errorY) / determinant, -1, 1);
+            }
+            return { x, y };
+        }
+
+        function drawSphereToOuterCubePrewarpedFace(sourceCanvas, renderCtx) {
             const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
             const sourceData = sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
             const output = renderCtx.createImageData(CANVAS_SIZE, CANVAS_SIZE);
-            const angleScale = Math.PI / 4;
             for (let y = 0; y < CANVAS_SIZE; y++) {
                 const ny = (y / Math.max(1, CANVAS_SIZE - 1)) * 2 - 1;
-                const angularY = Math.atan(ny) / angleScale;
-                const sampleY = clamp(ny * (1 - strength) + angularY * strength, -1, 1);
                 for (let x = 0; x < CANVAS_SIZE; x++) {
                     const nx = (x / Math.max(1, CANVAS_SIZE - 1)) * 2 - 1;
-                    const angularX = Math.atan(nx) / angleScale;
-                    const sampleX = clamp(nx * (1 - strength) + angularX * strength, -1, 1);
+                    const sample = solveOuterCubePointToInnerCube(nx, ny);
                     const color = sampleCanvasPixelBilinear(
                         sourceData,
                         sourceCanvas,
-                        ((sampleX + 1) / 2) * (sourceCanvas.width - 1),
-                        ((sampleY + 1) / 2) * (sourceCanvas.height - 1)
+                        ((sample.x + 1) / 2) * (sourceCanvas.width - 1),
+                        ((sample.y + 1) / 2) * (sourceCanvas.height - 1)
                     );
                     const index = (y * CANVAS_SIZE + x) * 4;
                     output.data[index] = color[0];
@@ -4531,7 +4564,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                 }
                 if (element.type === 'text') drawTextElement(element, flatCtx, false);
             }
-            drawAngularPrewarpedFace(flatCanvas, renderCtx);
+            drawSphereToOuterCubePrewarpedFace(flatCanvas, renderCtx);
             drawSphericalElementsOnFace(faceKey, renderCtx);
         }
 
