@@ -1,8 +1,9 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.03.91';
+        const APP_VERSION = 'v2026.06.03.92';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
+        const SPHERE_EXPORT_FACE_PREWARP = 1;
         const PAIR_WARP_SETTINGS_KEY = 'skybox-pair-warp-settings-v1';
         const savedPairWarpSettings = readPairWarpSettings();
         let pairCornerStretch = savedPairWarpSettings.stretch;
@@ -333,7 +334,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                 return { face: 'rt', u: (dir.z / ax + 1) / 2, v: (-dir.y / ax + 1) / 2 };
             }
             if (dir.y >= 0) return { face: 'up', u: (dir.z / ay + 1) / 2, v: (-dir.x / ay + 1) / 2 };
-            return { face: 'dn', u: (dir.z / ay + 1) / 2, v: (dir.x / ay + 1) / 2 };
+            return { face: 'dn', u: (dir.x / ay + 1) / 2, v: (-dir.z / ay + 1) / 2 };
         }
         function directionFromCubeFaceUV(face, u, v) {
             const x = u * 2 - 1;
@@ -344,7 +345,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                 rt: { x: -1, y: -y, z: x },
                 lf: { x: 1, y: -y, z: -x },
                 up: { x: -y, y: 1, z: x },
-                dn: { x: y, y: -1, z: x }
+                dn: { x, y: -1, z: -y }
             };
             return normalizeVector(map[face] || map.ft);
         }
@@ -4487,18 +4488,50 @@ ${created.length} images arranged on the inside spherical wall.`;
             return exportElement;
         }
 
+        function drawAngularPrewarpedFace(sourceCanvas, renderCtx, strength = SPHERE_EXPORT_FACE_PREWARP) {
+            const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+            const sourceData = sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+            const output = renderCtx.createImageData(CANVAS_SIZE, CANVAS_SIZE);
+            const angleScale = Math.PI / 4;
+            for (let y = 0; y < CANVAS_SIZE; y++) {
+                const ny = (y / Math.max(1, CANVAS_SIZE - 1)) * 2 - 1;
+                const angularY = Math.atan(ny) / angleScale;
+                const sampleY = clamp(ny * (1 - strength) + angularY * strength, -1, 1);
+                for (let x = 0; x < CANVAS_SIZE; x++) {
+                    const nx = (x / Math.max(1, CANVAS_SIZE - 1)) * 2 - 1;
+                    const angularX = Math.atan(nx) / angleScale;
+                    const sampleX = clamp(nx * (1 - strength) + angularX * strength, -1, 1);
+                    const color = sampleCanvasPixelBilinear(
+                        sourceData,
+                        sourceCanvas,
+                        ((sampleX + 1) / 2) * (sourceCanvas.width - 1),
+                        ((sampleY + 1) / 2) * (sourceCanvas.height - 1)
+                    );
+                    const index = (y * CANVAS_SIZE + x) * 4;
+                    output.data[index] = color[0];
+                    output.data[index + 1] = color[1];
+                    output.data[index + 2] = color[2];
+                    output.data[index + 3] = color[3];
+                }
+            }
+            renderCtx.putImageData(output, 0, 0);
+        }
+
         async function drawSceneForExport(faceKey, renderCtx, pairWarpCache) {
             const faceState = getFaceState(faceKey);
-            drawBackground(faceState, renderCtx, faceKey);
+            const flatCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
+            const flatCtx = flatCanvas.getContext('2d');
+            drawBackground(faceState, flatCtx, faceKey);
             for (const element of faceState.elements) {
                 if (!element.visible) continue;
                 if (element.spherical) continue;
                 if (element.type === 'image') {
                     const exportElement = await createExportImageElement(element, pairWarpCache);
-                    drawImageElement(exportElement, renderCtx, false);
+                    drawImageElement(exportElement, flatCtx, false);
                 }
-                if (element.type === 'text') drawTextElement(element, renderCtx, false);
+                if (element.type === 'text') drawTextElement(element, flatCtx, false);
             }
+            drawAngularPrewarpedFace(flatCanvas, renderCtx);
             drawSphericalElementsOnFace(faceKey, renderCtx);
         }
 
