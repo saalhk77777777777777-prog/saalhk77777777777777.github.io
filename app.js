@@ -1,12 +1,12 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.03.99';
+        const APP_VERSION = 'v2026.06.03.98';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
         const SPHERE_EXPORT_OUTER_CUBE_ITERATIONS = 5;
         const SPHERE_EXPORT_OUTER_CUBE_PUSH = 1.34;
-        const SPHERE_EXPORT_INNER_SAMPLE_LIMIT = 1.56;
-        const SPHERE_EXPORT_SEAM_SAFE_BORDER = 0.44;
+        const SPHERE_EXPORT_INNER_SAMPLE_LIMIT = 1.48;
+        const SPHERE_EXPORT_SEAM_SAFE_BORDER = 0.36;
         const GLOBE_DEAD_ZONE_SIDE_RATIO = 0.2;
         const GLOBE_DEAD_ZONE_SIDE_START_V = 1 - GLOBE_DEAD_ZONE_SIDE_RATIO;
         const GLOBE_DEAD_ZONE_SIDE_FACES = ['ft', 'rt', 'bk', 'lf'];
