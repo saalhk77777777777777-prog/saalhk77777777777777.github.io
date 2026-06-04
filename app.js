@@ -1,12 +1,12 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.03.100';
+        const APP_VERSION = 'v2026.06.03.99';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
         const SPHERE_EXPORT_OUTER_CUBE_ITERATIONS = 5;
         const SPHERE_EXPORT_OUTER_CUBE_PUSH = 1.34;
         const SPHERE_EXPORT_INNER_SAMPLE_LIMIT = 1.56;
-        const SPHERE_EXPORT_SEAM_SAFE_BORDER = 0;
+        const SPHERE_EXPORT_SEAM_SAFE_BORDER = 0.44;
         const GLOBE_DEAD_ZONE_SIDE_RATIO = 0.2;
         const GLOBE_DEAD_ZONE_SIDE_START_V = 1 - GLOBE_DEAD_ZONE_SIDE_RATIO;
         const GLOBE_DEAD_ZONE_SIDE_FACES = ['ft', 'rt', 'bk', 'lf'];
@@ -298,6 +298,20 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         function normalizeVector(vector) {
             const length = Math.hypot(vector.x, vector.y, vector.z) || 1;
             return { x: vector.x / length, y: vector.y / length, z: vector.z / length };
+        }
+        function smoothstep(edge0, edge1, value) {
+            const t = clamp((value - edge0) / Math.max(0.000001, edge1 - edge0), 0, 1);
+            return t * t * (3 - 2 * t);
+        }
+        function mixColor(a, b, amount) {
+            const t = clamp(amount, 0, 1);
+            const inv = 1 - t;
+            return [
+                a[0] * inv + b[0] * t,
+                a[1] * inv + b[1] * t,
+                a[2] * inv + b[2] * t,
+                a[3] * inv + b[3] * t
+            ];
         }
         function dot3(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
         function cross3(a, b) {
@@ -4648,7 +4662,10 @@ ${created.length} images arranged on the inside spherical wall.`;
                     const nx = u * 2 - 1;
                     const sample = solveOuterCubePointToInnerCube(nx, ny);
                     const warpedColor = sampleFlatCubeMap(faceCanvases, faceData, directionFromCubeFaceUV(faceKey, (sample.x + 1) / 2, (sample.y + 1) / 2));
-                    const color = warpedColor;
+                    const seamSafeColor = sampleFlatCubeMap(faceCanvases, faceData, directionFromCubeFaceUV(faceKey, u, v));
+                    const edgeDistance = Math.min(u, 1 - u, v, 1 - v);
+                    const seamSafeAmount = 1 - smoothstep(0.02, SPHERE_EXPORT_SEAM_SAFE_BORDER, edgeDistance);
+                    const color = mixColor(warpedColor, seamSafeColor, seamSafeAmount);
                     const index = (y * CANVAS_SIZE + x) * 4;
                     output.data[index] = color[0];
                     output.data[index + 1] = color[1];
