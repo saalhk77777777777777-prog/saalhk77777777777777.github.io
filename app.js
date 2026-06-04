@@ -1,10 +1,11 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.03.97';
+        const APP_VERSION = 'v2026.06.03.98';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
         const SPHERE_EXPORT_OUTER_CUBE_ITERATIONS = 5;
         const SPHERE_EXPORT_OUTER_CUBE_PUSH = 1.34;
+        const SPHERE_EXPORT_INNER_SAMPLE_LIMIT = 1.48;
         const SPHERE_EXPORT_SEAM_SAFE_BORDER = 0.36;
         const GLOBE_DEAD_ZONE_SIDE_RATIO = 0.2;
         const GLOBE_DEAD_ZONE_SIDE_START_V = 1 - GLOBE_DEAD_ZONE_SIDE_RATIO;
@@ -64,6 +65,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         let spherePreviewQuality = 'full';
         let pendingSphereInteractionFrame = false;
         let sphereInteractionRefreshTimer = null;
+        let spherePreviewFaceCache = null;
         const canvasPointers = new Map();
         let pinchState = null;
         let sliderPreviewTimer = null;
@@ -4493,16 +4495,20 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.restore();
         }
 
+        function getSpherePreviewFaceResources(useCache = false) {
+            if (useCache && spherePreviewFaceCache) return spherePreviewFaceCache;
+            const faceCanvases = Object.fromEntries(FACES.map(face => [face, renderFaceToCanvas(face)]));
+            const faceData = createFaceImageDataMap(faceCanvases);
+            spherePreviewFaceCache = { faceCanvases, faceData };
+            return spherePreviewFaceCache;
+        }
+
         function drawSpherePreview(renderCtx) {
             const previewSize = spherePreviewQuality === 'fast' ? GLOBE_PREVIEW_FAST_SIZE : GLOBE_PREVIEW_SIZE;
             const preview = createEmptyCanvas(previewSize, previewSize);
             const previewCtx = preview.getContext('2d', { willReadFrequently: true });
             const imageData = previewCtx.createImageData(previewSize, previewSize);
-            const faceCanvases = Object.fromEntries(FACES.map(face => [face, renderFaceToCanvas(face)]));
-            const faceData = Object.fromEntries(FACES.map(face => {
-                const faceCanvas = faceCanvases[face];
-                return [face, faceCanvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE)];
-            }));
+            const { faceCanvases, faceData } = getSpherePreviewFaceResources(spherePreviewQuality === 'fast');
             for (let y = 0; y < previewSize; y++) {
                 for (let x = 0; x < previewSize; x++) {
                     const direction = globeDirectionFromCanvasPoint(x + 0.5, y + 0.5, previewSize, previewSize);
@@ -4616,14 +4622,14 @@ ${created.length} images arranged on the inside spherical wall.`;
             const sphereY = y * Math.sqrt(Math.max(0.000001, 0.5 - x2 / 6));
             const sphereZ = Math.sqrt(Math.max(0.000001, 1 - x2 / 2 - y2 / 2 + (x2 * y2) / 3));
             return {
-                x: clamp((sphereX / sphereZ) * SPHERE_EXPORT_OUTER_CUBE_PUSH, -1, 1),
-                y: clamp((sphereY / sphereZ) * SPHERE_EXPORT_OUTER_CUBE_PUSH, -1, 1)
+                x: (sphereX / sphereZ) * SPHERE_EXPORT_OUTER_CUBE_PUSH,
+                y: (sphereY / sphereZ) * SPHERE_EXPORT_OUTER_CUBE_PUSH
             };
         }
 
         function solveOuterCubePointToInnerCube(targetX, targetY) {
-            let x = clamp(targetX, -1, 1);
-            let y = clamp(targetY, -1, 1);
+            let x = clamp(targetX, -SPHERE_EXPORT_INNER_SAMPLE_LIMIT, SPHERE_EXPORT_INNER_SAMPLE_LIMIT);
+            let y = clamp(targetY, -SPHERE_EXPORT_INNER_SAMPLE_LIMIT, SPHERE_EXPORT_INNER_SAMPLE_LIMIT);
             for (let iteration = 0; iteration < SPHERE_EXPORT_OUTER_CUBE_ITERATIONS; iteration++) {
                 const mapped = mapInnerCubePointToOuterCube(x, y);
                 const errorX = mapped.x - targetX;
@@ -4631,8 +4637,8 @@ ${created.length} images arranged on the inside spherical wall.`;
                 if (Math.abs(errorX) + Math.abs(errorY) < 0.00001) break;
 
                 const step = 0.001;
-                const mappedDx = mapInnerCubePointToOuterCube(clamp(x + step, -1, 1), y);
-                const mappedDy = mapInnerCubePointToOuterCube(x, clamp(y + step, -1, 1));
+                const mappedDx = mapInnerCubePointToOuterCube(clamp(x + step, -SPHERE_EXPORT_INNER_SAMPLE_LIMIT, SPHERE_EXPORT_INNER_SAMPLE_LIMIT), y);
+                const mappedDy = mapInnerCubePointToOuterCube(x, clamp(y + step, -SPHERE_EXPORT_INNER_SAMPLE_LIMIT, SPHERE_EXPORT_INNER_SAMPLE_LIMIT));
                 const a = (mappedDx.x - mapped.x) / step;
                 const b = (mappedDy.x - mapped.x) / step;
                 const c = (mappedDx.y - mapped.y) / step;
@@ -4640,15 +4646,13 @@ ${created.length} images arranged on the inside spherical wall.`;
                 const determinant = a * d - b * c;
                 if (Math.abs(determinant) < 0.000001) break;
 
-                x = clamp(x - (d * errorX - b * errorY) / determinant, -1, 1);
-                y = clamp(y - (-c * errorX + a * errorY) / determinant, -1, 1);
+                x = clamp(x - (d * errorX - b * errorY) / determinant, -SPHERE_EXPORT_INNER_SAMPLE_LIMIT, SPHERE_EXPORT_INNER_SAMPLE_LIMIT);
+                y = clamp(y - (-c * errorX + a * errorY) / determinant, -SPHERE_EXPORT_INNER_SAMPLE_LIMIT, SPHERE_EXPORT_INNER_SAMPLE_LIMIT);
             }
             return { x, y };
         }
 
         function drawSphereToOuterCubePrewarpedFace(faceKey, faceCanvases, faceData, renderCtx) {
-            const sourceCanvas = faceCanvases[faceKey];
-            const sourceData = faceData[faceKey];
             const output = renderCtx.createImageData(CANVAS_SIZE, CANVAS_SIZE);
             for (let y = 0; y < CANVAS_SIZE; y++) {
                 const v = y / Math.max(1, CANVAS_SIZE - 1);
@@ -4657,12 +4661,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                     const u = x / Math.max(1, CANVAS_SIZE - 1);
                     const nx = u * 2 - 1;
                     const sample = solveOuterCubePointToInnerCube(nx, ny);
-                    const warpedColor = sampleCanvasPixelBilinear(
-                        sourceData,
-                        sourceCanvas,
-                        ((sample.x + 1) / 2) * (sourceCanvas.width - 1),
-                        ((sample.y + 1) / 2) * (sourceCanvas.height - 1)
-                    );
+                    const warpedColor = sampleFlatCubeMap(faceCanvases, faceData, directionFromCubeFaceUV(faceKey, (sample.x + 1) / 2, (sample.y + 1) / 2));
                     const seamSafeColor = sampleFlatCubeMap(faceCanvases, faceData, directionFromCubeFaceUV(faceKey, u, v));
                     const edgeDistance = Math.min(u, 1 - u, v, 1 - v);
                     const seamSafeAmount = 1 - smoothstep(0.02, SPHERE_EXPORT_SEAM_SAFE_BORDER, edgeDistance);
@@ -4828,6 +4827,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         function render(options = {}) {
             const previousSpherePreviewQuality = spherePreviewQuality;
             if (options.fastSpherePreview) spherePreviewQuality = 'fast';
+            else spherePreviewFaceCache = null;
             ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
             if (sphericalEditMode) drawSpherePreview(ctx);
             else if (isFacePairMode()) drawFacePairScene(ctx);
@@ -5583,6 +5583,12 @@ ${created.length} images arranged on the inside spherical wall.`;
                     exportedAt: new Date().toISOString(),
                     canvasSize: CANVAS_SIZE,
                     flow: 'Cube -> Globe edit -> Cube export',
+                    sphereExport: {
+                        outerCubePush: SPHERE_EXPORT_OUTER_CUBE_PUSH,
+                        innerSampleLimit: SPHERE_EXPORT_INNER_SAMPLE_LIMIT,
+                        seamSafeBorder: SPHERE_EXPORT_SEAM_SAFE_BORDER,
+                        iterations: SPHERE_EXPORT_OUTER_CUBE_ITERATIONS
+                    },
                     faces: renderedFaces.map(item => ({
                         face: item.face,
                         texture: `sky512_${item.face}.tex`,
