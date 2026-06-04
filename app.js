@@ -1,10 +1,13 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.03.94';
+        const APP_VERSION = 'v2026.06.03.95';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
         const SPHERE_EXPORT_OUTER_CUBE_ITERATIONS = 5;
         const SPHERE_EXPORT_OUTER_CUBE_PUSH = 1.34;
+        const GLOBE_DEAD_ZONE_SIDE_RATIO = 0.2;
+        const GLOBE_DEAD_ZONE_SIDE_START_V = 1 - GLOBE_DEAD_ZONE_SIDE_RATIO;
+        const GLOBE_DEAD_ZONE_SIDE_FACES = ['ft', 'rt', 'bk', 'lf'];
         const PAIR_WARP_SETTINGS_KEY = 'skybox-pair-warp-settings-v1';
         const savedPairWarpSettings = readPairWarpSettings();
         let pairCornerStretch = savedPairWarpSettings.stretch;
@@ -4343,6 +4346,55 @@ ${created.length} images arranged on the inside spherical wall.`;
             });
         }
 
+        function drawProjectedGlobePatch(renderCtx, faceKey, minU, minV, maxU, maxV, style = {}) {
+            const columns = Math.max(2, Number(style.columns || 22));
+            const rows = Math.max(2, Number(style.rows || 8));
+            renderCtx.save();
+            renderCtx.fillStyle = style.fill || 'rgba(229,231,235,0.28)';
+            renderCtx.strokeStyle = style.stroke || 'rgba(248,250,252,0.38)';
+            renderCtx.lineWidth = style.lineWidth || 0.75;
+            for (let row = 0; row < rows; row++) {
+                const v0 = minV + (maxV - minV) * (row / rows);
+                const v1 = minV + (maxV - minV) * ((row + 1) / rows);
+                for (let column = 0; column < columns; column++) {
+                    const u0 = minU + (maxU - minU) * (column / columns);
+                    const u1 = minU + (maxU - minU) * ((column + 1) / columns);
+                    const points = [
+                        projectDirectionToGlobeView(directionFromCubeFaceUV(faceKey, u0, v0)),
+                        projectDirectionToGlobeView(directionFromCubeFaceUV(faceKey, u1, v0)),
+                        projectDirectionToGlobeView(directionFromCubeFaceUV(faceKey, u1, v1)),
+                        projectDirectionToGlobeView(directionFromCubeFaceUV(faceKey, u0, v1))
+                    ];
+                    if (points.some(point => !point || point.depth < -0.01)) continue;
+                    renderCtx.globalAlpha = clamp(0.24 + Math.max(...points.map(point => point.depth)) * 0.48, 0.18, 0.62);
+                    renderCtx.beginPath();
+                    renderCtx.moveTo(points[0].x, points[0].y);
+                    points.slice(1).forEach(point => renderCtx.lineTo(point.x, point.y));
+                    renderCtx.closePath();
+                    renderCtx.fill();
+                    renderCtx.stroke();
+                }
+            }
+            renderCtx.restore();
+        }
+
+        function drawGlobeDeadZone(renderCtx) {
+            GLOBE_DEAD_ZONE_SIDE_FACES.forEach(face => {
+                drawProjectedGlobePatch(renderCtx, face, 0, GLOBE_DEAD_ZONE_SIDE_START_V, 1, 1, {
+                    rows: 5,
+                    columns: 24,
+                    fill: 'rgba(229,231,235,0.30)',
+                    stroke: 'rgba(248,250,252,0.34)'
+                });
+            });
+            drawProjectedGlobePatch(renderCtx, 'dn', 0, 0, 1, 1, {
+                rows: 14,
+                columns: 14,
+                fill: 'rgba(209,213,219,0.24)',
+                stroke: 'rgba(248,250,252,0.26)'
+            });
+        }
+
         function drawGlobeFaceLabels(renderCtx) {
             const labels = [
                 ['FT', 'ft'],
@@ -4386,6 +4438,7 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
             renderCtx.fill();
 
+            drawGlobeDeadZone(renderCtx);
             drawGlobeSurfaceGrid(renderCtx);
             drawGlobeCubeSeams(renderCtx);
             drawGlobeFaceLabels(renderCtx);
@@ -4409,7 +4462,7 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.font = '700 14px Arial';
             renderCtx.fillStyle = 'rgba(226,232,240,0.9)';
             renderCtx.fillText(`rotate yaw ${Math.round(sphereView.yaw)} deg / pitch ${Math.round(sphereView.pitch)} deg / zoom ${Number(sphereView.zoom || 1).toFixed(2)}x`, 52, 96);
-            renderCtx.fillText('drag empty globe = rotate / wheel empty globe = zoom / drag image = stick to globe', 52, 116);
+            renderCtx.fillText('light gray = dead zone: DN + lower 20% of side faces', 52, 116);
             renderCtx.restore();
         }
 
