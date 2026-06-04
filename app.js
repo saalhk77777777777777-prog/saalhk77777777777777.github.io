@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.03.95';
+        const APP_VERSION = 'v2026.06.03.96';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -8,6 +8,8 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         const GLOBE_DEAD_ZONE_SIDE_RATIO = 0.2;
         const GLOBE_DEAD_ZONE_SIDE_START_V = 1 - GLOBE_DEAD_ZONE_SIDE_RATIO;
         const GLOBE_DEAD_ZONE_SIDE_FACES = ['ft', 'rt', 'bk', 'lf'];
+        const GLOBE_PREVIEW_SIZE = 384;
+        const GLOBE_PREVIEW_FAST_SIZE = 224;
         const PAIR_WARP_SETTINGS_KEY = 'skybox-pair-warp-settings-v1';
         const savedPairWarpSettings = readPairWarpSettings();
         let pairCornerStretch = savedPairWarpSettings.stretch;
@@ -58,6 +60,9 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         let sphereOverlayVisible = true;
         let sphereView = { yaw: 0, pitch: 0, fov: 96, zoom: 1 };
         let sphereDragState = null;
+        let spherePreviewQuality = 'full';
+        let pendingSphereInteractionFrame = false;
+        let sphereInteractionRefreshTimer = null;
         const canvasPointers = new Map();
         let pinchState = null;
         let sliderPreviewTimer = null;
@@ -2213,7 +2218,12 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             if (!selected || selected.id !== pinchState.elementId || points.length < 2) return;
             const distance = Math.max(1, distanceBetweenPoints(points[0], points[1]));
             selected.scale = clamp(pinchState.startScale * (distance / pinchState.startDistance), 0.05, 4);
-            render();
+            if (sphericalEditMode) {
+                renderSphereInteractionFrame();
+                scheduleSphereInteractionFinalRender();
+            } else {
+                render();
+            }
         }
 
         function refreshMobileSliderPreview() {
@@ -4287,9 +4297,10 @@ ${created.length} images arranged on the inside spherical wall.`;
         function drawGlobeSurfaceGrid(renderCtx) {
             const latitudes = [-60, -30, 0, 30, 60];
             const longitudes = Array.from({ length: 12 }, (_, index) => index * 30);
+            const step = spherePreviewQuality === 'fast' ? 6 : 3;
             latitudes.forEach(lat => {
                 const points = [];
-                for (let lon = -180; lon <= 180; lon += 3) points.push(directionFromGlobeLonLat(lon, lat));
+                for (let lon = -180; lon <= 180; lon += step) points.push(directionFromGlobeLonLat(lon, lat));
                 drawProjectedGlobeLine(renderCtx, points, {
                     color: lat === 0 ? 'rgba(250,204,21,0.45)' : 'rgba(103,232,249,0.24)',
                     width: lat === 0 ? 2.6 : 1.6
@@ -4297,7 +4308,7 @@ ${created.length} images arranged on the inside spherical wall.`;
             });
             longitudes.forEach(lon => {
                 const points = [];
-                for (let lat = -86; lat <= 86; lat += 3) points.push(directionFromGlobeLonLat(lon, lat));
+                for (let lat = -86; lat <= 86; lat += step) points.push(directionFromGlobeLonLat(lon, lat));
                 drawProjectedGlobeLine(renderCtx, points, {
                     color: lon % 90 === 0 ? 'rgba(248,113,113,0.34)' : 'rgba(103,232,249,0.2)',
                     width: lon % 90 === 0 ? 2.2 : 1.4
@@ -4347,8 +4358,9 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function drawProjectedGlobePatch(renderCtx, faceKey, minU, minV, maxU, maxV, style = {}) {
-            const columns = Math.max(2, Number(style.columns || 22));
-            const rows = Math.max(2, Number(style.rows || 8));
+            const qualityScale = spherePreviewQuality === 'fast' ? 0.45 : 1;
+            const columns = Math.max(2, Math.round(Number(style.columns || 22) * qualityScale));
+            const rows = Math.max(2, Math.round(Number(style.rows || 8) * qualityScale));
             renderCtx.save();
             renderCtx.fillStyle = style.fill || 'rgba(229,231,235,0.28)';
             renderCtx.strokeStyle = style.stroke || 'rgba(248,250,252,0.38)';
@@ -4467,7 +4479,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function drawSpherePreview(renderCtx) {
-            const previewSize = 512;
+            const previewSize = spherePreviewQuality === 'fast' ? GLOBE_PREVIEW_FAST_SIZE : GLOBE_PREVIEW_SIZE;
             const preview = createEmptyCanvas(previewSize, previewSize);
             const previewCtx = preview.getContext('2d', { willReadFrequently: true });
             const imageData = previewCtx.createImageData(previewSize, previewSize);
@@ -4765,18 +4777,44 @@ ${created.length} images arranged on the inside spherical wall.`;
             updateBackgroundStatusUI();
         }
 
-        function render() {
+        function render(options = {}) {
+            const previousSpherePreviewQuality = spherePreviewQuality;
+            if (options.fastSpherePreview) spherePreviewQuality = 'fast';
             ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
             if (sphericalEditMode) drawSpherePreview(ctx);
             else if (isFacePairMode()) drawFacePairScene(ctx);
             else drawScene(activeFace, ctx, true);
-            updateFaceButtons();
-            updateLayerList();
-            updatePropertyPanel();
-            updateCanvasSettingsUI();
-            updateMobileQuickControls();
-            updatePairWarpSettingsUI();
-            updateSphereEditUI();
+            spherePreviewQuality = previousSpherePreviewQuality;
+            if (!options.skipUi) {
+                updateFaceButtons();
+                updateLayerList();
+                updatePropertyPanel();
+                updateCanvasSettingsUI();
+                updateMobileQuickControls();
+                updatePairWarpSettingsUI();
+                updateSphereEditUI();
+            }
+        }
+
+        function renderSphereInteractionFrame() {
+            if (!sphericalEditMode) {
+                render();
+                return;
+            }
+            if (pendingSphereInteractionFrame) return;
+            pendingSphereInteractionFrame = true;
+            requestAnimationFrame(() => {
+                pendingSphereInteractionFrame = false;
+                render({ fastSpherePreview: true, skipUi: true });
+            });
+        }
+
+        function scheduleSphereInteractionFinalRender(delay = 90) {
+            clearTimeout(sphereInteractionRefreshTimer);
+            sphereInteractionRefreshTimer = setTimeout(() => {
+                sphereInteractionRefreshTimer = null;
+                render();
+            }, delay);
         }
 
         function getLayerBorderValues(element) {
@@ -5792,7 +5830,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                 if (sphereDragState?.mode === 'view') {
                     sphereView.yaw = normalizeAngleDeg(sphereDragState.yaw + (point.x - sphereDragState.startX) * 0.18);
                     sphereView.pitch = clamp(sphereDragState.pitch - (point.y - sphereDragState.startY) * 0.14, -80, 80);
-                    render();
+                    renderSphereInteractionFrame();
                     return;
                 }
                 if (sphereDragState?.mode === 'element' && selected?.spherical) {
@@ -5801,7 +5839,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                     const center = yawPitchFromDirection(direction);
                     selected.sphereYaw = center.yaw;
                     selected.spherePitch = center.pitch;
-                    render();
+                    renderSphereInteractionFrame();
                     return;
                 }
             }
@@ -5814,8 +5852,10 @@ ${created.length} images arranged on the inside spherical wall.`;
         function stopCanvasPointer(event) {
             if (event?.pointerId != null) canvasPointers.delete(event.pointerId);
             if (canvasPointers.size < 2) pinchState = null;
+            const needsFinalSphereRender = sphericalEditMode && isDragging;
             isDragging = false;
             sphereDragState = null;
+            if (needsFinalSphereRender) scheduleSphereInteractionFinalRender(20);
         }
 
         canvas.addEventListener('pointerup', stopCanvasPointer);
@@ -5848,11 +5888,13 @@ ${created.length} images arranged on the inside spherical wall.`;
                         selected.sphereWidth = clamp((selected.sphereWidth || 24) + delta, 2, 140);
                         selected.sphereHeight = clamp((selected.sphereHeight || 12) + delta * 0.6, 2, 100);
                     }
-                    render();
+                    renderSphereInteractionFrame();
+                    scheduleSphereInteractionFinalRender();
                     return;
                 }
                 sphereView.zoom = clamp((sphereView.zoom || 1) + (event.deltaY > 0 ? -0.08 : 0.08), 0.55, 1.8);
-                render();
+                renderSphereInteractionFrame();
+                scheduleSphereInteractionFinalRender();
                 return;
             }
             const selected = getSelectedElement();
