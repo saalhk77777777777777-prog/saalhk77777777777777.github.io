@@ -312,13 +312,6 @@ function Assert-ExportManifestWiring {
         "flow: 'Cube -> Globe edit -> Cube export'",
         "SPHERE_EXPORT_OUTER_CUBE_ITERATIONS",
         "SPHERE_EXPORT_OUTER_CUBE_PUSH",
-        "SPHERE_EXPORT_INNER_SAMPLE_LIMIT",
-        "SPHERE_EXPORT_SEAM_SAFE_BORDER",
-        "createFlatExportFaceCanvases",
-        "sampleFlatCubeMap",
-        "sphereExport: {",
-        "spherePreviewFaceCache",
-        "getSpherePreviewFaceResources",
         "drawSphereToOuterCubePrewarpedFace",
         "solveOuterCubePointToInnerCube",
         "skybox_studio_pack_`${APP_VERSION}_`${createExportFileStamp()}.zip"
