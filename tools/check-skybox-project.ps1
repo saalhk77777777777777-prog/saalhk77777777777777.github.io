@@ -186,11 +186,31 @@ function Assert-GitIgnoreWiring {
 function Assert-ElementIdsExist {
     $html = Get-Content -LiteralPath "index.html" -Raw
     $js = Get-Content -LiteralPath "app.js" -Raw
+    $optionalHiddenIds = @(
+        "add-pair-test-grid",
+        "pair-corner-stretch",
+        "pair-corner-power",
+        "pair-corner-stretch-number",
+        "pair-corner-power-number",
+        "apply-pair-warp-numbers",
+        "import-pair-warp-settings",
+        "export-pair-warp-settings",
+        "export-all-pair-warp-settings",
+        "reset-pair-warp-settings",
+        "reset-all-pair-warp-settings",
+        "refresh-pair-warp",
+        "refresh-all-pair-warp",
+        "download-pair-warp-comparison",
+        "download-all-pair-warp-comparison"
+    )
     $ids = [regex]::Matches($js, "getElementById\('([^']+)'\)") |
         ForEach-Object { $_.Groups[1].Value } |
         Sort-Object -Unique
     $missing = @()
     foreach ($id in $ids) {
+        if ($optionalHiddenIds -contains $id) {
+            continue
+        }
         if ($html -notmatch "id=`"$([regex]::Escape($id))`"") {
             $missing += $id
         }

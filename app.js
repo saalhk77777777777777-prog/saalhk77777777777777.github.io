@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.04.3';
+        const APP_VERSION = 'v2026.06.04.4';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -186,7 +186,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         if (appVersionBadge) appVersionBadge.textContent = APP_VERSION;
 
         const QUICK_BACKGROUND_COLORS = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#94a3b8', '#0f172a'];
-        let backgroundGridMode = 'white';
+        let backgroundGridMode = 'none';
 
         const aiConfig = {
             endpoint: IS_PUBLIC_HOSTED ? '' : 'http://127.0.0.1:1234/v1/chat/completions',
@@ -5423,7 +5423,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                 </div>
             `;
 
-            propertyPanel.innerHTML = sharedHtml + imageHtml + textHtml + shadowHtml;
+            propertyPanel.innerHTML = sharedHtml + shadowHtml + imageHtml + textHtml;
             propertyPanel.dataset.boundId = selected.id;
             propertyPanel.dataset.boundType = selected.type;
             propertyPanel.querySelectorAll('[data-bind]').forEach(input => {
