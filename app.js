@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.04.10';
+        const APP_VERSION = 'v2026.06.04.11';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -471,6 +471,14 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             const c = createEmptyCanvas(drawWidth, drawHeight);
             c.getContext('2d').drawImage(img, 0, 0, drawWidth, drawHeight);
             return c;
+        }
+        function flipCanvasHorizontal(source) {
+            const flipped = createEmptyCanvas(source.width, source.height);
+            const flipCtx = flipped.getContext('2d');
+            flipCtx.translate(source.width, 0);
+            flipCtx.scale(-1, 1);
+            flipCtx.drawImage(source, 0, 0);
+            return flipped;
         }
         function canvasToDataURL(source) { return source ? source.toDataURL('image/png') : ''; }
         function canvasToBlob(source) {
@@ -3354,7 +3362,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             }
         }
 
-        async function addImagesToFacePair(files) {
+        async function addImagesToFacePair(files, options = {}) {
             const faces = getActivePairFaces();
             if (faces.length !== 2) return false;
             showLoading(`${faces[0].toUpperCase()}/${faces[1].toUpperCase()} 면 사이 기록을 만드는 중이에요.`);
@@ -3362,7 +3370,9 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
                 for (const file of files) {
                     showLoading(`면 사이 자동 왜곡 기록 중...\n${file.name}`);
                     const image = await fileToImage(file);
-                    const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
+                    const baseCanvas = options.flipX
+                        ? flipCanvasHorizontal(imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE))
+                        : imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
                     const splitCanvases = createPairSplitCanvases(baseCanvas, faces);
                     const pairWarpId = generateId();
                     splitCanvases.forEach((partCanvas, index) => {
@@ -3412,9 +3422,9 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             render();
         }
 
-        async function addImages(files) {
+        async function addImages(files, options = {}) {
             if (isFacePairMode()) {
-                await addImagesToFacePair(files);
+                await addImagesToFacePair(files, options);
                 return;
             }
             showLoading('이미지를 불러오는 중입니다.');
@@ -3425,8 +3435,11 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
 ${file.name}`);
                     try {
                         const image = await fileToImage(file);
-                        const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
+                        const baseCanvas = options.flipX
+                            ? flipCanvasHorizontal(imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE))
+                            : imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
                         const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
+                        if (options.flipX) element.name = `${element.name} 좌우반전`;
                         await updateImageProcessing(element);
                         if (sphericalEditMode) prepareElementForSphere(element);
                         created.push(element);
@@ -6078,6 +6091,11 @@ ${created.length} images arranged on the inside spherical wall.`;
         document.getElementById('asset-bulk').addEventListener('change', async event => {
             const files = Array.from(event.target.files || []);
             if (files.length) await addImages(files);
+            event.target.value = '';
+        });
+        document.getElementById('asset-bulk-flip').addEventListener('change', async event => {
+            const files = Array.from(event.target.files || []);
+            if (files.length) await addImages(files, { flipX: true });
             event.target.value = '';
         });
         sphereEditToggleButton?.addEventListener('click', () => {
