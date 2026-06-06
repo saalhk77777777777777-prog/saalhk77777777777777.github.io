@@ -59,6 +59,9 @@ $requiredQuickStyleActions = @(
     'opacity-down',
     'opacity-up',
     'opacity-reset',
+    'rotate-left',
+    'rotate-right',
+    'rotate-reset',
     'bring-front',
     'send-back'
 )
