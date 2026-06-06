@@ -52,7 +52,10 @@ $requiredQuickStyleActions = @(
     'shadow-glow',
     'reset-effects',
     'align-center-x',
-    'align-center-y'
+    'align-center-y',
+    'scale-down',
+    'scale-up',
+    'scale-reset'
 )
 
 $missingQuickStyleActions = @()

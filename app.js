@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.04.8';
+        const APP_VERSION = 'v2026.06.04.9';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -5190,6 +5190,9 @@ ${created.length} images arranged on the inside spherical wall.`;
                 return;
             }
             if (selected.locked) return;
+            if (action === 'scale-down') selected.scale = clamp(selected.scale * 0.9, 0.05, 4);
+            if (action === 'scale-up') selected.scale = clamp(selected.scale * 1.1, 0.05, 4);
+            if (action === 'scale-reset') selected.scale = 1;
             if (action === 'flip-x') selected.flipX = !selected.flipX;
             if (action === 'flip-y') selected.flipY = !selected.flipY;
             if (action === 'recommend-outline-color' && selected.type === 'image') {
@@ -5315,6 +5318,9 @@ ${created.length} images arranged on the inside spherical wall.`;
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" class="tool-button !rounded-2xl" data-action="align-center-x">가로 중앙</button>
                         <button type="button" class="tool-button !rounded-2xl" data-action="align-center-y">세로 중앙</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="scale-down">작게</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="scale-up">크게</button>
+                        <button type="button" class="tool-button !rounded-2xl col-span-2" data-action="scale-reset">원래 크기</button>
                         ${selected.type === 'image' ? `
                         <button type="button" class="tool-button !rounded-2xl" data-action="align-fit-width">가로 채우기</button>
                         <button type="button" class="tool-button !rounded-2xl" data-action="align-fit-height">세로 채우기</button>
