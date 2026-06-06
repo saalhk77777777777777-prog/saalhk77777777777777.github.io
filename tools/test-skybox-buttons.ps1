@@ -58,7 +58,9 @@ $requiredQuickStyleActions = @(
     'scale-reset',
     'opacity-down',
     'opacity-up',
-    'opacity-reset'
+    'opacity-reset',
+    'bring-front',
+    'send-back'
 )
 
 $missingQuickStyleActions = @()

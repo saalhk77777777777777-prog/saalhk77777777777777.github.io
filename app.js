@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.04.12';
+        const APP_VERSION = 'v2026.06.04.13';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -2129,6 +2129,15 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         function getSelectedElement() {
             if (sphericalEditMode) return getAllSphericalElements().find(element => element.id === selectedId) || null;
             return getFaceState().elements.find(element => element.id === selectedId) || null;
+        }
+
+        function getSelectedElementContainer() {
+            for (const faceKey of FACES) {
+                const face = getFaceState(faceKey);
+                const index = face.elements.findIndex(element => element.id === selectedId);
+                if (index !== -1) return { face, index };
+            }
+            return null;
         }
 
         function selectElement(id) {
@@ -5199,6 +5208,14 @@ ${created.length} images arranged on the inside spherical wall.`;
             if (action === 'opacity-down') selected.opacity = clamp(selected.opacity - 0.12, 0, 1);
             if (action === 'opacity-up') selected.opacity = clamp(selected.opacity + 0.12, 0, 1);
             if (action === 'opacity-reset') selected.opacity = 1;
+            if (action === 'bring-front') {
+                moveElementOrder('front');
+                return;
+            }
+            if (action === 'send-back') {
+                moveElementOrder('back');
+                return;
+            }
             if (action === 'flip-x') selected.flipX = !selected.flipX;
             if (action === 'flip-y') selected.flipY = !selected.flipY;
             if (action === 'recommend-outline-color' && selected.type === 'image') {
@@ -5337,6 +5354,11 @@ ${created.length} images arranged on the inside spherical wall.`;
                         <button type="button" class="tool-button !rounded-2xl" data-action="align-fit-width">가로 채우기</button>
                         <button type="button" class="tool-button !rounded-2xl" data-action="align-fit-height">세로 채우기</button>
                         ` : ''}
+                    </div>
+                    <div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Layer order</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" class="tool-button !rounded-2xl" data-action="bring-front">? ???</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="send-back">? ??</button>
                     </div>
                 </div>
             `;
@@ -5591,9 +5613,9 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function moveElementOrder(direction) {
-            const face = getFaceState();
-            const index = face.elements.findIndex(element => element.id === selectedId);
-            if (index === -1) return;
+            const container = getSelectedElementContainer();
+            if (!container) return;
+            const { face, index } = container;
             if (direction === 'front' && index < face.elements.length - 1) {
                 const [item] = face.elements.splice(index, 1);
                 face.elements.push(item);
