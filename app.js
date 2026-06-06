@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.04.9';
+        const APP_VERSION = 'v2026.06.04.10';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -5193,6 +5193,9 @@ ${created.length} images arranged on the inside spherical wall.`;
             if (action === 'scale-down') selected.scale = clamp(selected.scale * 0.9, 0.05, 4);
             if (action === 'scale-up') selected.scale = clamp(selected.scale * 1.1, 0.05, 4);
             if (action === 'scale-reset') selected.scale = 1;
+            if (action === 'opacity-down') selected.opacity = clamp(selected.opacity - 0.12, 0, 1);
+            if (action === 'opacity-up') selected.opacity = clamp(selected.opacity + 0.12, 0, 1);
+            if (action === 'opacity-reset') selected.opacity = 1;
             if (action === 'flip-x') selected.flipX = !selected.flipX;
             if (action === 'flip-y') selected.flipY = !selected.flipY;
             if (action === 'recommend-outline-color' && selected.type === 'image') {
@@ -5313,6 +5316,12 @@ ${created.length} images arranged on the inside spherical wall.`;
                         <button type="button" class="tool-button !rounded-2xl" data-action="shadow-hard">선명 그림자</button>
                         <button type="button" class="tool-button !rounded-2xl" data-action="shadow-glow">글로우</button>
                         <button type="button" class="tool-button !rounded-2xl" data-action="reset-effects">효과 초기화</button>
+                    </div>
+                    <div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">투명도</div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="opacity-down">연하게</button>
+                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="opacity-up">진하게</button>
+                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="opacity-reset">복원</button>
                     </div>
                     <div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">정렬과 크기</div>
                     <div class="grid grid-cols-2 gap-2">

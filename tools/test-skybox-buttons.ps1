@@ -55,7 +55,10 @@ $requiredQuickStyleActions = @(
     'align-center-y',
     'scale-down',
     'scale-up',
-    'scale-reset'
+    'scale-reset',
+    'opacity-down',
+    'opacity-up',
+    'opacity-reset'
 )
 
 $missingQuickStyleActions = @()
