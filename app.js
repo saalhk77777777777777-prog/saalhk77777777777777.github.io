@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.04.7';
+        const APP_VERSION = 'v2026.06.04.8';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -13,6 +13,7 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         const GLOBE_PREVIEW_SIZE = 384;
         const GLOBE_PREVIEW_FAST_SIZE = 224;
         const PAIR_WARP_SETTINGS_KEY = 'skybox-pair-warp-settings-v1';
+        const PROPERTY_FOLD_STATE_KEY = 'skybox-property-fold-state-v1';
         const savedPairWarpSettings = readPairWarpSettings();
         let pairCornerStretch = savedPairWarpSettings.stretch;
         let pairCornerStretchPower = savedPairWarpSettings.power;
@@ -228,6 +229,25 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             } catch {
                 return { stretch: 0.62, power: 1.45, pairs: {} };
             }
+        }
+
+        function readPropertyFoldState() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(PROPERTY_FOLD_STATE_KEY) || '{}');
+                return saved && typeof saved === 'object' ? saved : {};
+            } catch {
+                return {};
+            }
+        }
+
+        function isPropertyFoldOpen(key) {
+            return Boolean(readPropertyFoldState()[key]);
+        }
+
+        function savePropertyFoldState(key, open) {
+            const saved = readPropertyFoldState();
+            saved[key] = Boolean(open);
+            localStorage.setItem(PROPERTY_FOLD_STATE_KEY, JSON.stringify(saved));
         }
 
         function getPairWarpStorageKey(faces = getActivePairFaces()) {
@@ -5448,8 +5468,8 @@ ${created.length} images arranged on the inside spherical wall.`;
                 </div>
             `;
 
-            const foldPanel = (title, body, open = false) => body ? `
-                <details class="property-fold" ${open ? 'open' : ''}>
+            const foldPanel = (key, title, body) => body ? `
+                <details class="property-fold" data-fold-key="${key}" ${isPropertyFoldOpen(key) ? 'open' : ''}>
                     <summary>
                         <span>${title}</span>
                         <span class="property-fold-hint">열기</span>
@@ -5462,11 +5482,16 @@ ${created.length} images arranged on the inside spherical wall.`;
                 quickStyleHtml,
                 sharedHtml,
                 shadowHtml,
-                foldPanel('이미지 고급 보정', imageHtml),
-                foldPanel('텍스트 고급 보정', textHtml),
+                foldPanel('image-advanced', '이미지 고급 보정', imageHtml),
+                foldPanel('text-advanced', '텍스트 고급 보정', textHtml),
             ].join('');
             propertyPanel.dataset.boundId = selected.id;
             propertyPanel.dataset.boundType = selected.type;
+            propertyPanel.querySelectorAll('[data-fold-key]').forEach(details => {
+                details.addEventListener('toggle', event => {
+                    savePropertyFoldState(event.currentTarget.dataset.foldKey, event.currentTarget.open);
+                });
+            });
             propertyPanel.querySelectorAll('[data-bind]').forEach(input => {
                 input.addEventListener('input', async () => {
                     const selectedElement = getSelectedElement();

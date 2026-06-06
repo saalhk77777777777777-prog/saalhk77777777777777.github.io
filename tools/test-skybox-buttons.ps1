@@ -68,6 +68,8 @@ if ($missingQuickStyleActions.Count -gt 0) {
 $requiredPanelMarkers = @(
     'quick-style-group',
     'property-fold',
+    'PROPERTY_FOLD_STATE_KEY',
+    'data-fold-key',
     '이미지 고급 보정',
     '텍스트 고급 보정'
 )
