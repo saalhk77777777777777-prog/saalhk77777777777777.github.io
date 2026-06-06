@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.04.4';
+        const APP_VERSION = 'v2026.06.04.5';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -5278,6 +5278,27 @@ ${created.length} images arranged on the inside spherical wall.`;
                 return;
             }
 
+            const quickStyleHtml = `
+                <div class="property-group space-y-3 border-cyan-300/15 bg-cyan-300/[0.035]">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="property-label">Quick Style</div>
+                        <span class="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">Most used</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" class="tool-button primary !rounded-2xl" data-action="recommend-outline-color">추천 외곽선</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="shadow-hard">선명 그림자</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="shadow-glow">글로우</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="reset-effects">효과 초기화</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="align-center-x">가로 중앙</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="align-center-y">세로 중앙</button>
+                        ${selected.type === 'image' ? `
+                        <button type="button" class="tool-button !rounded-2xl" data-action="align-fit-width">가로 채우기</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="align-fit-height">세로 채우기</button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
             const sharedHtml = `
                 <div class="property-group space-y-4">
                     <div class="property-label">기본 변형</div>
@@ -5423,7 +5444,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                 </div>
             `;
 
-            propertyPanel.innerHTML = sharedHtml + shadowHtml + imageHtml + textHtml;
+            propertyPanel.innerHTML = quickStyleHtml + sharedHtml + shadowHtml + imageHtml + textHtml;
             propertyPanel.dataset.boundId = selected.id;
             propertyPanel.dataset.boundType = selected.type;
             propertyPanel.querySelectorAll('[data-bind]').forEach(input => {

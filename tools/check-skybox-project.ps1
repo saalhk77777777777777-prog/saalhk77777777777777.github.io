@@ -256,6 +256,28 @@ function Assert-SkyboxLocalAssetsExist {
     powershell -ExecutionPolicy Bypass -File ".\tools\test-skybox-local-assets.ps1" | Out-Host
 }
 
+function Assert-SkyboxButtons {
+    $buttonPath = "tools\test-skybox-buttons.ps1"
+    if (-not (Test-Path -LiteralPath $buttonPath -PathType Leaf)) {
+        throw "Skybox button tester is missing: $buttonPath"
+    }
+
+    $buttonScript = Get-Content -LiteralPath $buttonPath -Raw
+    $required = @(
+        "Skybox button wiring OK",
+        "data-action",
+        "data-quick-action",
+        "requiredVisibleIds"
+    )
+    foreach ($needle in $required) {
+        if (-not $buttonScript.Contains($needle)) {
+            throw "Skybox button tester is missing behavior: $needle"
+        }
+    }
+
+    powershell -ExecutionPolicy Bypass -File ".\tools\test-skybox-buttons.ps1" | Out-Host
+}
+
 function Assert-SkyboxUiText {
     $uiTextPath = "tools\test-skybox-ui-text.ps1"
     if (-not (Test-Path -LiteralPath $uiTextPath -PathType Leaf)) {
@@ -1171,6 +1193,7 @@ Assert-GitIgnoreWiring
 Assert-ElementIdsExist
 Assert-SkyboxLocalAssetTesterWiring
 Assert-SkyboxLocalAssetsExist
+Assert-SkyboxButtons
 Assert-SkyboxUiText
 Assert-ExportManifestWiring
 Assert-RobloxBackupRetentionWiring
