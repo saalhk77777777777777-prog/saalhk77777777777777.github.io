@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.04.5';
+        const APP_VERSION = 'v2026.06.04.6';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -5279,16 +5279,20 @@ ${created.length} images arranged on the inside spherical wall.`;
             }
 
             const quickStyleHtml = `
-                <div class="property-group space-y-3 border-cyan-300/15 bg-cyan-300/[0.035]">
+                <div class="property-group quick-style-group space-y-3 border-cyan-300/15 bg-cyan-300/[0.035]">
                     <div class="flex items-center justify-between gap-3">
                         <div class="property-label">Quick Style</div>
                         <span class="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">Most used</span>
                     </div>
+                    <div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">효과</div>
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" class="tool-button primary !rounded-2xl" data-action="recommend-outline-color">추천 외곽선</button>
                         <button type="button" class="tool-button !rounded-2xl" data-action="shadow-hard">선명 그림자</button>
                         <button type="button" class="tool-button !rounded-2xl" data-action="shadow-glow">글로우</button>
                         <button type="button" class="tool-button !rounded-2xl" data-action="reset-effects">효과 초기화</button>
+                    </div>
+                    <div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">정렬과 크기</div>
+                    <div class="grid grid-cols-2 gap-2">
                         <button type="button" class="tool-button !rounded-2xl" data-action="align-center-x">가로 중앙</button>
                         <button type="button" class="tool-button !rounded-2xl" data-action="align-center-y">세로 중앙</button>
                         ${selected.type === 'image' ? `

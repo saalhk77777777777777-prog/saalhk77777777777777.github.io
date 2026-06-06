@@ -46,6 +46,25 @@ $actions = [regex]::Matches($js, 'data-action="([^"]+)"') |
     Where-Object { $_ -notmatch '\$\{' } |
     Sort-Object -Unique
 
+$requiredQuickStyleActions = @(
+    'recommend-outline-color',
+    'shadow-hard',
+    'shadow-glow',
+    'reset-effects',
+    'align-center-x',
+    'align-center-y'
+)
+
+$missingQuickStyleActions = @()
+foreach ($action in $requiredQuickStyleActions) {
+    if ($actions -notcontains $action) {
+        $missingQuickStyleActions += $action
+    }
+}
+if ($missingQuickStyleActions.Count -gt 0) {
+    throw "Quick Style is missing required actions: $($missingQuickStyleActions -join ', ')"
+}
+
 $missingActions = @()
 foreach ($action in $actions) {
     $escaped = [regex]::Escape($action)
