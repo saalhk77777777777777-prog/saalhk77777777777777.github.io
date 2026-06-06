@@ -65,6 +65,23 @@ if ($missingQuickStyleActions.Count -gt 0) {
     throw "Quick Style is missing required actions: $($missingQuickStyleActions -join ', ')"
 }
 
+$requiredPanelMarkers = @(
+    'quick-style-group',
+    'property-fold',
+    '이미지 고급 보정',
+    '텍스트 고급 보정'
+)
+
+$missingPanelMarkers = @()
+foreach ($marker in $requiredPanelMarkers) {
+    if ($js -notmatch [regex]::Escape($marker) -and $html -notmatch [regex]::Escape($marker)) {
+        $missingPanelMarkers += $marker
+    }
+}
+if ($missingPanelMarkers.Count -gt 0) {
+    throw "Property panel layout markers missing: $($missingPanelMarkers -join ', ')"
+}
+
 $missingActions = @()
 foreach ($action in $actions) {
     $escaped = [regex]::Escape($action)
@@ -97,3 +114,4 @@ Write-Host "Skybox button wiring OK"
 Write-Host "Visible controls checked: $($requiredVisibleIds.Count)"
 Write-Host "Property actions checked: $($actions.Count)"
 Write-Host "Quick actions checked: $($quickActions.Count)"
+Write-Host "Panel layout markers checked: $($requiredPanelMarkers.Count)"

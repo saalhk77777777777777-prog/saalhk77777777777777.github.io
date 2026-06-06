@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.04.6';
+        const APP_VERSION = 'v2026.06.04.7';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -5448,7 +5448,23 @@ ${created.length} images arranged on the inside spherical wall.`;
                 </div>
             `;
 
-            propertyPanel.innerHTML = quickStyleHtml + sharedHtml + shadowHtml + imageHtml + textHtml;
+            const foldPanel = (title, body, open = false) => body ? `
+                <details class="property-fold" ${open ? 'open' : ''}>
+                    <summary>
+                        <span>${title}</span>
+                        <span class="property-fold-hint">열기</span>
+                    </summary>
+                    <div class="space-y-4 pt-3">${body}</div>
+                </details>
+            ` : '';
+
+            propertyPanel.innerHTML = [
+                quickStyleHtml,
+                sharedHtml,
+                shadowHtml,
+                foldPanel('이미지 고급 보정', imageHtml),
+                foldPanel('텍스트 고급 보정', textHtml),
+            ].join('');
             propertyPanel.dataset.boundId = selected.id;
             propertyPanel.dataset.boundType = selected.type;
             propertyPanel.querySelectorAll('[data-bind]').forEach(input => {
