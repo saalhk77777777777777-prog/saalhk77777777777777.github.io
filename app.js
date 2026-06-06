@@ -1,5 +1,5 @@
 const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
-        const APP_VERSION = 'v2026.06.04.14';
+        const APP_VERSION = 'v2026.06.04.15';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -5211,6 +5211,10 @@ ${created.length} images arranged on the inside spherical wall.`;
             if (action === 'rotate-left') selected.rotation = clamp(selected.rotation - 15, -180, 180);
             if (action === 'rotate-right') selected.rotation = clamp(selected.rotation + 15, -180, 180);
             if (action === 'rotate-reset') selected.rotation = 0;
+            if (action === 'nudge-left') selected.x = clamp(selected.x - 10, 0, CANVAS_SIZE);
+            if (action === 'nudge-right') selected.x = clamp(selected.x + 10, 0, CANVAS_SIZE);
+            if (action === 'nudge-up') selected.y = clamp(selected.y - 10, 0, CANVAS_SIZE);
+            if (action === 'nudge-down') selected.y = clamp(selected.y + 10, 0, CANVAS_SIZE);
             if (action === 'bring-front') {
                 moveElementOrder('front');
                 return;
@@ -5357,6 +5361,18 @@ ${created.length} images arranged on the inside spherical wall.`;
                         <button type="button" class="tool-button !rounded-2xl" data-action="align-fit-width">가로 채우기</button>
                         <button type="button" class="tool-button !rounded-2xl" data-action="align-fit-height">세로 채우기</button>
                         ` : ''}
+                    </div>
+                    <div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Position</div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <span></span>
+                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="nudge-up">?</button>
+                        <span></span>
+                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="nudge-left">?</button>
+                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="align-center-x">??</button>
+                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="nudge-right">?</button>
+                        <span></span>
+                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="nudge-down">?</button>
+                        <span></span>
                     </div>
                     <div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Rotation</div>
                     <div class="grid grid-cols-3 gap-2">

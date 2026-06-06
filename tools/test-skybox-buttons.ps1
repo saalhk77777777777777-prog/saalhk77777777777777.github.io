@@ -62,6 +62,10 @@ $requiredQuickStyleActions = @(
     'rotate-left',
     'rotate-right',
     'rotate-reset',
+    'nudge-left',
+    'nudge-right',
+    'nudge-up',
+    'nudge-down',
     'bring-front',
     'send-back'
 )
