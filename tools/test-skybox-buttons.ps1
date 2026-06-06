@@ -82,6 +82,8 @@ if ($missingQuickStyleActions.Count -gt 0) {
 
 $requiredPanelMarkers = @(
     'quick-style-group',
+    'quick-style-grid',
+    'quick-style-label',
     'property-fold',
     'PROPERTY_FOLD_STATE_KEY',
     'data-fold-key',
