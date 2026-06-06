@@ -11,7 +11,6 @@ $js = Get-Content -LiteralPath 'app.js' -Raw
 $requiredVisibleIds = @(
     'sky-bulk',
     'asset-bulk',
-    'asset-bulk-flip',
     'sphere-edit-toggle',
     'poster-quick-start',
     'add-text',
@@ -81,20 +80,20 @@ $requiredPanelMarkers = @(
     '텍스트 고급 보정'
 )
 
-$requiredImageImportMarkers = @(
-    'flipCanvasHorizontal',
-    'asset-bulk-flip',
-    'addImages(files, { flipX: true })'
+$requiredExportImageMarkers = @(
+    'createExportImageElement',
+    'flipX: !element.flipX',
+    'drawImageElement(exportElement, flatCtx, false)'
 )
 
-$missingImageImportMarkers = @()
-foreach ($marker in $requiredImageImportMarkers) {
+$missingExportImageMarkers = @()
+foreach ($marker in $requiredExportImageMarkers) {
     if ($js -notmatch [regex]::Escape($marker) -and $html -notmatch [regex]::Escape($marker)) {
-        $missingImageImportMarkers += $marker
+        $missingExportImageMarkers += $marker
     }
 }
-if ($missingImageImportMarkers.Count -gt 0) {
-    throw "Image import flip markers missing: $($missingImageImportMarkers -join ', ')"
+if ($missingExportImageMarkers.Count -gt 0) {
+    throw "Export image flip markers missing: $($missingExportImageMarkers -join ', ')"
 }
 
 $missingPanelMarkers = @()
