@@ -256,6 +256,25 @@ function Assert-SkyboxLocalAssetsExist {
     powershell -ExecutionPolicy Bypass -File ".\tools\test-skybox-local-assets.ps1" | Out-Host
 }
 
+function Assert-AdsTxtWiring {
+    $adsPath = "ads.txt"
+    if (-not (Test-Path -LiteralPath $adsPath -PathType Leaf)) {
+        throw "ads.txt is missing."
+    }
+
+    $adsText = Get-Content -LiteralPath $adsPath -Raw
+    $required = @(
+        "google.com, pub-2603754934068938, DIRECT, f08c47fec0942fa0"
+    )
+    foreach ($needle in $required) {
+        if (-not $adsText.Contains($needle)) {
+            throw "ads.txt is missing required entry: $needle"
+        }
+    }
+
+    Write-Host "OK ads.txt wiring"
+}
+
 function Assert-SkyboxButtons {
     $buttonPath = "tools\test-skybox-buttons.ps1"
     if (-not (Test-Path -LiteralPath $buttonPath -PathType Leaf)) {
@@ -338,8 +357,17 @@ function Assert-HttpLoads {
         throw "HTTP app.js check did not return the application script."
     }
 
+    $adsResponse = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/ads.txt" -UseBasicParsing -TimeoutSec 10
+    if ($adsResponse.StatusCode -ne 200) {
+        throw "HTTP ads.txt check failed: $($adsResponse.StatusCode)"
+    }
+    if ($adsResponse.Content -notmatch "google\.com, pub-2603754934068938, DIRECT, f08c47fec0942fa0") {
+        throw "HTTP ads.txt check did not return the AdSense publisher entry."
+    }
+
     Write-Host "OK http index $($response.StatusCode)"
     Write-Host "OK http app.js $($scriptResponse.StatusCode)"
+    Write-Host "OK http ads.txt $($adsResponse.StatusCode)"
 }
 
 function Assert-ExportManifestWiring {
