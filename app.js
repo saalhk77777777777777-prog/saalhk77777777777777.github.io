@@ -5331,64 +5331,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                 return;
             }
 
-            const quickStyleHtml = `
-                <div class="property-group quick-style-group space-y-3 border-cyan-300/15 bg-cyan-300/[0.035]">
-                    <div class="flex items-center justify-between gap-3">
-                        <div class="property-label">Quick Style</div>
-                        <span class="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">Most used</span>
-                    </div>
-                    <div class="quick-style-label text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">효과</div>
-                    <div class="quick-style-grid grid grid-cols-2 gap-2">
-                        <button type="button" class="tool-button primary !rounded-2xl" data-action="recommend-outline-color">추천 외곽선</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="shadow-hard">선명 그림자</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="shadow-glow">글로우</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="reset-effects">효과 초기화</button>
-                    </div>
-                    <div class="quick-style-label text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">투명도</div>
-                    <div class="quick-style-grid grid grid-cols-3 gap-2">
-                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="opacity-down">연하게</button>
-                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="opacity-up">진하게</button>
-                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="opacity-reset">복원</button>
-                    </div>
-                    <div class="quick-style-label text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">정렬과 크기</div>
-                    <div class="quick-style-grid grid grid-cols-2 gap-2">
-                        <button type="button" class="tool-button !rounded-2xl" data-action="align-center-x">가로 중앙</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="align-center-y">세로 중앙</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="scale-down">작게</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="scale-up">크게</button>
-                        <button type="button" class="tool-button !rounded-2xl col-span-2" data-action="scale-reset">원래 크기</button>
-                        ${selected.type === 'image' ? `
-                        <button type="button" class="tool-button !rounded-2xl" data-action="align-fit-width">가로 채우기</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="align-fit-height">세로 채우기</button>
-                        ` : ''}
-                    </div>
-                    <div class="quick-style-label text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Position</div>
-                    <div class="quick-style-grid grid grid-cols-3 gap-2">
-                        <span></span>
-                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="nudge-up">?</button>
-                        <span></span>
-                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="nudge-left">?</button>
-                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="align-center-x">??</button>
-                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="nudge-right">?</button>
-                        <span></span>
-                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="nudge-down">?</button>
-                        <span></span>
-                    </div>
-                    <div class="quick-style-label text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Rotation</div>
-                    <div class="quick-style-grid grid grid-cols-3 gap-2">
-                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="rotate-left">-15?</button>
-                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="rotate-reset">0?</button>
-                        <button type="button" class="tool-button !rounded-2xl !px-2" data-action="rotate-right">+15?</button>
-                    </div>
-                    <div class="quick-style-label text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Layer order</div>
-                    <div class="quick-style-grid grid grid-cols-2 gap-2">
-                        <button type="button" class="tool-button !rounded-2xl" data-action="bring-front">? ???</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="send-back">? ??</button>
-                    </div>
-                </div>
-            `;
-
-            const sharedHtml = `
+                       const sharedHtml = `
                 <div class="property-group space-y-4">
                     <div class="property-label">기본 변형</div>
                     ${textField({ label: '레이어 이름', key: 'name', value: selected.name })}
