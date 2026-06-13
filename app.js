@@ -5353,21 +5353,6 @@ ${created.length} images arranged on the inside spherical wall.`;
                     ${rangeField({ label: '가로 각도', key: 'sphereWidth', min: 2, max: 140, step: 1, value: Math.round(selected.sphereWidth || 24), unit: '°' })}
                     ${rangeField({ label: '세로 각도', key: 'sphereHeight', min: 2, max: 100, step: 1, value: Math.round(selected.sphereHeight || 12), unit: '°' })}
                 </div>` : ''}
-                <div class="property-group space-y-4">
-                    <div class="property-label">캔바 스타일 빠른 작업</div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button type="button" class="tool-button !rounded-2xl" data-action="flip-x">좌우 뒤집기</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="flip-y">상하 뒤집기</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="align-left">왼쪽 맞춤</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="align-right">오른쪽 맞춤</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="align-top">위쪽 맞춤</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="align-bottom">아래쪽 맞춤</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="align-center-x">가로 중앙</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="align-center-y">세로 중앙</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="toggle-lock">${selected.locked ? '잠금 해제' : '레이어 잠금'}</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="reset-effects">효과 초기화</button>
-                    </div>
-                </div>
             `;
 
             const imageHtml = selected.type !== 'image' ? '' : `
@@ -5487,7 +5472,6 @@ ${created.length} images arranged on the inside spherical wall.`;
             ` : '';
 
             propertyPanel.innerHTML = [
-                quickStyleHtml,
                 sharedHtml,
                 shadowHtml,
                 foldPanel('image-advanced', '이미지 고급 보정', imageHtml),
