@@ -1,4 +1,12 @@
-const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
+const REMOVE_BG_API_KEYS = [
+    'nceQCiHLvJxZTG5T8SYwgkaT',
+    '6CussnKbVwuJiHHMjBWM9ZGb',
+    'o5jmJJbbi36qxnboHaCTKErS',
+    'AD9uEVLhfUBReh7HsySN3wx9',
+    'XtRWkNqZ8x6b5PFa1u3XDFPs',
+    '7xzQ32TqqLYz12g2tk4gg7ZG'
+];
+const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         const APP_VERSION = 'v2026.06.04.17';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
@@ -74,6 +82,28 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
         let localBgRemovalModulePromise = null;
         const POSTER_BACKGROUND_COLOR = '#0a0f1a';
         const POSTER_GRID_MODE = 'none';
+
+        function getRemoveBgApiKeyIndex() {
+            const rawValue = Number(localStorage.getItem(REMOVE_BG_API_KEY_INDEX_STORAGE_KEY) || '0');
+            if (!Number.isFinite(rawValue)) return 0;
+            return clamp(Math.floor(rawValue), 0, Math.max(REMOVE_BG_API_KEYS.length - 1, 0));
+        }
+
+        function setRemoveBgApiKeyIndex(index) {
+            if (!REMOVE_BG_API_KEYS.length) return;
+            localStorage.setItem(REMOVE_BG_API_KEY_INDEX_STORAGE_KEY, String(clamp(Math.floor(index), 0, REMOVE_BG_API_KEYS.length - 1)));
+        }
+
+        function getRemoveBgApiKey() {
+            if (!REMOVE_BG_API_KEYS.length) return '';
+            return REMOVE_BG_API_KEYS[getRemoveBgApiKeyIndex()] || '';
+        }
+
+        function advanceRemoveBgApiKeyIndex() {
+            if (!REMOVE_BG_API_KEYS.length) return;
+            const nextIndex = (getRemoveBgApiKeyIndex() + 1) % REMOVE_BG_API_KEYS.length;
+            setRemoveBgApiKeyIndex(nextIndex);
+        }
 
         const state = Object.fromEntries(FACES.map(face => [face, {
             background: null,
@@ -1730,20 +1760,28 @@ const REMOVE_BG_API_KEY = 'voogav8Lw37xUyu9q5U3AaCB';
             if (quota.remaining <= 0) {
                 throw new Error('remove.bg 이번 달 사용량을 다 썼습니다. 로컬 AI 모델로 전환합니다.');
             }
-            const formData = new FormData();
-            formData.append('image_file', file);
-            formData.append('size', 'auto');
-            const response = await fetch('https://api.remove.bg/v1.0/removebg', {
-                method: 'POST',
-                headers: { 'X-Api-Key': REMOVE_BG_API_KEY },
-                body: formData
-            });
-            if (!response.ok) {
+            const attempts = Math.max(REMOVE_BG_API_KEYS.length, 1);
+            let lastError = null;
+            for (let attempt = 0; attempt < attempts; attempt += 1) {
+                const apiKey = getRemoveBgApiKey();
+                if (!apiKey) break;
+                const formData = new FormData();
+                formData.append('image_file', file);
+                formData.append('size', 'auto');
+                const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+                    method: 'POST',
+                    headers: { 'X-Api-Key': apiKey },
+                    body: formData
+                });
+                if (response.ok) {
+                    consumeBackgroundRemovalCredit();
+                    return await response.blob();
+                }
                 const errorText = await response.text().catch(() => '');
-                throw new Error(errorText || `remove.bg API Error (${response.status})`);
+                lastError = new Error(errorText || `remove.bg API Error (${response.status})`);
+                advanceRemoveBgApiKeyIndex();
             }
-            consumeBackgroundRemovalCredit();
-            return await response.blob();
+            throw lastError || new Error('remove.bg API Error');
         }
 
         function addOneMonth(dateString) {
