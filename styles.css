@@ -86,6 +86,7 @@
         body.mobile-layout .property-group { border-radius: 20px; padding: 15px; }
         body.mobile-layout .canvas-stage { order: 1; min-height: calc(100dvh - 126px); width: 100%; flex: none; padding: 0; overflow: auto; border-bottom: 1px solid rgba(255,255,255,0.08); }
         body.mobile-layout .canvas-center { min-width: max-content; min-height: calc(100dvh - 126px); padding: 78px 18px 172px; align-items: center; justify-content: center; }
+        body.mobile-layout .sphere-grid-panel { display: none; }
         body.mobile-layout .mobile-slider-preview { width: 20vw; top: 10px; right: 10px; border-radius: 18px; }
         body.mobile-layout #canvas-stage > .absolute.top-5 { position: sticky; top: 12px; left: 12px; transform: none; width: calc(100vw - 24px); margin: 12px; }
         body.mobile-layout #canvas-stage > .absolute.top-5 .panel { border-radius: 22px; justify-content: center; gap: 8px; }

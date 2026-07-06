@@ -420,6 +420,37 @@
         </aside>
 
         <section id="canvas-stage" class="canvas-stage flex-1 min-w-0 relative grid-bg overflow-auto p-6">
+            <div class="sphere-grid-panel absolute top-5 left-5 z-10 w-[300px] max-w-[calc(100vw-32px)]">
+                <div class="panel rounded-[24px] px-4 py-4 space-y-3 border border-cyan-400/20 bg-slate-950/88 backdrop-blur-xl">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <div class="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">Sphere Grid</div>
+                            <div class="text-xs text-slate-400">구체 전체 그리드</div>
+                        </div>
+                        <button id="globe-grid-reset" type="button" class="tool-button !px-3 !py-1">Reset</button>
+                    </div>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="flex items-center justify-between mb-2">Spacing <b id="globe-grid-spacing-value" class="text-cyan-200">24°</b></span>
+                        <input id="globe-grid-spacing" type="range" min="8" max="60" step="1" value="24" class="w-full">
+                    </label>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="flex items-center justify-between mb-2">Lines <b id="globe-grid-count-value" class="text-cyan-200">12</b></span>
+                        <input id="globe-grid-count" type="range" min="4" max="24" step="1" value="12" class="w-full">
+                    </label>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="flex items-center justify-between mb-2">Opacity <b id="globe-grid-opacity-value" class="text-cyan-200">34%</b></span>
+                        <input id="globe-grid-opacity" type="range" min="5" max="100" step="1" value="34" class="w-full">
+                    </label>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="flex items-center justify-between mb-2">Width <b id="globe-grid-width-value" class="text-cyan-200">1.6px</b></span>
+                        <input id="globe-grid-width" type="range" min="0.5" max="4" step="0.1" value="1.6" class="w-full">
+                    </label>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="flex items-center justify-between mb-2">Color</span>
+                        <input id="globe-grid-color" type="color" value="#67e8f9">
+                    </label>
+                </div>
+            </div>
             <div class="absolute top-5 left-1/2 -translate-x-1/2 z-10">
                 <div class="panel rounded-full px-4 py-2 flex flex-wrap items-center gap-3">
                     <div class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Canvas Controls</div>
@@ -483,7 +514,7 @@
         <canvas id="mobile-slider-preview-canvas" width="1024" height="1024"></canvas>
         <div class="mobile-slider-preview-label">미리보기</div>
     </div>
-    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.05.27.2</span></div>
-    <script src="./app.js?v=2026.06.04.17"></script>
+    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.07.06.01</span></div>
+    <script src="./app.js?v=2026.07.06.01"></script>
 </body>
 </html>

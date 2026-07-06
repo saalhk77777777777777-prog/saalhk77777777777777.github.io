@@ -7,7 +7,7 @@ const REMOVE_BG_API_KEYS = [
     '7xzQ32TqqLYz12g2tk4gg7ZG'
 ];
 const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
-        const APP_VERSION = 'v2026.06.04.17';
+        const APP_VERSION = 'v2026.07.06.01';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
@@ -44,6 +44,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         const LAYOUT_MODE_STORAGE_KEY = 'skybox-layout-mode-v1';
         const CLOUD_SYNC_CONFIG_KEY = 'skybox-cloud-sync-config-v1';
         const BG_QUOTA_STORAGE_KEY = 'skybox-remove-bg-quota-v1';
+        const GLOBE_GRID_SETTINGS_KEY = 'skybox-globe-grid-settings-v1';
         const BG_QUOTA_MONTHLY_LIMIT = 50;
         const BG_QUOTA_INITIAL_REMAINING = 13;
         const BG_QUOTA_INITIAL_RESET_DATE = '2026-05-21';
@@ -75,6 +76,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         let pendingSphereInteractionFrame = false;
         let sphereInteractionRefreshTimer = null;
         let spherePreviewFaceCache = null;
+        let globeGridSettings = getGlobeGridSettings();
         const canvasPointers = new Map();
         let pinchState = null;
         let sliderPreviewTimer = null;
@@ -82,6 +84,13 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         let localBgRemovalModulePromise = null;
         const POSTER_BACKGROUND_COLOR = '#0a0f1a';
         const POSTER_GRID_MODE = 'none';
+        const DEFAULT_GLOBE_GRID_SETTINGS = {
+            lineSpacingDeg: 24,
+            longitudeCount: 12,
+            opacity: 0.34,
+            color: '#67e8f9',
+            lineWidth: 1.6
+        };
 
         function getRemoveBgApiKeyIndex() {
             const rawValue = Number(localStorage.getItem(REMOVE_BG_API_KEY_INDEX_STORAGE_KEY) || '0');
@@ -103,6 +112,42 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             if (!REMOVE_BG_API_KEYS.length) return;
             const nextIndex = (getRemoveBgApiKeyIndex() + 1) % REMOVE_BG_API_KEYS.length;
             setRemoveBgApiKeyIndex(nextIndex);
+        }
+
+        function normalizeGlobeGridSettings(value = {}) {
+            return {
+                lineSpacingDeg: clamp(Number(value.lineSpacingDeg ?? DEFAULT_GLOBE_GRID_SETTINGS.lineSpacingDeg), 8, 60),
+                longitudeCount: clamp(Math.round(Number(value.longitudeCount ?? DEFAULT_GLOBE_GRID_SETTINGS.longitudeCount)), 4, 24),
+                opacity: clamp(Number(value.opacity ?? DEFAULT_GLOBE_GRID_SETTINGS.opacity), 0.05, 1),
+                color: typeof value.color === 'string' && value.color ? value.color : DEFAULT_GLOBE_GRID_SETTINGS.color,
+                lineWidth: clamp(Number(value.lineWidth ?? DEFAULT_GLOBE_GRID_SETTINGS.lineWidth), 0.5, 4)
+            };
+        }
+
+        function getGlobeGridSettings() {
+            try {
+                return normalizeGlobeGridSettings(JSON.parse(localStorage.getItem(GLOBE_GRID_SETTINGS_KEY) || 'null'));
+            } catch {
+                return normalizeGlobeGridSettings();
+            }
+        }
+
+        function setGlobeGridSettings(settings) {
+            localStorage.setItem(GLOBE_GRID_SETTINGS_KEY, JSON.stringify(normalizeGlobeGridSettings(settings)));
+        }
+
+        function syncGlobeGridUI(settings = globeGridSettings) {
+            const normalized = normalizeGlobeGridSettings(settings);
+            globeGridSettings = normalized;
+            if (globeGridSpacing) globeGridSpacing.value = String(normalized.lineSpacingDeg);
+            if (globeGridSpacingValue) globeGridSpacingValue.textContent = `${Math.round(normalized.lineSpacingDeg)}°`;
+            if (globeGridCount) globeGridCount.value = String(normalized.longitudeCount);
+            if (globeGridCountValue) globeGridCountValue.textContent = String(normalized.longitudeCount);
+            if (globeGridOpacity) globeGridOpacity.value = String(Math.round(normalized.opacity * 100));
+            if (globeGridOpacityValue) globeGridOpacityValue.textContent = `${Math.round(normalized.opacity * 100)}%`;
+            if (globeGridWidth) globeGridWidth.value = String(normalized.lineWidth);
+            if (globeGridWidthValue) globeGridWidthValue.textContent = `${Number(normalized.lineWidth).toFixed(1)}px`;
+            if (globeGridColor) globeGridColor.value = normalized.color;
         }
 
         const state = Object.fromEntries(FACES.map(face => [face, {
@@ -161,6 +206,17 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         const mobileQuickBorderWidth = document.getElementById('mobile-quick-border-width');
         const mobileQuickBorderStrength = document.getElementById('mobile-quick-border-strength');
         const mobileQuickBorderColor = document.getElementById('mobile-quick-border-color');
+        const globeGridPanel = document.querySelector('.sphere-grid-panel');
+        const globeGridSpacing = document.getElementById('globe-grid-spacing');
+        const globeGridSpacingValue = document.getElementById('globe-grid-spacing-value');
+        const globeGridCount = document.getElementById('globe-grid-count');
+        const globeGridCountValue = document.getElementById('globe-grid-count-value');
+        const globeGridOpacity = document.getElementById('globe-grid-opacity');
+        const globeGridOpacityValue = document.getElementById('globe-grid-opacity-value');
+        const globeGridWidth = document.getElementById('globe-grid-width');
+        const globeGridWidthValue = document.getElementById('globe-grid-width-value');
+        const globeGridColor = document.getElementById('globe-grid-color');
+        const globeGridReset = document.getElementById('globe-grid-reset');
         const bgQuotaStatus = document.getElementById('bg-quota-status');
         const posterCountModal = document.getElementById('poster-count-modal');
         const posterCountCancel = document.getElementById('poster-count-cancel');
@@ -4357,6 +4413,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         function drawProjectedGlobeLine(renderCtx, points, style = {}) {
             renderCtx.save();
             renderCtx.strokeStyle = style.color || 'rgba(103,232,249,0.28)';
+            renderCtx.globalAlpha = clamp(Number(style.alpha ?? 1), 0.05, 1);
             renderCtx.lineWidth = style.width || 2;
             if (style.dash) renderCtx.setLineDash(style.dash);
             renderCtx.beginPath();
@@ -4379,23 +4436,36 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function drawGlobeSurfaceGrid(renderCtx) {
-            const latitudes = [-60, -30, 0, 30, 60];
-            const longitudes = Array.from({ length: 12 }, (_, index) => index * 30);
+            const settings = globeGridSettings || DEFAULT_GLOBE_GRID_SETTINGS;
+            const spacing = clamp(Number(settings.lineSpacingDeg || DEFAULT_GLOBE_GRID_SETTINGS.lineSpacingDeg), 8, 60);
+            const longitudeCount = clamp(Math.round(Number(settings.longitudeCount || DEFAULT_GLOBE_GRID_SETTINGS.longitudeCount)), 4, 24);
+            const lineColor = settings.color || DEFAULT_GLOBE_GRID_SETTINGS.color;
+            const opacity = clamp(Number(settings.opacity || DEFAULT_GLOBE_GRID_SETTINGS.opacity), 0.05, 1);
+            const lineWidth = clamp(Number(settings.lineWidth || DEFAULT_GLOBE_GRID_SETTINGS.lineWidth), 0.5, 4);
+            const latitudes = [];
+            for (let lat = -90 + spacing; lat < 90; lat += spacing) {
+                latitudes.push(lat);
+            }
+            if (!latitudes.includes(0)) latitudes.push(0);
+            latitudes.sort((a, b) => a - b);
+            const longitudes = Array.from({ length: longitudeCount }, (_, index) => -180 + (index * 360 / longitudeCount));
             const step = spherePreviewQuality === 'fast' ? 6 : 3;
             latitudes.forEach(lat => {
                 const points = [];
                 for (let lon = -180; lon <= 180; lon += step) points.push(directionFromGlobeLonLat(lon, lat));
                 drawProjectedGlobeLine(renderCtx, points, {
-                    color: lat === 0 ? 'rgba(250,204,21,0.45)' : 'rgba(103,232,249,0.24)',
-                    width: lat === 0 ? 2.6 : 1.6
+                    color: lat === 0 ? `rgba(250,204,21,${opacity * 1.25})` : lineColor,
+                    width: lat === 0 ? lineWidth * 1.45 : lineWidth,
+                    alpha: lat === 0 ? opacity * 1.2 : opacity
                 });
             });
             longitudes.forEach(lon => {
                 const points = [];
                 for (let lat = -86; lat <= 86; lat += step) points.push(directionFromGlobeLonLat(lon, lat));
                 drawProjectedGlobeLine(renderCtx, points, {
-                    color: lon % 90 === 0 ? 'rgba(248,113,113,0.34)' : 'rgba(103,232,249,0.2)',
-                    width: lon % 90 === 0 ? 2.2 : 1.4
+                    color: lon % 90 === 0 ? `rgba(248,113,113,${opacity})` : lineColor,
+                    width: lon % 90 === 0 ? lineWidth * 1.25 : lineWidth * 0.9,
+                    alpha: lon % 90 === 0 ? opacity * 0.95 : opacity * 0.75
                 });
             });
         }
@@ -6124,6 +6194,29 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             sphereOverlayVisible = !sphereOverlayVisible;
             render();
         });
+        const updateGlobeGridFromInputs = () => {
+            globeGridSettings = normalizeGlobeGridSettings({
+                lineSpacingDeg: Number(globeGridSpacing?.value ?? DEFAULT_GLOBE_GRID_SETTINGS.lineSpacingDeg),
+                longitudeCount: Number(globeGridCount?.value ?? DEFAULT_GLOBE_GRID_SETTINGS.longitudeCount),
+                opacity: Number(globeGridOpacity?.value ?? Math.round(DEFAULT_GLOBE_GRID_SETTINGS.opacity * 100)) / 100,
+                color: globeGridColor?.value || DEFAULT_GLOBE_GRID_SETTINGS.color,
+                lineWidth: Number(globeGridWidth?.value ?? DEFAULT_GLOBE_GRID_SETTINGS.lineWidth)
+            });
+            setGlobeGridSettings(globeGridSettings);
+            syncGlobeGridUI(globeGridSettings);
+            render();
+        };
+        globeGridSpacing?.addEventListener('input', updateGlobeGridFromInputs);
+        globeGridCount?.addEventListener('input', updateGlobeGridFromInputs);
+        globeGridOpacity?.addEventListener('input', updateGlobeGridFromInputs);
+        globeGridWidth?.addEventListener('input', updateGlobeGridFromInputs);
+        globeGridColor?.addEventListener('input', updateGlobeGridFromInputs);
+        globeGridReset?.addEventListener('click', () => {
+            globeGridSettings = normalizeGlobeGridSettings();
+            setGlobeGridSettings(globeGridSettings);
+            syncGlobeGridUI(globeGridSettings);
+            render();
+        });
         posterQuickStart?.addEventListener('click', async () => {
             const count = await requestPosterFileCount();
             if (!count || !posterQuickInput) return;
@@ -6315,6 +6408,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
 
         loadAiConfig();
         syncAiConfigInputs();
+        syncGlobeGridUI();
         bindRangeKeyboardAndWheelControls();
         getBackgroundRemovalQuota();
         renderBackgroundTemplates();
