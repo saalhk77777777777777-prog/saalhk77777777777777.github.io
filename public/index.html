@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skybox Studio Pro</title>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2603754934068938" crossorigin="anonymous"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="./vendor/jszip.min.js"></script>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="h-screen flex flex-col">
+    <div id="loading-overlay" class="modal-backdrop">
+        <div class="panel-strong rounded-[28px] px-10 py-9 text-center max-w-sm w-full">
+            <div class="loader mx-auto mb-5"></div>
+            <h2 class="text-xl font-black tracking-tight">이미지를 준비하는 중</h2>
+            <p id="loading-text" class="text-sm text-slate-400 mt-3">파일을 불러오고 편집 가능한 레이어로 변환하고 있어요.</p>
+        </div>
+    </div>
+
+    <div id="layout-choice-modal" class="modal-backdrop layout-choice-modal">
+        <div class="panel-strong layout-choice-card rounded-[32px] w-full max-w-3xl overflow-hidden">
+            <div class="p-7 sm:p-9">
+                <div class="inline-flex items-center rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-200">Skybox Studio</div>
+                <h2 class="mt-5 text-2xl sm:text-3xl font-black tracking-tight">어떤 화면으로 시작할까요?</h2>
+                <p class="mt-3 text-sm leading-6 text-slate-400">PC는 지금 쓰던 넓은 편집기를 그대로 쓰고, 모바일은 버튼과 패널을 세로형으로 크게 재배치해서 손가락으로 편하게 만질 수 있게 바꿉니다.</p>
+                <div class="mt-7 grid gap-3 sm:grid-cols-2">
+                    <button id="choose-pc-layout" type="button" class="layout-choice-button">
+                        <span class="text-lg font-black">PC 화면</span>
+                        <span class="text-sm text-slate-400">기존 레이아웃 그대로, 넓은 화면용</span>
+                    </button>
+                    <button id="choose-mobile-layout" type="button" class="layout-choice-button mobile">
+                        <span class="text-lg font-black">모바일 화면</span>
+                        <span class="text-sm text-slate-400">세로 스크롤, 큰 버튼, 작은 캔버스</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="poster-count-modal" class="modal-backdrop">
+        <div class="panel-strong rounded-[30px] w-full max-w-md overflow-hidden">
+            <div class="p-6 border-b border-white/10">
+                <div class="property-label">Poster Quick</div>
+                <h2 class="text-xl font-black mt-2">사진 몇 장 넣을까요?</h2>
+                <p class="text-sm text-slate-400 mt-2 leading-6">첫 번째 사진은 메인으로 AI 배경제거되고, 나머지는 뒤쪽 카드로 자동 배치됩니다. 최대 5장까지 가능합니다.</p>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-5 gap-2">
+                    <button type="button" class="tool-button primary !rounded-2xl" data-poster-count="1">1장</button>
+                    <button type="button" class="tool-button !rounded-2xl" data-poster-count="2">2장</button>
+                    <button type="button" class="tool-button !rounded-2xl" data-poster-count="3">3장</button>
+                    <button type="button" class="tool-button !rounded-2xl" data-poster-count="4">4장</button>
+                    <button type="button" class="tool-button !rounded-2xl" data-poster-count="5">5장</button>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button id="poster-count-cancel" type="button" class="tool-button">취소</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="poster-options-modal" class="modal-backdrop">
+        <div class="panel-strong rounded-[30px] w-full max-w-md overflow-hidden">
+            <div class="p-6 border-b border-white/10">
+                <div class="property-label">Poster Quick</div>
+                <h2 class="text-xl font-black mt-2">포스터 색 고르기</h2>
+                <p class="text-sm text-slate-400 mt-2 leading-6">메인 더블 외곽선, 서브 카드 테두리, 배경색에 쓸 강조색을 골라 주세요.</p>
+            </div>
+            <div class="p-6 space-y-4">
+                <label class="block">
+                    <div class="text-[11px] font-bold text-slate-400 mb-2">강조색</div>
+                    <input id="poster-accent-color" type="color" value="#ff1f2d">
+                </label>
+                <div class="grid grid-cols-5 gap-2">
+                    <button type="button" class="h-9 rounded-2xl border border-white/10 bg-[#ff1f2d]" data-poster-color="#ff1f2d"></button>
+                    <button type="button" class="h-9 rounded-2xl border border-white/10 bg-[#7c3aed]" data-poster-color="#7c3aed"></button>
+                    <button type="button" class="h-9 rounded-2xl border border-white/10 bg-[#2563eb]" data-poster-color="#2563eb"></button>
+                    <button type="button" class="h-9 rounded-2xl border border-white/10 bg-[#ec4899]" data-poster-color="#ec4899"></button>
+                    <button type="button" class="h-9 rounded-2xl border border-white/10 bg-[#111827]" data-poster-color="#111827"></button>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button id="poster-options-cancel" type="button" class="tool-button">취소</button>
+                    <button id="poster-options-apply" type="button" class="tool-button primary">이 색으로 만들기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="project-history-modal" class="modal-backdrop">
+        <div class="panel-strong rounded-[30px] w-full max-w-4xl max-h-[86vh] overflow-hidden flex flex-col">
+            <div class="p-6 border-b border-white/10 flex items-start justify-between gap-4">
+                <div>
+                    <div class="property-label">Project History</div>
+                    <h2 class="text-xl font-black mt-2">작업 기록 선택</h2>
+                    <p class="text-sm text-slate-400 mt-2 leading-6">저장했던 기록을 골라서 불러오거나, JSON으로 내보내 다른 기기에서 가져올 수 있습니다.</p>
+                </div>
+                <button id="project-history-close" type="button" class="tool-button">닫기</button>
+            </div>
+            <div class="p-5 border-b border-white/10 flex flex-wrap gap-2">
+                <button id="project-history-refresh" type="button" class="tool-button">새로고침</button>
+                <button id="project-history-export" type="button" class="tool-button success">기록 내보내기</button>
+                <label class="tool-button primary cursor-pointer">기록 가져오기<input type="file" id="project-history-import" class="hidden" accept="application/json,.json"></label>
+            </div>
+            <div id="project-history-list" class="flex-1 min-h-0 overflow-y-auto scrollbar p-5 space-y-3">
+                <div class="text-sm text-slate-400">작업 기록을 읽는 중이에요.</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="cloud-sync-modal" class="modal-backdrop">
+        <div class="panel-strong rounded-[30px] w-full max-w-2xl overflow-hidden">
+            <div class="p-6 border-b border-white/10 flex items-start justify-between gap-4">
+                <div>
+                    <div class="property-label">Site Cloud Storage</div>
+                    <h2 class="text-xl font-black mt-2">사이트 자체 기록 동기화</h2>
+                    <p class="text-sm text-slate-400 mt-2 leading-6">Supabase 무료 DB를 붙이면 같은 방 키를 쓰는 기기끼리 작업 기록을 공유할 수 있습니다.</p>
+                </div>
+                <button id="cloud-sync-close" type="button" class="tool-button">닫기</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <label class="block">
+                    <div class="text-[11px] font-bold text-slate-400 mb-2">Supabase Project URL</div>
+                    <input id="cloud-supabase-url" class="text-input" placeholder="https://xxxx.supabase.co">
+                </label>
+                <label class="block">
+                    <div class="text-[11px] font-bold text-slate-400 mb-2">Supabase anon key</div>
+                    <input id="cloud-supabase-key" class="text-input" placeholder="eyJhbGciOi...">
+                </label>
+                <label class="block">
+                    <div class="text-[11px] font-bold text-slate-400 mb-2">방 키</div>
+                    <input id="cloud-room-key" class="text-input" placeholder="my-skybox-room">
+                </label>
+                <div class="rounded-[22px] border border-white/10 bg-white/[0.04] p-4 text-xs text-slate-400 leading-6">
+                    Supabase SQL Editor에서 아래 테이블을 한 번만 만들면 됩니다.<br>
+                    <code>create table skybox_project_histories (room_key text primary key, payload jsonb not null, updated_at timestamptz default now());</code>
+                </div>
+                <div class="flex flex-wrap justify-end gap-2 pt-2">
+                    <button id="cloud-save-config" type="button" class="tool-button">설정 저장</button>
+                    <button id="cloud-upload-history" type="button" class="tool-button success">이 기기 기록 올리기</button>
+                    <button id="cloud-download-history" type="button" class="tool-button primary">사이트 기록 가져오기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="canva-bg-modal" class="modal-backdrop">
+        <div class="panel-strong rounded-[30px] w-full max-w-2xl overflow-hidden">
+            <div class="p-6 border-b border-white/10 flex items-start justify-between gap-4">
+                <div>
+                    <div class="property-label">Canva Helper</div>
+                    <h2 class="text-xl font-black mt-2">배경제거(캔바)</h2>
+                    <p class="text-sm text-slate-400 mt-2 leading-6">Canva는 보안 정책 때문에 이 화면 안에 직접 삽입되지 않아서 새 창으로 열립니다. Canva에서 배경제거 후 투명 PNG로 저장하고, 아래 버튼으로 다시 넣으면 됩니다.</p>
+                </div>
+                <button id="canva-bg-close" type="button" class="tool-button">닫기</button>
+            </div>
+            <div class="p-6 grid gap-4 sm:grid-cols-2">
+                <div class="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+                    <div class="text-sm font-black text-white">1. Canva 열기</div>
+                    <p class="text-xs text-slate-400 mt-2 leading-5">Canva에서 사진을 올리고 배경제거를 적용한 뒤 PNG 투명 배경으로 내려받으세요.</p>
+                    <button id="open-canva-bg" type="button" class="tool-button primary w-full mt-4">Canva 배경제거 열기</button>
+                </div>
+                <div class="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
+                    <div class="text-sm font-black text-white">2. 결과 다시 넣기</div>
+                    <p class="text-xs text-slate-400 mt-2 leading-5">다운로드한 PNG/WebP를 선택하면 현재 면에 이미지 레이어로 추가됩니다.</p>
+                    <label class="tool-button success w-full mt-4 cursor-pointer">Canva 결과 불러오기<input type="file" id="canva-result-input" class="hidden" accept="image/png,image/webp,image/jpeg" multiple></label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="cutout-modal" class="modal-backdrop">
+        <div class="panel-strong rounded-[30px] w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col">
+            <div class="px-6 py-5 border-b border-white/10 flex items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-black">수동 배경 제거 브러쉬</h2>
+                    <p class="text-sm text-slate-400 mt-1">지우개와 복원 브러쉬를 번갈아 쓰면서 가장자리만 자연스럽게 다듬어 주세요.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="cutout-reset" class="tool-button">원본 복구</button>
+                    <button id="cutout-cancel" class="tool-button">취소</button>
+                    <button id="cutout-apply" class="tool-button primary">적용</button>
+                </div>
+            </div>
+            <div class="flex-1 min-h-0 flex">
+                <div class="w-[320px] shrink-0 border-r border-white/10 p-5 overflow-y-auto scrollbar space-y-5">
+                    <div class="property-group space-y-3">
+                        <div class="property-label">브러쉬 모드</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="brush-erase" class="tool-button primary">지우기</button>
+                            <button id="brush-restore" class="tool-button">복원</button>
+                        </div>
+                    </div>
+                    <div class="property-group space-y-3">
+                        <div class="flex justify-between property-label"><span>브러쉬 크기</span><span id="brush-size-value">30</span></div>
+                        <input id="brush-size" type="range" min="4" max="160" value="30">
+                        <div class="flex justify-between property-label"><span>부드러움</span><span id="brush-softness-value">0.7</span></div>
+                        <input id="brush-softness" type="range" min="0" max="1" step="0.01" value="0.7">
+                        <div class="flex justify-between property-label"><span>강도</span><span id="brush-opacity-value">1.0</span></div>
+                        <input id="brush-opacity" type="range" min="0.1" max="1" step="0.01" value="1">
+                    </div>
+                    <div class="property-group space-y-3">
+                        <div class="flex justify-between property-label"><span>줌</span><span id="cutout-zoom-value">100%</span></div>
+                        <input id="cutout-zoom" type="range" min="0.25" max="3" step="0.01" value="1">
+                        <p class="text-xs leading-5 text-slate-400">팁: 작은 브러쉬로 가장자리만 여러 번 정리하면 더 자연스럽게 보입니다.</p>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0 bg-[#02050a] grid-bg overflow-auto scrollbar p-8">
+                    <div class="w-full h-full flex items-center justify-center">
+                        <canvas id="cutout-canvas" class="shadow-2xl rounded-2xl bg-transparent max-w-none"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ai-modal" class="modal-backdrop">
+        <div class="panel-strong rounded-[30px] w-full max-w-5xl h-[84vh] overflow-hidden flex flex-col">
+            <div class="px-6 py-5 border-b border-white/10 flex items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-black">AI 디자인 추천</h2>
+                    <p class="text-sm text-slate-400 mt-1">현재 면의 구성 이미지를 로컬 AI 서버로 보내서 배치, 색감, 텍스트 스타일 추천을 받습니다.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="ai-close" class="tool-button">닫기</button>
+                    <button id="ai-run" class="tool-button primary">추천 받기</button>
+                </div>
+            </div>
+            <div class="flex-1 min-h-0 grid grid-cols-[360px_minmax(0,1fr)]">
+                <div class="border-r border-white/10 p-5 overflow-y-auto scrollbar space-y-4">
+                    <div class="property-group space-y-4">
+                        <div class="property-label">연결 설정</div>
+                        <label class="block">
+                            <div class="text-[11px] font-bold text-slate-400 mb-2">엔드포인트</div>
+                            <input id="ai-endpoint" class="text-input" value="http://127.0.0.1:1234/v1/chat/completions">
+                        </label>
+                        <label class="block">
+                            <div class="text-[11px] font-bold text-slate-400 mb-2">모델 이름</div>
+                            <input id="ai-model" class="text-input" value="qwen2.5-vl-7b-instruct">
+                        </label>
+                        <label class="block">
+                            <div class="text-[11px] font-bold text-slate-400 mb-2">API Key</div>
+                            <input id="ai-api-key" class="text-input" placeholder="없으면 비워두기">
+                        </label>
+                    </div>
+                    <div class="property-group space-y-4">
+                        <div class="property-label">추천 프롬프트</div>
+                        <textarea id="ai-user-prompt" class="textarea-input">현재 스카이박스 면 이미지를 보고 한국어로 디자인 추천을 해줘. 배치, 강조 포인트, 텍스트 스타일, 색 조합, 테두리/그림자 효과를 중심으로 5개 항목으로 짧고 실용적으로 제안해줘.</textarea>
+                    </div>
+                    <div class="property-group space-y-3">
+                        <div class="property-label">빠른 가이드</div>
+                        <p class="text-sm text-slate-300 leading-6">권장 서버 예시: LM Studio의 OpenAI 호환 서버, Ollama의 `/v1/chat/completions`, 또는 vLLM으로 띄운 Qwen2.5-VL.</p>
+                    </div>
+                </div>
+                <div class="p-5 overflow-y-auto scrollbar space-y-4">
+                    <div class="property-group space-y-3">
+                        <div class="property-label">현재 면 미리보기</div>
+                        <img id="ai-preview" class="w-full max-h-[320px] object-contain rounded-2xl bg-black/30 border border-white/10" alt="AI preview">
+                    </div>
+                    <div class="property-group space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="property-label">추천 결과</div>
+                            <div id="ai-status" class="text-xs text-slate-500">대기 중</div>
+                        </div>
+                        <div id="ai-result" class="text-sm leading-7 text-slate-200 whitespace-pre-wrap">AI 추천 결과가 여기 표시됩니다.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <header class="shrink-0 border-b border-white/10 px-5 py-4 bg-black/40 backdrop-blur-xl">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-cyan-300 via-sky-400 to-blue-500 text-[#04111f] flex items-center justify-center font-black text-lg shadow-xl">S</div>
+                <div>
+                    <h1 class="text-lg font-black tracking-tight">Skybox Studio Pro</h1>
+                    <p class="text-xs text-slate-400 mt-1">단일 HTML로 돌아가는 스카이박스 전용 편집기</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <label class="tool-button cursor-pointer">배경 업로드<input type="file" id="sky-bulk" class="hidden" accept=".tex,.png,.jpg,.jpeg,.webp,.webg" multiple></label>
+                <button id="preset-bundled-button" class="tool-button success">프로그램 폴더 스카이박스</button>
+                <button id="preset-folder-button" class="tool-button">외부 폴더 가져오기</button>
+                <input type="file" id="preset-folder-input" class="hidden" webkitdirectory directory multiple>
+                <label class="tool-button cursor-pointer">이미지 추가<input type="file" id="asset-bulk" class="hidden" accept="image/*" multiple></label>
+                <button id="sphere-edit-toggle" class="tool-button success" type="button">Globe Edit ON</button>
+                <button type="button" id="poster-quick-start" class="tool-button">포스터 빠른 추가</button>
+                <input type="file" id="poster-quick-input" class="hidden" accept="image/*" multiple>
+                <label class="tool-button cursor-pointer">AI 배경제거 추가<input type="file" id="asset-bulk-ai" class="hidden" accept="image/*" multiple></label>
+                <div id="bg-quota-status" class="tool-button success">remove.bg 13개</div>
+                <button id="open-canva-helper" class="tool-button success">배경제거(캔바)</button>
+                <label class="tool-button cursor-pointer">단색배경 제거 추가<input type="file" id="asset-bulk-solid" class="hidden" accept="image/*" multiple></label>
+                <button id="add-text" class="tool-button">텍스트 추가</button>
+                <button id="open-ai" class="tool-button primary">AI 추천</button>
+                <button id="duplicate-layer" class="tool-button">레이어 복제</button>
+                <button id="open-cutout" class="tool-button success">수동 배경제거</button>
+                <button id="delete-layer" class="tool-button danger">삭제</button>
+                <button id="save-project" class="tool-button success">작업 저장</button>
+                <button id="load-project" class="tool-button">기록 불러오기</button>
+                <button id="open-cloud-sync" class="tool-button success">사이트 저장소</button>
+                <button id="change-layout-mode" class="tool-button">화면 모드</button>
+                <button id="export-all" class="tool-button primary">Sphere -> 6 Faces ZIP</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="adfit-wrap" aria-label="Kakao AdFit advertisement">
+        <ins class="kakao_ad_area"
+            style="display:none;"
+            data-ad-unit="DAN-RqhHNsp6ZHMfM0ci"
+            data-ad-width="728"
+            data-ad-height="90"></ins>
+        <script type="text/javascript" src="https://t1.kakaocdn.net/kas/static/ba.min.js" async></script>
+    </div>
+
+    <main id="editor-workspace" class="flex-1 min-h-0 flex">
+        <aside class="mobile-left-rail w-[300px] shrink-0 border-r border-white/10 bg-black/25 panel-strong overflow-y-auto scrollbar">
+            <div class="mobile-face-switch px-5 py-5 border-b border-white/10">
+                <div class="property-label">Face Switch</div>
+                <div class="grid grid-cols-3 gap-2 mt-3">
+                    <button class="face-tab tool-button active" data-face="ft">FT</button>
+                    <button class="face-tab tool-button" data-face="bk">BK</button>
+                    <button class="face-tab tool-button" data-face="lf">LF</button>
+                    <button class="face-tab tool-button" data-face="rt">RT</button>
+                    <button class="face-tab tool-button" data-face="up">UP</button>
+                    <button class="face-tab tool-button" data-face="dn">DN</button>
+                </div>
+                <div class="property-label mt-5">BETA Edge Pair</div>
+                <div class="grid grid-cols-2 gap-2 mt-3">
+                    <button class="face-pair-tab tool-button" data-face-pair="ft/lf">FT/LF</button>
+                    <button class="face-pair-tab tool-button" data-face-pair="rt/ft">RT/FT</button>
+                    <button class="face-pair-tab tool-button" data-face-pair="bk/rt">BK/RT</button>
+                    <button class="face-pair-tab tool-button" data-face-pair="lf/bk">LF/BK</button>
+                </div>
+                <button id="add-pair-test-image" type="button" class="tool-button primary w-full mt-2">테스트 이미지 추가</button>
+                <div class="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-3 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div class="property-label">대각선 보정 상태</div>
+                        <span id="pair-warp-status" class="text-[10px] font-black text-cyan-200">Corner 46%</span>
+                    </div>
+                    <input id="pair-warp-settings-input" type="file" accept=".json,application/json" class="hidden">
+                    <p class="text-[11px] text-cyan-100/80 leading-5">최종 왜곡 보정은 유지됩니다. 값 조절 UI는 숨겨서 기본 작업 흐름을 단순하게 만들었습니다.</p>
+                </div>
+                <p class="text-xs text-slate-400 mt-4 leading-5">파일명에 `ft`, `bk`, `lf`, `rt`, `up`, `dn` 이 들어가면 자동으로 해당 면 배경으로 들어갑니다.</p>
+            </div>
+            <div class="mobile-background-tools px-5 py-5 border-b border-white/10 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="property-label">Canvas</div>
+                    <button id="clear-face" class="text-xs font-bold text-rose-300 hover:text-rose-200 transition-colors">현재 면 초기화</button>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><div class="text-[11px] text-slate-400 mb-2">배경색</div><input id="canvas-bg-color" type="color" value="#0a0f1a"></div>
+                    <div><div class="text-[11px] text-slate-400 mb-2">배경 불투명도</div><input id="canvas-bg-opacity" type="range" min="0" max="1" step="0.01" value="1"></div>
+                </div>
+                <p class="text-[11px] text-slate-500 leading-5">면 사이 이미지는 FT/RT 같은 BETA Edge Pair에서 추가하면 기록되고, 전체 내보내기 때 자동으로 로블록스 원근 보정됩니다.</p>
+                <div class="property-label mt-5">Globe Workflow</div>
+                <div class="space-y-2 text-[11px] text-slate-400 leading-5">
+                    <button id="sphere-reset-view" type="button" class="tool-button w-full">구형 시점 정면</button>
+                    <button id="sphere-auto-layout" type="button" class="tool-button primary w-full">구형 자동 배치</button>
+                    <button id="sphere-overlay-toggle" type="button" class="tool-button w-full">오버레이 숨기기</button>
+                    <p id="sphere-edit-status">Cube -> Globe edit -> Cube export</p>
+                    <p>Default flow: cube map loads in, editing happens on the outside globe, export bakes it back into six warped faces.</p>
+                </div>
+                <div class="property-group space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="property-label">현재 면 배경</div>
+                        <div id="background-status-badge" class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Empty</div>
+                    </div>
+                    <img id="background-preview" class="w-full h-28 object-cover rounded-2xl border border-white/10 bg-black/30" alt="background preview">
+                    <div id="background-status-text" class="text-xs text-slate-400 leading-5">현재 면에 배경이 없습니다.</div>
+                </div>
+                <div class="property-group space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="property-label">배경 템플릿</div>
+                        <div id="background-template-count" class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Spectrum</div>
+                    </div>
+                    <div>
+                        <div class="text-[11px] text-slate-400 mb-2">배경색</div>
+                        <input id="background-template-color" type="color" value="#3b82f6">
+                    </div>
+                    <canvas id="background-template-preview" width="240" height="120" class="w-full h-24 rounded-2xl border border-white/10 bg-black/30"></canvas>
+                    <button id="apply-background-template" type="button" class="tool-button primary w-full">현재 면에 적용</button>
+                    <div id="background-template-list" class="grid grid-cols-6 gap-2"></div>
+                </div>
+                <div class="property-group space-y-3">
+                    <div class="property-label">최근 배경 업로드 결과</div>
+                    <div id="background-upload-log" class="text-xs text-slate-400 leading-5 whitespace-pre-wrap">아직 업로드 기록이 없습니다.</div>
+                </div>
+            </div>
+            <div class="mobile-layer-heading px-5 pt-5 pb-3 flex items-center justify-between">
+                <div class="property-label">Layers</div>
+                <div class="text-[11px] text-slate-500" id="layer-count">0 items</div>
+            </div>
+            <div class="mobile-preset-tools px-4 pb-4">
+                <div class="property-group space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="property-label">Skybox Presets</div>
+                        <div id="preset-count" class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">0 sets</div>
+                    </div>
+                    <div id="preset-status-text" class="text-xs text-slate-400 leading-5">아직 가져온 스카이박스 폴더가 없습니다.</div>
+                    <div id="preset-list" class="max-h-60 overflow-y-auto scrollbar space-y-2"></div>
+                </div>
+                <div class="property-group space-y-3 mt-4">
+                    <div class="flex items-center justify-between">
+                        <div class="property-label">Quick Compose</div>
+                        <div class="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Poster</div>
+                    </div>
+                    <button id="apply-poster-background" type="button" class="tool-button w-full">기본 배경 적용</button>
+                    <button id="arrange-poster-layout" type="button" class="tool-button primary w-full">현재 면 포스터 배치</button>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" class="tool-button !px-2 !py-2" data-frame-template="hero">히어로</button>
+                        <button type="button" class="tool-button !px-2 !py-2" data-frame-template="gallery">갤러리</button>
+                        <button type="button" class="tool-button !px-2 !py-2" data-frame-template="split">분할</button>
+                    </div>
+                    <div class="text-xs text-slate-400 leading-5">첫 이미지는 배경제거 메인, 다음 2~3장은 가로/세로 비율에 맞춰 회전 카드로 자동 정리됩니다.</div>
+                </div>
+            </div>
+            <div id="layer-list" class="mobile-layer-list px-4 pb-5 space-y-2"></div>
+        </aside>
+
+        <section id="canvas-stage" class="canvas-stage flex-1 min-w-0 relative grid-bg overflow-auto p-6">
+            <div class="sphere-grid-panel absolute top-5 left-5 z-10 w-[300px] max-w-[calc(100vw-32px)]">
+                <div class="panel rounded-[24px] px-4 py-4 space-y-3 border border-cyan-400/20 bg-slate-950/88 backdrop-blur-xl">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <div class="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">Sphere Grid</div>
+                            <div class="text-xs text-slate-400">구체 전체 그리드</div>
+                        </div>
+                        <button id="globe-grid-reset" type="button" class="tool-button !px-3 !py-1">Reset</button>
+                    </div>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="flex items-center justify-between mb-2">Spacing <b id="globe-grid-spacing-value" class="text-cyan-200">24°</b></span>
+                        <input id="globe-grid-spacing" type="range" min="8" max="60" step="1" value="24" class="w-full">
+                    </label>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="flex items-center justify-between mb-2">Lines <b id="globe-grid-count-value" class="text-cyan-200">12</b></span>
+                        <input id="globe-grid-count" type="range" min="4" max="24" step="1" value="12" class="w-full">
+                    </label>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="flex items-center justify-between mb-2">Opacity <b id="globe-grid-opacity-value" class="text-cyan-200">34%</b></span>
+                        <input id="globe-grid-opacity" type="range" min="5" max="100" step="1" value="34" class="w-full">
+                    </label>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="flex items-center justify-between mb-2">Width <b id="globe-grid-width-value" class="text-cyan-200">1.6px</b></span>
+                        <input id="globe-grid-width" type="range" min="0.5" max="4" step="0.1" value="1.6" class="w-full">
+                    </label>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="flex items-center justify-between mb-2">Color</span>
+                        <input id="globe-grid-color" type="color" value="#67e8f9">
+                    </label>
+                </div>
+            </div>
+            <div class="absolute top-5 left-1/2 -translate-x-1/2 z-10">
+                <div class="panel rounded-full px-4 py-2 flex flex-wrap items-center gap-3">
+                    <div class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Canvas Controls</div>
+                    <div class="text-xs text-slate-300">드래그: 이동</div>
+                    <div class="text-xs text-slate-300">휠: 크기</div>
+                    <div class="text-xs text-slate-300">Shift + 휠: 회전</div>
+                    <button id="toggle-grid" type="button" class="tool-button !px-3 !py-1">그리드 ON</button>
+                    <button id="toggle-snap" type="button" class="tool-button !px-3 !py-1">스냅 OFF</button>
+                </div>
+            </div>
+            <div class="canvas-center">
+                <div class="relative canvas-shell">
+                <canvas id="main-canvas" width="1024" height="1024" class="editor-canvas rounded-[30px] border border-white/10 shadow-[0_40px_120px_rgba(0,0,0,0.45)] bg-black/40"></canvas>
+                <div class="absolute left-1/2 -translate-x-1/2 bottom-5 panel quick-bar rounded-[26px] px-5 py-4 flex items-center gap-5">
+                    <div class="text-[11px] uppercase tracking-[0.2em] text-slate-400 font-black">Quick</div>
+                    <button id="bring-front" class="tool-button desktop-quick-action !px-4 !py-2">맨 앞으로</button>
+                    <button id="send-back" class="tool-button desktop-quick-action !px-4 !py-2">맨 뒤로</button>
+                    <button id="center-layer" class="tool-button desktop-quick-action !px-4 !py-2">가운데 정렬</button>
+                    <div class="mobile-quick-panel">
+                        <label class="mobile-quick-field rotate">
+                            <span>회전 <b id="mobile-quick-rotation-value">0</b></span>
+                            <input id="mobile-quick-rotation" type="range" min="-90" max="90" step="1" value="0">
+                        </label>
+                        <label class="mobile-quick-field">
+                            <span>테두리 두께</span>
+                            <input id="mobile-quick-border-width" type="range" min="0" max="50" step="1" value="0">
+                        </label>
+                        <label class="mobile-quick-field">
+                            <span>테두리 강도</span>
+                            <input id="mobile-quick-border-strength" type="range" min="0" max="80" step="1" value="0">
+                        </label>
+                        <label class="mobile-quick-color">
+                            <span>색깔</span>
+                            <input id="mobile-quick-border-color" type="color" value="#7c3aed">
+                        </label>
+                        <button type="button" class="tool-button mobile-quick-recommend-button !px-4 !py-2" data-quick-action="recommend-outline-color">추천색</button>
+                        <button type="button" class="tool-button mobile-quick-shadow-button !px-4 !py-2" data-quick-action="mobile-quick-shadow">선명 그림자</button>
+                    </div>
+                </div>
+                </div>
+            </div>
+            <div class="absolute right-5 bottom-5 z-10 panel rounded-[26px] px-4 py-3 flex items-center gap-3">
+                <button id="fit-canvas" type="button" class="tool-button !px-4 !py-2">화면 맞춤</button>
+                <div class="w-40">
+                    <div class="flex justify-between text-[11px] font-bold text-slate-400 mb-1"><span>줌</span><span id="canvas-zoom-value">74%</span></div>
+                    <input id="canvas-zoom" type="range" min="30" max="160" step="1" value="74">
+                </div>
+            </div>
+        </section>
+
+        <aside class="mobile-property-tools w-[360px] shrink-0 border-l border-white/10 bg-black/25 panel-strong flex flex-col">
+            <div class="px-6 py-5 border-b border-white/10">
+                <div class="property-label">Selection</div>
+                <h2 id="selection-title" class="text-lg font-black mt-2">선택된 레이어 없음</h2>
+                <p id="selection-subtitle" class="text-sm text-slate-400 mt-1">이미지나 텍스트를 선택하면 여기서 상세 편집이 가능해집니다.</p>
+            </div>
+            <div id="property-panel" class="flex-1 overflow-y-auto scrollbar p-5 space-y-4"></div>
+        </aside>
+    </main>
+    <div id="mobile-slider-preview" class="mobile-slider-preview" aria-hidden="true">
+        <canvas id="mobile-slider-preview-canvas" width="1024" height="1024"></canvas>
+        <div class="mobile-slider-preview-label">미리보기</div>
+    </div>
+    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.07.06.01</span></div>
+    <script src="./app.js?v=2026.07.06.01"></script>
+</body>
+</html>
