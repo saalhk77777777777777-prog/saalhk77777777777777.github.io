@@ -1,0 +1,619 @@
+{
+  "generatedAt": "2026-05-02T17:49:21",
+  "source": "bundled assets/skybox",
+  "count": 17,
+  "presets": [
+    {
+      "label": "gradients / rainbow stripes",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/gradients/rainbow%20stripes/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/gradients/rainbow%20stripes/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/gradients/rainbow%20stripes/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/gradients/rainbow%20stripes/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/gradients/rainbow%20stripes/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/gradients/rainbow%20stripes/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "gradients / striped socks pink",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/gradients/striped%20socks%20pink/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/gradients/striped%20socks%20pink/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/gradients/striped%20socks%20pink/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/gradients/striped%20socks%20pink/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/gradients/striped%20socks%20pink/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/gradients/striped%20socks%20pink/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Green",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Green/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Green/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Green/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Green/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Green/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Green/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "gradients / strawberry mint",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/gradients/strawberry%20mint/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/gradients/strawberry%20mint/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/gradients/strawberry%20mint/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/gradients/strawberry%20mint/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/gradients/strawberry%20mint/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/gradients/strawberry%20mint/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "gradients / blurple",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/gradients/blurple/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/gradients/blurple/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/gradients/blurple/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/gradients/blurple/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/gradients/blurple/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/gradients/blurple/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "gradients / mikgazer",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/gradients/mikgazer/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/gradients/mikgazer/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/gradients/mikgazer/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/gradients/mikgazer/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/gradients/mikgazer/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/gradients/mikgazer/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "gradients / apple",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/gradients/apple/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/gradients/apple/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/gradients/apple/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/gradients/apple/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/gradients/apple/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/gradients/apple/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Glungus",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Glungus/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Glungus/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Glungus/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Glungus/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Glungus/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Glungus/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "gradients / pastel",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/gradients/pastel/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/gradients/pastel/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/gradients/pastel/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/gradients/pastel/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/gradients/pastel/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/gradients/pastel/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "gradients / choco mint",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/gradients/choco%20mint/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/gradients/choco%20mint/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/gradients/choco%20mint/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/gradients/choco%20mint/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/gradients/choco%20mint/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/gradients/choco%20mint/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "gradients / striped socks blue",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/gradients/striped%20socks%20blue/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/gradients/striped%20socks%20blue/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/gradients/striped%20socks%20blue/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/gradients/striped%20socks%20blue/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/gradients/striped%20socks%20blue/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/gradients/striped%20socks%20blue/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "gradients / Coastal Algae",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/gradients/Coastal%20Algae/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/gradients/Coastal%20Algae/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/gradients/Coastal%20Algae/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/gradients/Coastal%20Algae/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/gradients/Coastal%20Algae/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/gradients/Coastal%20Algae/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Goodnight",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Goodnight/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Goodnight/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Goodnight/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Goodnight/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Goodnight/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Goodnight/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "grimnight / Modifications / PlatformContent / pc / textures / sky",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/grimnight/Modifications/PlatformContent/pc/textures/sky/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/grimnight/Modifications/PlatformContent/pc/textures/sky/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/grimnight/Modifications/PlatformContent/pc/textures/sky/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/grimnight/Modifications/PlatformContent/pc/textures/sky/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/grimnight/Modifications/PlatformContent/pc/textures/sky/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/grimnight/Modifications/PlatformContent/pc/textures/sky/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "gradients / orange popsicle",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/gradients/orange%20popsicle/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/gradients/orange%20popsicle/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/gradients/orange%20popsicle/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/gradients/orange%20popsicle/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/gradients/orange%20popsicle/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/gradients/orange%20popsicle/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "gradients / berry lipstick",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/gradients/berry%20lipstick/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/gradients/berry%20lipstick/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/gradients/berry%20lipstick/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/gradients/berry%20lipstick/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/gradients/berry%20lipstick/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/gradients/berry%20lipstick/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "gradients / rainbow gradient",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/gradients/rainbow%20gradient/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/gradients/rainbow%20gradient/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/gradients/rainbow%20gradient/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/gradients/rainbow%20gradient/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/gradients/rainbow%20gradient/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/gradients/rainbow%20gradient/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    }
+  ]
+}

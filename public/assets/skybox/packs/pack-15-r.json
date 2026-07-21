@@ -1,0 +1,151 @@
+{
+  "generatedAt": "2026-05-02T17:49:21",
+  "source": "bundled assets/skybox",
+  "count": 4,
+  "presets": [
+    {
+      "label": "Red - 복사본",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Red%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Red%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Red%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Red%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Red%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Red%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Red Fish",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Red%20Fish/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Red%20Fish/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Red%20Fish/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Red%20Fish/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Red%20Fish/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Red%20Fish/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "RemRam",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/RemRam/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/RemRam/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/RemRam/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/RemRam/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/RemRam/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/RemRam/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Red",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Red/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.png",
+          "url": "assets/skybox/Red/sky512_up.png",
+          "ext": "png"
+        },
+        "dn": {
+          "name": "sky512_dn.png",
+          "url": "assets/skybox/Red/sky512_dn.png",
+          "ext": "png"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Red/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Red/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Red/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,331 @@
+{
+  "generatedAt": "2026-05-02T17:49:21",
+  "source": "bundled assets/skybox",
+  "count": 9,
+  "presets": [
+    {
+      "label": "PlatformContent / pc / textures / sky",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/PlatformContent/pc/textures/sky/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/PlatformContent/pc/textures/sky/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/PlatformContent/pc/textures/sky/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/PlatformContent/pc/textures/sky/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/PlatformContent/pc/textures/sky/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/PlatformContent/pc/textures/sky/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Pink Sunrise",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Pink%20Sunrise/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Pink%20Sunrise/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Pink%20Sunrise/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Pink%20Sunrise/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Pink%20Sunrise/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Pink%20Sunrise/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Purple",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Purple/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Purple/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Purple/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Purple/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Purple/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Purple/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Pandora",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Pandora/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Pandora/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Pandora/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Pandora/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Pandora/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Pandora/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Philly",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Philly/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Philly/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Philly/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Philly/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Philly/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Philly/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Purple Nebula Skybox / PlatformContent / pc / textures / sky",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Purple%20Nebula%20Skybox/PlatformContent/pc/textures/sky/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Purple%20Nebula%20Skybox/PlatformContent/pc/textures/sky/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Purple%20Nebula%20Skybox/PlatformContent/pc/textures/sky/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Purple%20Nebula%20Skybox/PlatformContent/pc/textures/sky/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Purple%20Nebula%20Skybox/PlatformContent/pc/textures/sky/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Purple%20Nebula%20Skybox/PlatformContent/pc/textures/sky/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Pumpkin Hill Skybox / PlatformContent / pc / textures / sky",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Pumpkin%20Hill%20Skybox/PlatformContent/pc/textures/sky/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Pumpkin%20Hill%20Skybox/PlatformContent/pc/textures/sky/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Pumpkin%20Hill%20Skybox/PlatformContent/pc/textures/sky/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Pumpkin%20Hill%20Skybox/PlatformContent/pc/textures/sky/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Pumpkin%20Hill%20Skybox/PlatformContent/pc/textures/sky/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Pumpkin%20Hill%20Skybox/PlatformContent/pc/textures/sky/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "PeacefullMorningSky / Modifications / PlatformContent / pc / textures / sky",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/PeacefullMorningSky/Modifications/PlatformContent/pc/textures/sky/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/PeacefullMorningSky/Modifications/PlatformContent/pc/textures/sky/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/PeacefullMorningSky/Modifications/PlatformContent/pc/textures/sky/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/PeacefullMorningSky/Modifications/PlatformContent/pc/textures/sky/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/PeacefullMorningSky/Modifications/PlatformContent/pc/textures/sky/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/PeacefullMorningSky/Modifications/PlatformContent/pc/textures/sky/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "posterized",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/posterized/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/posterized/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/posterized/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/posterized/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/posterized/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/posterized/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    }
+  ]
+}

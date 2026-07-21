@@ -1,0 +1,115 @@
+{
+  "generatedAt": "2026-05-02T17:49:21",
+  "source": "bundled assets/skybox",
+  "count": 3,
+  "presets": [
+    {
+      "label": "Vibrant Blue Skies Skybox / PlatformContent / pc / textures / sky",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Vibrant%20Blue%20Skies%20Skybox/PlatformContent/pc/textures/sky/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Vibrant%20Blue%20Skies%20Skybox/PlatformContent/pc/textures/sky/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Vibrant%20Blue%20Skies%20Skybox/PlatformContent/pc/textures/sky/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Vibrant%20Blue%20Skies%20Skybox/PlatformContent/pc/textures/sky/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Vibrant%20Blue%20Skies%20Skybox/PlatformContent/pc/textures/sky/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Vibrant%20Blue%20Skies%20Skybox/PlatformContent/pc/textures/sky/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Vaporwave",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Vaporwave/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Vaporwave/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Vaporwave/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Vaporwave/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Vaporwave/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Vaporwave/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Violet Evergarden",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Violet%20Evergarden/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Violet%20Evergarden/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Violet%20Evergarden/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Violet%20Evergarden/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Violet%20Evergarden/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Violet%20Evergarden/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    }
+  ]
+}

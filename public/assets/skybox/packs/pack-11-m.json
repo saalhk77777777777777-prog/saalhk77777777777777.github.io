@@ -1,0 +1,79 @@
+{
+  "generatedAt": "2026-05-02T17:49:21",
+  "source": "bundled assets/skybox",
+  "count": 2,
+  "presets": [
+    {
+      "label": "Modifications / PlatformContent / pc / textures / sky",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Modifications/PlatformContent/pc/textures/sky/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Modifications/PlatformContent/pc/textures/sky/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Modifications/PlatformContent/pc/textures/sky/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Modifications/PlatformContent/pc/textures/sky/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Modifications/PlatformContent/pc/textures/sky/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Modifications/PlatformContent/pc/textures/sky/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    },
+    {
+      "label": "Moonlight",
+      "variantLabel": "sky512",
+      "filesByFace": {
+        "ft": {
+          "name": "sky512_ft.tex",
+          "url": "assets/skybox/Moonlight/sky512_ft.tex",
+          "ext": "tex"
+        },
+        "up": {
+          "name": "sky512_up.tex",
+          "url": "assets/skybox/Moonlight/sky512_up.tex",
+          "ext": "tex"
+        },
+        "dn": {
+          "name": "sky512_dn.tex",
+          "url": "assets/skybox/Moonlight/sky512_dn.tex",
+          "ext": "tex"
+        },
+        "lf": {
+          "name": "sky512_lf.tex",
+          "url": "assets/skybox/Moonlight/sky512_lf.tex",
+          "ext": "tex"
+        },
+        "rt": {
+          "name": "sky512_rt.tex",
+          "url": "assets/skybox/Moonlight/sky512_rt.tex",
+          "ext": "tex"
+        },
+        "bk": {
+          "name": "sky512_bk.tex",
+          "url": "assets/skybox/Moonlight/sky512_bk.tex",
+          "ext": "tex"
+        }
+      }
+    }
+  ]
+}

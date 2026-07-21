@@ -1702,6 +1702,23 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             });
         }
 
+        async function fetchPresetManifest(sourceUrl) {
+            const response = await fetch(sourceUrl, { cache: 'no-cache' });
+            if (!response.ok) return null;
+            const manifest = await response.json();
+            if (!manifest) return null;
+            return manifest;
+        }
+
+        function manifestToPresetSets(manifest, fallbackLabel = 'bundled') {
+            if (!Array.isArray(manifest?.presets) || manifest.presets.length === 0) return [];
+            return manifest.presets.map(preset => ({
+                label: preset.label || preset.variantLabel || fallbackLabel,
+                variantLabel: preset.variantLabel || fallbackLabel,
+                filesByFace: preset.filesByFace || {}
+            }));
+        }
+
         async function buildPresetLibraryFromFiles(files) {
             showLoading('스카이박스 폴더를 분석하는 중이에요.');
             const allowed = new Set(['tex', 'png', 'jpg', 'jpeg', 'webp', 'webg']);
@@ -1764,22 +1781,33 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
 
         async function loadBundledPresetManifest(notify = false) {
             try {
-                const response = await fetch('./assets/skybox/presets.json', { cache: 'no-cache' });
-                if (!response.ok) return;
+                const manifestSources = ['./assets/skybox/presets.json'];
+                try {
+                    const packIndex = await fetchPresetManifest('./assets/skybox/packs/index.json');
+                    if (Array.isArray(packIndex?.packs) && packIndex.packs.length) {
+                        packIndex.packs.forEach(pack => manifestSources.push(`./assets/skybox/packs/${pack.name}`));
+                    }
+                } catch {
+                    // Keep the base manifest if the split packs are not available yet.
+                }
 
-                const manifest = await response.json();
-                if (!Array.isArray(manifest.presets) || manifest.presets.length === 0) return;
+                const manifests = [];
+                for (const sourceUrl of manifestSources) {
+                    const manifest = await fetchPresetManifest(sourceUrl);
+                    if (manifest) manifests.push(manifest);
+                }
 
-                importedPresetSets = manifest.presets.map(preset => ({
-                    label: preset.label || preset.variantLabel || 'Bundled Skybox',
-                    variantLabel: preset.variantLabel || 'bundled',
-                    filesByFace: preset.filesByFace || {}
-                })).sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+                importedPresetSets = manifests.flatMap((manifest, index) => {
+                    const label = index === 0 ? 'Bundled Skybox' : `Bundled Pack ${index}`;
+                    return manifestToPresetSets(manifest, label);
+                }).sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+
+                if (importedPresetSets.length === 0) return;
 
                 updatePresetLibraryUI();
-                presetStatusText.textContent = `내장 스카이박스 ${importedPresetSets.length}개가 자동으로 준비됐습니다.`;
+                presetStatusText.textContent = `내장 스카이박스와 분리된 팩 ${importedPresetSets.length}개가 준비됐습니다.`;
                 if (notify) {
-                    alert(`프로그램 폴더 스카이박스 ${importedPresetSets.length}개를 불러왔습니다.`);
+                    alert(`스카이박스 프리셋 ${importedPresetSets.length}개를 불러왔습니다.`);
                 }
             } catch (error) {
                 presetStatusText.textContent = `내장 스카이박스를 자동으로 불러오지 못했습니다: ${getErrorMessage(error)}`;
