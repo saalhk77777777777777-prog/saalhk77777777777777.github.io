@@ -92,6 +92,8 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             lineWidth: 1.6
         };
 
+        let globeGridSettings = getGlobeGridSettings();
+
         function getRemoveBgApiKeyIndex() {
             const rawValue = Number(localStorage.getItem(REMOVE_BG_API_KEY_INDEX_STORAGE_KEY) || '0');
             if (!Number.isFinite(rawValue)) return 0;
