@@ -1784,7 +1784,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             try {
                 const manifestSources = ['./assets/skybox/presets.json'];
                 try {
-                    const packIndex = await fetchPresetManifest('./assets/skybox/packs/index.json');
+                    const packIndex = await fetchPresetManifest('./assets/skybox/presets.json');
                     if (Array.isArray(packIndex?.packs) && packIndex.packs.length) {
                         packIndex.packs.forEach(pack => manifestSources.push(`./assets/skybox/packs/${pack.name}`));
                     }
