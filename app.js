@@ -76,7 +76,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         let pendingSphereInteractionFrame = false;
         let sphereInteractionRefreshTimer = null;
         let spherePreviewFaceCache = null;
-        let globeGridSettings = getGlobeGridSettings();
         const canvasPointers = new Map();
         let pinchState = null;
         let sliderPreviewTimer = null;
