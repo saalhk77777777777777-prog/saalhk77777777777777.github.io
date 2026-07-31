@@ -828,7 +828,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             renderCtx.fillStyle = bgColor;
             renderCtx.fillRect(0, 0, size, size);
             renderCtx.save();
-            const step = 3;
+            const step = 1;
             const latLines = [];
             for (let lat = -90 + spacing; lat < 90; lat += spacing) latLines.push(lat);
             if (!latLines.includes(0)) latLines.push(0);
@@ -845,9 +845,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                     renderCtx.strokeStyle = isEq && s.showEquator ? '#facc15' : lineColor;
                     renderCtx.lineWidth = isEq && s.showEquator ? lineWidth * 2 : lineWidth;
                     renderCtx.globalAlpha = isEq && s.showEquator ? 0.9 : 0.45;
-                    renderCtx.beginPath();
-                    seg.forEach((p, i) => i === 0 ? renderCtx.moveTo(p.x, p.y) : renderCtx.lineTo(p.x, p.y));
-                    renderCtx.stroke();
+                    drawSmoothPath(renderCtx, seg);
                 });
             });
             lonLines.forEach(lon => {
@@ -858,26 +856,54 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                     renderCtx.strokeStyle = isM && s.showMeridian ? '#f87171' : lineColor;
                     renderCtx.lineWidth = isM && s.showMeridian ? lineWidth * 1.8 : lineWidth;
                     renderCtx.globalAlpha = isM && s.showMeridian ? 0.9 : 0.35;
-                    renderCtx.beginPath();
-                    seg.forEach((p, i) => i === 0 ? renderCtx.moveTo(p.x, p.y) : renderCtx.lineTo(p.x, p.y));
-                    renderCtx.stroke();
+                    drawSmoothPath(renderCtx, seg);
                 });
             });
             renderCtx.restore();
         }
 
+        function drawSmoothPath(ctx, points) {
+            if (points.length < 2) return;
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            if (points.length === 2) {
+                ctx.lineTo(points[1].x, points[1].y);
+            } else {
+                for (let i = 1; i < points.length - 1; i++) {
+                    const mx = (points[i].x + points[i + 1].x) / 2;
+                    const my = (points[i].y + points[i + 1].y) / 2;
+                    ctx.quadraticCurveTo(points[i].x, points[i].y, mx, my);
+                }
+                const last = points[points.length - 1];
+                const prev = points[points.length - 2];
+                ctx.quadraticCurveTo(prev.x + (last.x - prev.x) * 0.8, prev.y + (last.y - prev.y) * 0.8, last.x, last.y);
+            }
+            ctx.stroke();
+        }
+
         function projectLatLineToFace(face, lat, step, size) {
             const segments = [];
             let current = [];
+            let lastFace = null;
             for (let lon = -180; lon <= 180; lon += step) {
                 const dir = directionFromGlobeLonLat(lon, lat);
                 const uv = directionToCubeFaceUV(dir);
                 if (uv.face !== face) {
                     if (current.length >= 2) segments.push(current);
                     current = [];
+                    lastFace = uv.face;
                     continue;
                 }
+                if (lastFace && lastFace !== face && current.length === 0) {
+                    const prevDir = directionFromGlobeLonLat(lon - step, lat);
+                    const prevUv = directionToCubeFaceUV(prevDir);
+                    if (prevUv.face) {
+                        const edgePoint = findFaceEdgePoint(face, prevUv.face, lat, size);
+                        if (edgePoint) current.push(edgePoint);
+                    }
+                }
                 current.push({ x: clamp(uv.u, 0, 1) * size, y: clamp(uv.v, 0, 1) * size });
+                lastFace = uv.face;
             }
             if (current.length >= 2) segments.push(current);
             return segments;
@@ -886,18 +912,45 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         function projectLonLineToFace(face, lon, step, size) {
             const segments = [];
             let current = [];
+            let lastFace = null;
             for (let lat = -86; lat <= 86; lat += step) {
                 const dir = directionFromGlobeLonLat(lon, lat);
                 const uv = directionToCubeFaceUV(dir);
                 if (uv.face !== face) {
                     if (current.length >= 2) segments.push(current);
                     current = [];
+                    lastFace = uv.face;
                     continue;
                 }
+                if (lastFace && lastFace !== face && current.length === 0) {
+                    const prevDir = directionFromGlobeLonLat(lon, lat - step);
+                    const prevUv = directionToCubeFaceUV(prevDir);
+                    if (prevUv.face) {
+                        const edgePoint = findFaceEdgePoint(face, prevUv.face, lon, size);
+                        if (edgePoint) current.push(edgePoint);
+                    }
+                }
                 current.push({ x: clamp(uv.u, 0, 1) * size, y: clamp(uv.v, 0, 1) * size });
+                lastFace = uv.face;
             }
             if (current.length >= 2) segments.push(current);
             return segments;
+        }
+
+        function findFaceEdgePoint(fromFace, toFace, fixedAngle, size) {
+            for (let t = 0; t <= 1; t += 0.01) {
+                const dir = fromFace === 'ft' || fromFace === 'bk' || fromFace === 'rt' || fromFace === 'lf'
+                    ? directionFromGlobeLonLat(
+                        fromFace === 'ft' ? -45 + t * 90 : fromFace === 'bk' ? 135 + t * 90 : fromFace === 'rt' ? 45 + t * 90 : -135 + t * 90,
+                        fixedAngle
+                    )
+                    : directionFromGlobeLonLat(t * 360 - 180, fromFace === 'up' ? 35.26 : -35.26);
+                const uv = directionToCubeFaceUV(dir);
+                if (uv.face === fromFace) {
+                    return { x: clamp(uv.u, 0, 1) * size, y: clamp(uv.v, 0, 1) * size };
+                }
+            }
+            return null;
         }
 
         function createBackgroundTemplateCanvas(template, size = CANVAS_SIZE) {
