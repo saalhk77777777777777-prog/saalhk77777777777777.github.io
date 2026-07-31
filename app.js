@@ -6436,6 +6436,15 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         document.getElementById('canvas-bg-opacity').addEventListener('input', event => { getFaceState().backgroundOpacity = Number(event.target.value); render(); });
         backgroundTemplateColor.addEventListener('input', updateAndApplyCustomGridBackground);
         applyBackgroundTemplateButton.addEventListener('click', applyCustomGridBackground);
+        document.getElementById('apply-background-template-all')?.addEventListener('click', () => {
+            const prevFace = activeFace;
+            FACES.forEach(face => {
+                activeFace = face;
+                applyCustomGridBackground();
+            });
+            activeFace = prevFace;
+            render();
+        });
         document.querySelectorAll('[data-grid-mode]').forEach(button => {
             button.addEventListener('click', () => {
                 backgroundGridMode = button.dataset.gridMode;
