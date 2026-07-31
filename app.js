@@ -822,100 +822,49 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         function drawSphereGrid(renderCtx, size, face, overrideSettings) {
             const s = overrideSettings || sphereGridBgSettings;
             const bgColor = s.bgColor || '#0a0f1a';
-            renderCtx.fillStyle = bgColor;
-            renderCtx.fillRect(0, 0, size, size);
-            if (!face) {
-                FACES.forEach(f => drawSphereGridOnFace(renderCtx, size, f, s));
-            } else {
-                drawSphereGridOnFace(renderCtx, size, face, s);
-            }
-        }
-
-        function drawSphereGridOnFace(renderCtx, size, face, s) {
             const lineColor = s.lineColor || '#67e8f9';
             const lineWidth = clamp(Number(s.lineWidth || 1.5), 0.5, 6);
             const spacing = clamp(Number(s.spacing || 15), 5, 90);
-            const step = Math.max(1, Math.round(size / 256));
-            const latLines = [];
-            const lonLines = [];
-            for (let lat = -90; lat <= 90; lat += spacing) latLines.push(lat);
-            for (let lon = -180; lon < 180; lon += spacing) lonLines.push(lon);
-            if (!latLines.includes(0)) latLines.push(0);
-            if (!lonLines.includes(0)) lonLines.push(0);
-            latLines.sort((a, b) => a - b);
-            lonLines.sort((a, b) => a - b);
+            renderCtx.fillStyle = bgColor;
+            renderCtx.fillRect(0, 0, size, size);
+            const range = FACE_LON_LAT_RANGES[face];
+            if (!range) return;
             renderCtx.save();
-            latLines.forEach(lat => {
-                const pts = [];
-                for (let u = 0; u <= 1; u += step / size) {
-                    const v = latToFaceV(face, lat);
-                    if (v === null) return;
-                    pts.push({ x: u * size, y: v * size });
-                }
-                if (pts.length < 2) return;
+            for (let lat = Math.ceil(range.latMin / spacing) * spacing; lat <= range.latMax; lat += spacing) {
+                const v = (range.latMax - lat) / (range.latMax - range.latMin);
+                const y = Math.round(v * size) + 0.5;
                 const isEq = lat === 0;
                 renderCtx.strokeStyle = isEq && s.showEquator ? '#facc15' : lineColor;
                 renderCtx.lineWidth = isEq && s.showEquator ? lineWidth * 2 : lineWidth;
                 renderCtx.globalAlpha = isEq && s.showEquator ? 0.9 : 0.45;
                 renderCtx.beginPath();
-                pts.forEach((p, i) => i === 0 ? renderCtx.moveTo(p.x, p.y) : renderCtx.lineTo(p.x, p.y));
+                renderCtx.moveTo(0, y);
+                renderCtx.lineTo(size, y);
                 renderCtx.stroke();
-            });
-            lonLines.forEach(lon => {
-                const pts = [];
-                for (let v = 0; v <= 1; v += step / size) {
-                    const u = lonToFaceU(face, lon);
-                    if (u === null) return;
-                    pts.push({ x: u * size, y: v * size });
-                }
-                if (pts.length < 2) return;
+            }
+            for (let lon = Math.ceil(range.lonMin / spacing) * spacing; lon <= range.lonMax; lon += spacing) {
+                const u = (lon - range.lonMin) / (range.lonMax - range.lonMin);
+                const x = Math.round(u * size) + 0.5;
                 const isMeridian = lon === 0;
                 renderCtx.strokeStyle = isMeridian && s.showMeridian ? '#f87171' : lineColor;
                 renderCtx.lineWidth = isMeridian && s.showMeridian ? lineWidth * 1.8 : lineWidth;
                 renderCtx.globalAlpha = isMeridian && s.showMeridian ? 0.9 : 0.35;
                 renderCtx.beginPath();
-                pts.forEach((p, i) => i === 0 ? renderCtx.moveTo(p.x, p.y) : renderCtx.lineTo(p.x, p.y));
+                renderCtx.moveTo(x, 0);
+                renderCtx.lineTo(x, size);
                 renderCtx.stroke();
-            });
+            }
             renderCtx.restore();
         }
 
-        function latToFaceV(face, latDeg) {
-            const SIDE_LAT_MAX = Math.atan(1 / Math.SQRT2) * 180 / Math.PI;
-            if (face === 'up') {
-                if (latDeg < SIDE_LAT_MAX || latDeg > 90) return null;
-                return 1 - (latDeg - SIDE_LAT_MAX) / (90 - SIDE_LAT_MAX);
-            }
-            if (face === 'dn') {
-                if (latDeg > -SIDE_LAT_MAX || latDeg < -90) return null;
-                return (latDeg + SIDE_LAT_MAX) / (90 - SIDE_LAT_MAX);
-            }
-            if (latDeg < -SIDE_LAT_MAX || latDeg > SIDE_LAT_MAX) return null;
-            return 0.5 - latDeg / (2 * SIDE_LAT_MAX);
-        }
-
-        function lonToFaceU(face, lonDeg) {
-            let norm = ((lonDeg % 360) + 540) % 360;
-            if (face === 'up' || face === 'dn') {
-                return ((norm + 45) % 360) / 360;
-            }
-            const ranges = {
-                ft: [315, 45], bk: [135, 225], rt: [45, 135], lf: [225, 315]
-            };
-            const r = ranges[face];
-            if (!r) return null;
-            let start = r[0], end = r[1];
-            if (start > end) {
-                if (norm >= start || norm < end) {
-                    return norm >= start ? (norm - start) / (360 - start + end) : (norm + 360 - start) / (360 - start + end);
-                }
-                return null;
-            }
-            if (norm >= start && norm <= end) {
-                return (norm - start) / (end - start);
-            }
-            return null;
-        }
+        const FACE_LON_LAT_RANGES = {
+            ft: { lonMin: -45, lonMax: 45,   latMin: -35.26, latMax: 35.26 },
+            bk: { lonMin: 135, lonMax: 225,  latMin: -35.26, latMax: 35.26 },
+            rt: { lonMin: 45,  lonMax: 135,  latMin: -35.26, latMax: 35.26 },
+            lf: { lonMin: -135, lonMax: -45, latMin: -35.26, latMax: 35.26 },
+            up: { lonMin: -180, lonMax: 180, latMin: 35.26,  latMax: 90 },
+            dn: { lonMin: -180, lonMax: 180, latMin: -90,    latMax: -35.26 }
+        };
 
         function createBackgroundTemplateCanvas(template, size = CANVAS_SIZE) {
             const templateCanvas = createEmptyCanvas(size, size);
@@ -6707,7 +6656,60 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 geCtx.globalAlpha = 1;
             });
             drawGeOverlay();
+            renderGeGlobePreview();
         }
+
+        function renderGeGlobePreview() {
+            const gpCanvas = document.getElementById('ge-globe-preview');
+            if (!gpCanvas) return;
+            const gpCtx = gpCanvas.getContext('2d');
+            const sz = gpCanvas.width;
+            const center = sz / 2;
+            const radius = sz * 0.42;
+            const liveSettings = {
+                bgColor: geBgColor,
+                lineColor: geLineColor,
+                lineWidth: geLineWidth,
+                spacing: geSpacing,
+                showEquator: geEquator,
+                showMeridian: geMeridian
+            };
+            gpCtx.clearRect(0, 0, sz, sz);
+            gpCtx.fillStyle = '#020617';
+            gpCtx.fillRect(0, 0, sz, sz);
+            gpCtx.save();
+            gpCtx.beginPath();
+            gpCtx.arc(center, center, radius, 0, Math.PI * 2);
+            gpCtx.clip();
+            const faceSize = 256;
+            FACES.forEach(face => {
+                const fc = createEmptyCanvas(faceSize, faceSize);
+                const fCtx = fc.getContext('2d');
+                drawSphereGrid(fCtx, faceSize, face, liveSettings);
+                const mapped = CUBE_FACE_TO_GLOBE[face];
+                if (!mapped) return;
+                gpCtx.save();
+                gpCtx.translate(center + mapped.ox * radius, center + mapped.oy * radius);
+                gpCtx.scale(mapped.sx, mapped.sy);
+                gpCtx.drawImage(fc, -faceSize / 2, -faceSize / 2);
+                gpCtx.restore();
+            });
+            gpCtx.strokeStyle = 'rgba(103,232,249,0.8)';
+            gpCtx.lineWidth = 2;
+            gpCtx.beginPath();
+            gpCtx.arc(center, center, radius, 0, Math.PI * 2);
+            gpCtx.stroke();
+            gpCtx.restore();
+        }
+
+        const CUBE_FACE_TO_GLOBE = {
+            ft: { ox: 0, oy: 0, sx: 1, sy: 1 },
+            bk: { ox: 0, oy: 0, sx: -1, sy: 1 },
+            rt: { ox: 0.5, oy: 0, sx: 0.5, sy: 1 },
+            lf: { ox: -0.5, oy: 0, sx: 0.5, sy: 1 },
+            up: { ox: 0, oy: -0.45, sx: 1, sy: 0.5 },
+            dn: { ox: 0, oy: 0.45, sx: 1, sy: 0.5 }
+        };
 
         function drawGeOverlay() {
             if (!geOverlayCtx || !geOverlay) return;

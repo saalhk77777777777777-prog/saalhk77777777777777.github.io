@@ -356,11 +356,13 @@
                         </div>
                     </div>
                 </div>
-                <div class="flex-1 min-w-0 bg-[#02050a] grid-bg flex items-center justify-center p-6 overflow-auto scrollbar">
-                    <div class="relative inline-block">
+                <div class="flex-1 min-w-0 bg-[#02050a] grid-bg flex flex-col items-center justify-center p-6 overflow-auto scrollbar">
+                    <div class="relative inline-block mb-4">
                         <canvas id="ge-canvas" width="1024" height="1024" class="rounded-2xl border border-white/10 shadow-2xl cursor-crosshair max-w-full max-h-full" style="image-rendering:auto"></canvas>
                         <canvas id="ge-overlay" width="1024" height="1024" class="absolute inset-0 rounded-2xl pointer-events-none" style="image-rendering:auto"></canvas>
                     </div>
+                    <div class="text-[10px] text-slate-500 mb-2 font-bold uppercase tracking-wider">구체 미리보기 (적용되는 전체 모습)</div>
+                    <canvas id="ge-globe-preview" width="300" height="300" class="rounded-full border border-cyan-400/30 shadow-[0_0_40px_rgba(103,232,249,0.15)]" style="image-rendering:auto"></canvas>
                 </div>
             </div>
         </div>
