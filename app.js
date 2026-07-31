@@ -85,11 +85,11 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         const POSTER_BACKGROUND_COLOR = '#0a0f1a';
         const POSTER_GRID_MODE = 'none';
         const DEFAULT_GLOBE_GRID_SETTINGS = {
-            lineSpacingDeg: 24,
-            longitudeCount: 12,
-            opacity: 0.34,
+            lineSpacingDeg: 10,
+            longitudeCount: 24,
+            opacity: 0.42,
             color: '#67e8f9',
-            lineWidth: 1.6
+            lineWidth: 1.2
         };
 
         function getRemoveBgApiKeyIndex() {
@@ -116,8 +116,8 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
 
         function normalizeGlobeGridSettings(value = {}) {
             return {
-                lineSpacingDeg: clamp(Number(value.lineSpacingDeg ?? DEFAULT_GLOBE_GRID_SETTINGS.lineSpacingDeg), 8, 60),
-                longitudeCount: clamp(Math.round(Number(value.longitudeCount ?? DEFAULT_GLOBE_GRID_SETTINGS.longitudeCount)), 4, 24),
+                lineSpacingDeg: clamp(Number(value.lineSpacingDeg ?? DEFAULT_GLOBE_GRID_SETTINGS.lineSpacingDeg), 4, 60),
+                longitudeCount: clamp(Math.round(Number(value.longitudeCount ?? DEFAULT_GLOBE_GRID_SETTINGS.longitudeCount)), 4, 48),
                 opacity: clamp(Number(value.opacity ?? DEFAULT_GLOBE_GRID_SETTINGS.opacity), 0.05, 1),
                 color: typeof value.color === 'string' && value.color ? value.color : DEFAULT_GLOBE_GRID_SETTINGS.color,
                 lineWidth: clamp(Number(value.lineWidth ?? DEFAULT_GLOBE_GRID_SETTINGS.lineWidth), 0.5, 4)
@@ -4539,8 +4539,8 @@ ${created.length} images arranged on the inside spherical wall.`;
 
         function drawGlobeSurfaceGrid(renderCtx) {
             const settings = globeGridSettings || DEFAULT_GLOBE_GRID_SETTINGS;
-            const spacing = clamp(Number(settings.lineSpacingDeg || DEFAULT_GLOBE_GRID_SETTINGS.lineSpacingDeg), 8, 60);
-            const longitudeCount = clamp(Math.round(Number(settings.longitudeCount || DEFAULT_GLOBE_GRID_SETTINGS.longitudeCount)), 4, 24);
+            const spacing = clamp(Number(settings.lineSpacingDeg || DEFAULT_GLOBE_GRID_SETTINGS.lineSpacingDeg), 4, 60);
+            const longitudeCount = clamp(Math.round(Number(settings.longitudeCount || DEFAULT_GLOBE_GRID_SETTINGS.longitudeCount)), 4, 48);
             const lineColor = settings.color || DEFAULT_GLOBE_GRID_SETTINGS.color;
             const opacity = clamp(Number(settings.opacity || DEFAULT_GLOBE_GRID_SETTINGS.opacity), 0.05, 1);
             const lineWidth = clamp(Number(settings.lineWidth || DEFAULT_GLOBE_GRID_SETTINGS.lineWidth), 0.5, 4);
@@ -4548,7 +4548,6 @@ ${created.length} images arranged on the inside spherical wall.`;
             for (let lat = -90 + spacing; lat < 90; lat += spacing) {
                 latitudes.push(lat);
             }
-            if (!latitudes.includes(0)) latitudes.push(0);
             latitudes.sort((a, b) => a - b);
             const longitudes = Array.from({ length: longitudeCount }, (_, index) => -180 + (index * 360 / longitudeCount));
             const step = spherePreviewQuality === 'fast' ? 6 : 3;
@@ -4556,18 +4555,18 @@ ${created.length} images arranged on the inside spherical wall.`;
                 const points = [];
                 for (let lon = -180; lon <= 180; lon += step) points.push(directionFromGlobeLonLat(lon, lat));
                 drawProjectedGlobeLine(renderCtx, points, {
-                    color: lat === 0 ? `rgba(250,204,21,${opacity * 1.25})` : lineColor,
-                    width: lat === 0 ? lineWidth * 1.45 : lineWidth,
-                    alpha: lat === 0 ? opacity * 1.2 : opacity
+                    color: lineColor,
+                    width: lineWidth,
+                    alpha: opacity
                 });
             });
             longitudes.forEach(lon => {
                 const points = [];
-                for (let lat = -86; lat <= 86; lat += step) points.push(directionFromGlobeLonLat(lon, lat));
+                for (let lat = -88; lat <= 88; lat += step) points.push(directionFromGlobeLonLat(lon, lat));
                 drawProjectedGlobeLine(renderCtx, points, {
-                    color: lon % 90 === 0 ? `rgba(248,113,113,${opacity})` : lineColor,
-                    width: lon % 90 === 0 ? lineWidth * 1.25 : lineWidth * 0.9,
-                    alpha: lon % 90 === 0 ? opacity * 0.95 : opacity * 0.75
+                    color: lineColor,
+                    width: lineWidth,
+                    alpha: opacity
                 });
             });
         }
