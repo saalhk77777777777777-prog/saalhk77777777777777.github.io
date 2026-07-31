@@ -259,6 +259,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             bgColor: '#0a0f1a',
             lineColor: '#67e8f9',
             lineWidth: 1.5,
+            linePattern: 'solid',
             spacing: 15,
             showEquator: true,
             showMeridian: true
@@ -825,6 +826,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             const lineColor = s.lineColor || '#67e8f9';
             const lineWidth = clamp(Number(s.lineWidth || 1.5), 0.5, 6);
             const spacing = clamp(Number(s.spacing || 15), 5, 90);
+            const pattern = s.linePattern || 'solid';
             renderCtx.fillStyle = bgColor;
             renderCtx.fillRect(0, 0, size, size);
             const range = FACE_LON_LAT_RANGES[face];
@@ -835,18 +837,64 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                 if (!result || result.face !== face) return null;
                 return { u: result.u, v: result.v };
             }
+            function applyPattern(ctx, pat, lw) {
+                if (pat === 'dashed') {
+                    ctx.setLineDash([lw * 4, lw * 3]);
+                } else if (pat === 'dotted') {
+                    ctx.setLineDash([lw * 0.8, lw * 2.5]);
+                } else {
+                    ctx.setLineDash([]);
+                }
+            }
             function drawCurve(points, color, width, alpha) {
                 if (points.length < 2) return;
                 renderCtx.save();
                 renderCtx.strokeStyle = color;
                 renderCtx.lineWidth = width;
                 renderCtx.globalAlpha = alpha;
-                renderCtx.beginPath();
-                renderCtx.moveTo(points[0].x, points[0].y);
-                for (let i = 1; i < points.length; i++) {
-                    renderCtx.lineTo(points[i].x, points[i].y);
+                renderCtx.lineCap = 'round';
+                renderCtx.lineJoin = 'round';
+                if (pattern === 'wavy' || pattern === 'zigzag') {
+                    const amplitude = width * 3;
+                    const freq = pattern === 'wavy' ? 0.06 : 0.08;
+                    for (let i = 0; i < points.length - 1; i++) {
+                        const p0 = points[i];
+                        const p1 = points[i + 1];
+                        const dx = p1.x - p0.x;
+                        const dy = p1.y - p0.y;
+                        const len = Math.sqrt(dx * dx + dy * dy);
+                        if (len < 0.5) continue;
+                        const nx = -dy / len;
+                        const ny = dx / len;
+                        renderCtx.beginPath();
+                        renderCtx.moveTo(p0.x, p0.y);
+                        const subSteps = Math.max(1, Math.ceil(len / 4));
+                        for (let j = 1; j <= subSteps; j++) {
+                            const t = j / subSteps;
+                            const mx = p0.x + dx * t;
+                            const my = p0.y + dy * t;
+                            const dist = len * ((i + t) * freq);
+                            let offset;
+                            if (pattern === 'wavy') {
+                                offset = Math.sin(dist) * amplitude;
+                            } else {
+                                const cycle = dist % (Math.PI * 2);
+                                offset = cycle < Math.PI ? (cycle / Math.PI) * amplitude : (2 - cycle / Math.PI) * amplitude;
+                                offset -= amplitude * 0.5;
+                            }
+                            renderCtx.lineTo(mx + nx * offset, my + ny * offset);
+                        }
+                        renderCtx.stroke();
+                    }
+                } else {
+                    applyPattern(renderCtx, pattern, width);
+                    renderCtx.beginPath();
+                    renderCtx.moveTo(points[0].x, points[0].y);
+                    for (let i = 1; i < points.length; i++) {
+                        renderCtx.lineTo(points[i].x, points[i].y);
+                    }
+                    renderCtx.stroke();
                 }
-                renderCtx.stroke();
                 renderCtx.restore();
             }
             const latLines = [];
@@ -935,6 +983,9 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             backgroundTemplatePreviewCtx.drawImage(preview, 0, 0, backgroundTemplatePreview.width, backgroundTemplatePreview.height);
             document.querySelectorAll('[data-grid-mode]').forEach(button => {
                 button.classList.toggle('primary', button.dataset.gridMode === backgroundGridMode);
+            });
+            document.querySelectorAll('[data-sg-pattern]').forEach(button => {
+                button.classList.toggle('primary', button.dataset.sgPattern === (sphereGridBgSettings.linePattern || 'solid'));
             });
             const sphereControls = document.getElementById('sphere-grid-controls');
             if (sphereControls) sphereControls.style.display = backgroundGridMode === 'sphere' ? '' : 'none';
@@ -6514,6 +6565,14 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             saveSphereGridBgSettings();
             renderBackgroundTemplates();
         });
+        document.querySelectorAll('[data-sg-pattern]').forEach(b => {
+            b.addEventListener('click', () => {
+                sphereGridBgSettings.linePattern = b.dataset.sgPattern;
+                document.querySelectorAll('[data-sg-pattern]').forEach(btn => btn.classList.toggle('primary', btn.dataset.sgPattern === sphereGridBgSettings.linePattern));
+                saveSphereGridBgSettings();
+                renderBackgroundTemplates();
+            });
+        });
         document.querySelectorAll('.face-tab').forEach(button => button.addEventListener('click', () => setActiveFace(button.dataset.face)));
         document.querySelectorAll('.face-pair-tab').forEach(button => button.addEventListener('click', () => setActiveFacePair(button.dataset.facePair)));
         addPairTestGridButton?.addEventListener('click', downloadBetaSkyboxGridPack);
@@ -6591,6 +6650,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         let geBgColor = '#0a0f1a';
         let geLineColor = '#67e8f9';
         let geLineWidth = 1.5;
+        let geLinePattern = 'solid';
         let geSpacing = 15;
         let geEquator = true;
         let geMeridian = true;
@@ -6608,6 +6668,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             geBgColor = backgroundGridMode === 'sphere' ? sphereGridBgSettings.bgColor : backgroundTemplateColor.value;
             geLineColor = sphereGridBgSettings.lineColor;
             geLineWidth = sphereGridBgSettings.lineWidth;
+            geLinePattern = sphereGridBgSettings.linePattern || 'solid';
             geSpacing = sphereGridBgSettings.spacing;
             geEquator = sphereGridBgSettings.showEquator;
             geMeridian = sphereGridBgSettings.showMeridian;
@@ -6636,6 +6697,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             if (el('ge-pen-opacity')) el('ge-pen-opacity').value = gePenOpacity;
             document.querySelectorAll('[data-ge-mode]').forEach(b => b.classList.toggle('primary', b.dataset.geMode === geMode));
             document.querySelectorAll('[data-ge-tool]').forEach(b => b.classList.toggle('primary', b.dataset.geTool === geTool));
+            document.querySelectorAll('[data-ge-pattern]').forEach(b => b.classList.toggle('primary', b.dataset.gePattern === geLinePattern));
             document.querySelectorAll('[data-ge-zoom]').forEach(b => b.classList.toggle('primary', Number(b.dataset.geZoom) === geZoom));
             if (el('ge-tile-enabled')) el('ge-tile-enabled').checked = geTileEnabled;
             if (el('ge-tile-controls')) el('ge-tile-controls').style.display = geTileEnabled ? '' : 'none';
@@ -6683,6 +6745,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 bgColor: geBgColor,
                 lineColor: geLineColor,
                 lineWidth: geLineWidth,
+                linePattern: geLinePattern,
                 spacing: geSpacing,
                 showEquator: geEquator,
                 showMeridian: geMeridian
@@ -6769,6 +6832,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 bgColor: geBgColor,
                 lineColor: geLineColor,
                 lineWidth: geLineWidth,
+                linePattern: geLinePattern,
                 spacing: geSpacing,
                 showEquator: geEquator,
                 showMeridian: geMeridian
@@ -6938,6 +7002,9 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         document.querySelectorAll('[data-ge-tool]').forEach(b => {
             b.addEventListener('click', () => { geTool = b.dataset.geTool; syncGridEditorUI(); });
         });
+        document.querySelectorAll('[data-ge-pattern]').forEach(b => {
+            b.addEventListener('click', () => { geLinePattern = b.dataset.gePattern; syncGridEditorUI(); renderGridEditor(); });
+        });
         document.querySelectorAll('[data-ge-zoom]').forEach(b => {
             b.addEventListener('click', () => { geZoom = Number(b.dataset.geZoom); syncGridEditorUI(); renderGridEditor(); });
         });
@@ -6965,6 +7032,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             sphereGridBgSettings.bgColor = geBgColor;
             sphereGridBgSettings.lineColor = geLineColor;
             sphereGridBgSettings.lineWidth = geLineWidth;
+            sphereGridBgSettings.linePattern = geLinePattern;
             sphereGridBgSettings.spacing = geSpacing;
             sphereGridBgSettings.showEquator = geEquator;
             sphereGridBgSettings.showMeridian = geMeridian;
@@ -6974,7 +7042,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
 
         function applyGeTileToFace(face) {
             const faceState = state[face];
-            const settings = { bgColor: geBgColor, lineColor: geLineColor, lineWidth: geLineWidth, spacing: geSpacing, showEquator: geEquator, showMeridian: geMeridian };
+            const settings = { bgColor: geBgColor, lineColor: geLineColor, lineWidth: geLineWidth, linePattern: geLinePattern, spacing: geSpacing, showEquator: geEquator, showMeridian: geMeridian };
             const fc = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
             const fCtx = fc.getContext('2d');
             if (geTileEnabled) {
