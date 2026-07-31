@@ -806,11 +806,11 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             renderCtx.restore();
         }
 
-        function createCustomGridBackground(color, mode, size = CANVAS_SIZE) {
+        function createCustomGridBackground(color, mode, size = CANVAS_SIZE, face, overrideSettings) {
             const templateCanvas = createEmptyCanvas(size, size);
             const templateCtx = templateCanvas.getContext('2d');
             if (mode === 'sphere') {
-                drawSphereGrid(templateCtx, size);
+                drawSphereGrid(templateCtx, size, face, overrideSettings);
                 return templateCanvas;
             }
             templateCtx.fillStyle = color;
@@ -819,59 +819,102 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             return templateCanvas;
         }
 
-        function drawSphereGrid(renderCtx, size) {
-            const s = sphereGridBgSettings;
+        function drawSphereGrid(renderCtx, size, face, overrideSettings) {
+            const s = overrideSettings || sphereGridBgSettings;
             const bgColor = s.bgColor || '#0a0f1a';
+            renderCtx.fillStyle = bgColor;
+            renderCtx.fillRect(0, 0, size, size);
+            if (!face) {
+                FACES.forEach(f => drawSphereGridOnFace(renderCtx, size, f, s));
+            } else {
+                drawSphereGridOnFace(renderCtx, size, face, s);
+            }
+        }
+
+        function drawSphereGridOnFace(renderCtx, size, face, s) {
             const lineColor = s.lineColor || '#67e8f9';
             const lineWidth = clamp(Number(s.lineWidth || 1.5), 0.5, 6);
             const spacing = clamp(Number(s.spacing || 15), 5, 90);
-            const pxPerDeg = size / 90;
-            renderCtx.fillStyle = bgColor;
-            renderCtx.fillRect(0, 0, size, size);
+            const step = Math.max(1, Math.round(size / 256));
+            const latLines = [];
+            const lonLines = [];
+            for (let lat = -90; lat <= 90; lat += spacing) latLines.push(lat);
+            for (let lon = -180; lon < 180; lon += spacing) lonLines.push(lon);
+            if (!latLines.includes(0)) latLines.push(0);
+            if (!lonLines.includes(0)) lonLines.push(0);
+            latLines.sort((a, b) => a - b);
+            lonLines.sort((a, b) => a - b);
             renderCtx.save();
-            for (let deg = 0; deg <= 90; deg += spacing) {
-                const y = Math.round(deg * pxPerDeg) + 0.5;
-                const isCenter = Math.abs(deg - 45) < 0.1;
-                renderCtx.strokeStyle = isCenter ? 'rgba(250,204,21,0.7)' : lineColor;
-                renderCtx.lineWidth = isCenter ? lineWidth * 1.6 : lineWidth;
-                renderCtx.globalAlpha = isCenter ? 0.85 : 0.55;
+            latLines.forEach(lat => {
+                const pts = [];
+                for (let u = 0; u <= 1; u += step / size) {
+                    const v = latToFaceV(face, lat);
+                    if (v === null) return;
+                    pts.push({ x: u * size, y: v * size });
+                }
+                if (pts.length < 2) return;
+                const isEq = lat === 0;
+                renderCtx.strokeStyle = isEq && s.showEquator ? '#facc15' : lineColor;
+                renderCtx.lineWidth = isEq && s.showEquator ? lineWidth * 2 : lineWidth;
+                renderCtx.globalAlpha = isEq && s.showEquator ? 0.9 : 0.45;
                 renderCtx.beginPath();
-                renderCtx.moveTo(0, y);
-                renderCtx.lineTo(size, y);
+                pts.forEach((p, i) => i === 0 ? renderCtx.moveTo(p.x, p.y) : renderCtx.lineTo(p.x, p.y));
                 renderCtx.stroke();
-            }
-            for (let deg = 0; deg <= 90; deg += spacing) {
-                const x = Math.round(deg * pxPerDeg) + 0.5;
-                const isCenter = Math.abs(deg - 45) < 0.1;
-                renderCtx.strokeStyle = isCenter ? 'rgba(248,113,113,0.7)' : lineColor;
-                renderCtx.lineWidth = isCenter ? lineWidth * 1.4 : lineWidth;
-                renderCtx.globalAlpha = isCenter ? 0.85 : 0.45;
+            });
+            lonLines.forEach(lon => {
+                const pts = [];
+                for (let v = 0; v <= 1; v += step / size) {
+                    const u = lonToFaceU(face, lon);
+                    if (u === null) return;
+                    pts.push({ x: u * size, y: v * size });
+                }
+                if (pts.length < 2) return;
+                const isMeridian = lon === 0;
+                renderCtx.strokeStyle = isMeridian && s.showMeridian ? '#f87171' : lineColor;
+                renderCtx.lineWidth = isMeridian && s.showMeridian ? lineWidth * 1.8 : lineWidth;
+                renderCtx.globalAlpha = isMeridian && s.showMeridian ? 0.9 : 0.35;
                 renderCtx.beginPath();
-                renderCtx.moveTo(x, 0);
-                renderCtx.lineTo(x, size);
+                pts.forEach((p, i) => i === 0 ? renderCtx.moveTo(p.x, p.y) : renderCtx.lineTo(p.x, p.y));
                 renderCtx.stroke();
-            }
-            if (s.showEquator) {
-                const eqY = Math.round(45 * pxPerDeg) + 0.5;
-                renderCtx.strokeStyle = '#facc15';
-                renderCtx.lineWidth = lineWidth * 2;
-                renderCtx.globalAlpha = 0.9;
-                renderCtx.beginPath();
-                renderCtx.moveTo(0, eqY);
-                renderCtx.lineTo(size, eqY);
-                renderCtx.stroke();
-            }
-            if (s.showMeridian) {
-                const mX = Math.round(45 * pxPerDeg) + 0.5;
-                renderCtx.strokeStyle = '#f87171';
-                renderCtx.lineWidth = lineWidth * 1.8;
-                renderCtx.globalAlpha = 0.9;
-                renderCtx.beginPath();
-                renderCtx.moveTo(mX, 0);
-                renderCtx.lineTo(mX, size);
-                renderCtx.stroke();
-            }
+            });
             renderCtx.restore();
+        }
+
+        function latToFaceV(face, latDeg) {
+            const SIDE_LAT_MAX = Math.atan(1 / Math.SQRT2) * 180 / Math.PI;
+            if (face === 'up') {
+                if (latDeg < SIDE_LAT_MAX || latDeg > 90) return null;
+                return 1 - (latDeg - SIDE_LAT_MAX) / (90 - SIDE_LAT_MAX);
+            }
+            if (face === 'dn') {
+                if (latDeg > -SIDE_LAT_MAX || latDeg < -90) return null;
+                return (latDeg + SIDE_LAT_MAX) / (90 - SIDE_LAT_MAX);
+            }
+            if (latDeg < -SIDE_LAT_MAX || latDeg > SIDE_LAT_MAX) return null;
+            return 0.5 - latDeg / (2 * SIDE_LAT_MAX);
+        }
+
+        function lonToFaceU(face, lonDeg) {
+            let norm = ((lonDeg % 360) + 540) % 360;
+            if (face === 'up' || face === 'dn') {
+                return ((norm + 45) % 360) / 360;
+            }
+            const ranges = {
+                ft: [315, 45], bk: [135, 225], rt: [45, 135], lf: [225, 315]
+            };
+            const r = ranges[face];
+            if (!r) return null;
+            let start = r[0], end = r[1];
+            if (start > end) {
+                if (norm >= start || norm < end) {
+                    return norm >= start ? (norm - start) / (360 - start + end) : (norm + 360 - start) / (360 - start + end);
+                }
+                return null;
+            }
+            if (norm >= start && norm <= end) {
+                return (norm - start) / (end - start);
+            }
+            return null;
         }
 
         function createBackgroundTemplateCanvas(template, size = CANVAS_SIZE) {
@@ -929,8 +972,8 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         function applyCustomGridBackgroundToFace(face) {
             const faceState = state[face];
             if (backgroundGridMode === 'sphere') {
-                faceState.background = createCustomGridBackground(sphereGridBgSettings.bgColor, 'sphere');
-                faceState.backgroundName = `sphere_grid_${Date.now()}.png`;
+                faceState.background = createCustomGridBackground(sphereGridBgSettings.bgColor, 'sphere', CANVAS_SIZE, face, sphereGridBgSettings);
+                faceState.backgroundName = `sphere_grid_${face}_${Date.now()}.png`;
                 faceState.backgroundColor = sphereGridBgSettings.bgColor;
             } else {
                 const color = backgroundTemplateColor.value;
@@ -6631,33 +6674,21 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         }
 
         function drawGridOnCanvas(ctx, w, h) {
-            const pxPerDeg = w / 90;
+            const liveSettings = {
+                bgColor: geBgColor,
+                lineColor: geLineColor,
+                lineWidth: geLineWidth,
+                spacing: geSpacing,
+                showEquator: geEquator,
+                showMeridian: geMeridian
+            };
+            if (geMode === 'sphere') {
+                drawSphereGrid(ctx, w, 'ft', liveSettings);
+                return;
+            }
             ctx.fillStyle = geBgColor;
             ctx.fillRect(0, 0, w, h);
-            ctx.save();
-            for (let deg = 0; deg <= 90; deg += geSpacing) {
-                const y = Math.round(deg * pxPerDeg) + 0.5;
-                const isCenter = Math.abs(deg - 45) < 0.1;
-                ctx.strokeStyle = isCenter && geEquator ? '#facc15' : geLineColor;
-                ctx.lineWidth = isCenter && geEquator ? geLineWidth * 2 : geLineWidth;
-                ctx.globalAlpha = isCenter && geEquator ? 0.9 : 0.5;
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(w, y);
-                ctx.stroke();
-            }
-            for (let deg = 0; deg <= 90; deg += geSpacing) {
-                const x = Math.round(deg * pxPerDeg) + 0.5;
-                const isCenter = Math.abs(deg - 45) < 0.1;
-                ctx.strokeStyle = isCenter && geMeridian ? '#f87171' : geLineColor;
-                ctx.lineWidth = isCenter && geMeridian ? geLineWidth * 1.8 : geLineWidth;
-                ctx.globalAlpha = isCenter && geMeridian ? 0.9 : 0.4;
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, h);
-                ctx.stroke();
-            }
-            ctx.restore();
+            drawStraightGrid(ctx, w, geMode);
         }
 
         function renderGridEditor() {
@@ -6783,7 +6814,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             renderGridEditor();
         });
 
-        document.getElementById('grid-editor-apply')?.addEventListener('click', () => {
+        function saveGeSettings() {
             sphereGridBgSettings.bgColor = geBgColor;
             sphereGridBgSettings.lineColor = geLineColor;
             sphereGridBgSettings.lineWidth = geLineWidth;
@@ -6792,38 +6823,19 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             sphereGridBgSettings.showMeridian = geMeridian;
             saveSphereGridBgSettings();
             backgroundGridMode = geMode;
-            const previewCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
-            const pCtx = previewCanvas.getContext('2d');
-            pCtx.drawImage(geCanvas, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            const faceState = getFaceState();
-            faceState.background = previewCanvas;
-            faceState.backgroundName = `grid_editor_${Date.now()}.png`;
-            faceState.backgroundColor = geBgColor;
-            faceState.backgroundOpacity = 1;
+        }
+
+        document.getElementById('grid-editor-apply')?.addEventListener('click', () => {
+            saveGeSettings();
+            applyCustomGridBackgroundToFace(activeFace);
             render();
             renderBackgroundTemplates();
             closeGridEditor();
         });
 
         document.getElementById('grid-editor-apply-all')?.addEventListener('click', () => {
-            sphereGridBgSettings.bgColor = geBgColor;
-            sphereGridBgSettings.lineColor = geLineColor;
-            sphereGridBgSettings.lineWidth = geLineWidth;
-            sphereGridBgSettings.spacing = geSpacing;
-            sphereGridBgSettings.showEquator = geEquator;
-            sphereGridBgSettings.showMeridian = geMeridian;
-            saveSphereGridBgSettings();
-            backgroundGridMode = geMode;
-            const previewCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
-            const pCtx = previewCanvas.getContext('2d');
-            pCtx.drawImage(geCanvas, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
-            FACES.forEach(face => {
-                const fc = copyCanvas(previewCanvas);
-                state[face].background = fc;
-                state[face].backgroundName = `grid_editor_${face}_${Date.now()}.png`;
-                state[face].backgroundColor = geBgColor;
-                state[face].backgroundOpacity = 1;
-            });
+            saveGeSettings();
+            FACES.forEach(face => applyCustomGridBackgroundToFace(face));
             render();
             renderBackgroundTemplates();
             closeGridEditor();
