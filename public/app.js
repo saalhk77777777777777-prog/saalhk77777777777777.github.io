@@ -7,7 +7,7 @@ const REMOVE_BG_API_KEYS = [
     '7xzQ32TqqLYz12g2tk4gg7ZG'
 ];
 const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
-        const APP_VERSION = 'v2026.07.06.01';
+        const APP_VERSION = 'v2026.07.31.01';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
         const MAX_IMAGE_IMPORT_SIZE = 2048;
