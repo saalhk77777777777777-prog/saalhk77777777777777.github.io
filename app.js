@@ -6587,6 +6587,10 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         let geDrawing = false;
         let geLastPoint = null;
         let geImages = [];
+        let geTileEnabled = false;
+        let geTileSize = 128;
+        let geTileGap = 0;
+        let geTileOffset = false;
 
         function openGridEditor() {
             if (!geModal) return;
@@ -6622,6 +6626,13 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             document.querySelectorAll('[data-ge-mode]').forEach(b => b.classList.toggle('primary', b.dataset.geMode === geMode));
             document.querySelectorAll('[data-ge-tool]').forEach(b => b.classList.toggle('primary', b.dataset.geTool === geTool));
             document.querySelectorAll('[data-ge-zoom]').forEach(b => b.classList.toggle('primary', Number(b.dataset.geZoom) === geZoom));
+            if (el('ge-tile-enabled')) el('ge-tile-enabled').checked = geTileEnabled;
+            if (el('ge-tile-controls')) el('ge-tile-controls').style.display = geTileEnabled ? '' : 'none';
+            if (el('ge-tile-size')) el('ge-tile-size').value = geTileSize;
+            if (el('ge-tile-size-value')) el('ge-tile-size-value').textContent = `${geTileSize}px`;
+            if (el('ge-tile-gap')) el('ge-tile-gap').value = geTileGap;
+            if (el('ge-tile-gap-value')) el('ge-tile-gap-value').textContent = `${geTileGap}px`;
+            if (el('ge-tile-offset')) el('ge-tile-offset').checked = geTileOffset;
             renderGeImageList();
         }
 
@@ -6674,23 +6685,66 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             drawStraightGrid(ctx, w, geMode);
         }
 
+        const geTileCanvas = createEmptyCanvas(128, 128);
+        const geTileCtx = geTileCanvas.getContext('2d');
+
         function renderGridEditor() {
             if (!geCanvas || !geCtx) return;
             const w = geZoom, h = geZoom;
             geCanvas.width = w; geCanvas.height = h;
             if (geOverlay) { geOverlay.width = w; geOverlay.height = h; }
             geCtx.clearRect(0, 0, w, h);
-            drawGridOnCanvas(geCtx, w, h);
-            geImages.forEach(img => {
-                const size = img.size || 64;
-                const ix = (img.posX || 0.5) * w - size / 2;
-                const iy = (img.posY || 0.5) * h - size / 2;
-                geCtx.globalAlpha = 1;
-                geCtx.drawImage(img.img, ix, iy, size, size);
-                geCtx.globalAlpha = 1;
-            });
+            if (geTileEnabled) {
+                drawGridOnCanvas(geCtx, w, h);
+                const tileSize = geTileSize;
+                const gap = geTileGap;
+                const step = tileSize + gap;
+                const offsetX = geTileOffset ? Math.round(step / 2) : 0;
+                geCtx.save();
+                for (let y = -step; y < h + step; y += step) {
+                    for (let x = -step; x < w + step; x += step) {
+                        const row = Math.round((y + step) / step);
+                        const ox = geTileOffset ? (row % 2 === 0 ? offsetX : 0) : 0;
+                        geCtx.drawImage(geTileCanvas, 0, 0, tileSize, tileSize, x + ox, y, tileSize, tileSize);
+                    }
+                }
+                geCtx.restore();
+            } else {
+                drawGridOnCanvas(geCtx, w, h);
+                geImages.forEach(img => {
+                    const size = img.size || 64;
+                    const ix = (img.posX || 0.5) * w - size / 2;
+                    const iy = (img.posY || 0.5) * h - size / 2;
+                    geCtx.globalAlpha = 1;
+                    geCtx.drawImage(img.img, ix, iy, size, size);
+                    geCtx.globalAlpha = 1;
+                });
+            }
             drawGeOverlay();
             renderGeGlobePreview();
+        }
+
+        function drawTiledContent(ctx, w, h, tileCanvas, settings) {
+            ctx.fillStyle = settings.bgColor || '#0a0f1a';
+            ctx.fillRect(0, 0, w, h);
+            if (geMode === 'sphere') {
+                drawSphereGrid(ctx, w, 'ft', settings);
+            } else {
+                drawStraightGrid(ctx, w, geMode);
+            }
+            const tileSize = geTileSize;
+            const gap = geTileGap;
+            const step = tileSize + gap;
+            const offsetX = geTileOffset ? Math.round(step / 2) : 0;
+            ctx.save();
+            for (let y = -step; y < h + step; y += step) {
+                for (let x = -step; x < w + step; x += step) {
+                    const row = Math.round((y + step) / step);
+                    const ox = geTileOffset ? (row % 2 === 0 ? offsetX : 0) : 0;
+                    ctx.drawImage(tileCanvas, 0, 0, tileSize, tileSize, x + ox, y, tileSize, tileSize);
+                }
+            }
+            ctx.restore();
         }
 
         function renderGeGlobePreview() {
@@ -6761,6 +6815,29 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         }
 
         function geDrawAt(x, y) {
+            if (geTileEnabled) {
+                const tileSize = geTileSize;
+                const tx = ((x % tileSize) + tileSize) % tileSize;
+                const ty = ((y % tileSize) + tileSize) % tileSize;
+                if (geTool === 'pen') {
+                    geTileCtx.save();
+                    geTileCtx.globalAlpha = gePenOpacity;
+                    geTileCtx.fillStyle = gePenColor;
+                    geTileCtx.beginPath();
+                    geTileCtx.arc(tx, ty, geBrushSize / 2, 0, Math.PI * 2);
+                    geTileCtx.fill();
+                    geTileCtx.restore();
+                } else if (geTool === 'eraser') {
+                    geTileCtx.save();
+                    geTileCtx.globalCompositeOperation = 'destination-out';
+                    geTileCtx.beginPath();
+                    geTileCtx.arc(tx, ty, geBrushSize / 2, 0, Math.PI * 2);
+                    geTileCtx.fill();
+                    geTileCtx.restore();
+                }
+                renderGridEditor();
+                return;
+            }
             if (geTool === 'pen') {
                 geCtx.save();
                 geCtx.globalAlpha = gePenOpacity;
@@ -6822,6 +6899,28 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         document.getElementById('ge-pen-color')?.addEventListener('input', e => { gePenColor = e.target.value; });
         document.getElementById('ge-pen-opacity')?.addEventListener('input', e => { gePenOpacity = Number(e.target.value); });
 
+        document.getElementById('ge-tile-enabled')?.addEventListener('change', e => {
+            geTileEnabled = e.target.checked;
+            document.getElementById('ge-tile-controls').style.display = geTileEnabled ? '' : 'none';
+            renderGridEditor();
+        });
+        document.getElementById('ge-tile-size')?.addEventListener('input', e => {
+            geTileSize = Number(e.target.value);
+            geTileCanvas.width = geTileSize;
+            geTileCanvas.height = geTileSize;
+            document.getElementById('ge-tile-size-value').textContent = `${geTileSize}px`;
+            renderGridEditor();
+        });
+        document.getElementById('ge-tile-gap')?.addEventListener('input', e => {
+            geTileGap = Number(e.target.value);
+            document.getElementById('ge-tile-gap-value').textContent = `${geTileGap}px`;
+            renderGridEditor();
+        });
+        document.getElementById('ge-tile-offset')?.addEventListener('change', e => {
+            geTileOffset = e.target.checked;
+            renderGridEditor();
+        });
+
         document.querySelectorAll('[data-ge-mode]').forEach(b => {
             b.addEventListener('click', () => { geMode = b.dataset.geMode; syncGridEditorUI(); renderGridEditor(); });
         });
@@ -6846,6 +6945,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
 
         document.getElementById('grid-editor-clear')?.addEventListener('click', () => {
             geImages = [];
+            geTileCtx.clearRect(0, 0, geTileCanvas.width, geTileCanvas.height);
             renderGeImageList();
             renderGridEditor();
         });
@@ -6861,9 +6961,35 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             backgroundGridMode = geMode;
         }
 
+        function applyGeTileToFace(face) {
+            const faceState = state[face];
+            const settings = { bgColor: geBgColor, lineColor: geLineColor, lineWidth: geLineWidth, spacing: geSpacing, showEquator: geEquator, showMeridian: geMeridian };
+            const fc = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
+            const fCtx = fc.getContext('2d');
+            if (geTileEnabled) {
+                drawTiledContent(fCtx, CANVAS_SIZE, CANVAS_SIZE, geTileCanvas, settings);
+            } else {
+                if (geMode === 'sphere') {
+                    drawSphereGrid(fCtx, CANVAS_SIZE, face, settings);
+                } else {
+                    fCtx.fillStyle = geBgColor;
+                    fCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                    drawStraightGrid(fCtx, CANVAS_SIZE, geMode);
+                }
+                geImages.forEach(img => {
+                    const sz = img.size || 64;
+                    fCtx.drawImage(img.img, (img.posX || 0.5) * CANVAS_SIZE - sz / 2, (img.posY || 0.5) * CANVAS_SIZE - sz / 2, sz, sz);
+                });
+            }
+            faceState.background = fc;
+            faceState.backgroundName = `grid_editor_${face}_${Date.now()}.png`;
+            faceState.backgroundColor = geBgColor;
+            faceState.backgroundOpacity = 1;
+        }
+
         document.getElementById('grid-editor-apply')?.addEventListener('click', () => {
             saveGeSettings();
-            applyCustomGridBackgroundToFace(activeFace);
+            applyGeTileToFace(activeFace);
             render();
             renderBackgroundTemplates();
             closeGridEditor();
@@ -6871,7 +6997,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
 
         document.getElementById('grid-editor-apply-all')?.addEventListener('click', () => {
             saveGeSettings();
-            FACES.forEach(face => applyCustomGridBackgroundToFace(face));
+            FACES.forEach(face => applyGeTileToFace(face));
             render();
             renderBackgroundTemplates();
             closeGridEditor();
