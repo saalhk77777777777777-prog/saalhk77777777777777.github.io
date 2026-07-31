@@ -269,6 +269,103 @@
         </div>
     </div>
 
+    <div id="grid-editor-modal" class="modal-backdrop">
+        <div class="panel-strong rounded-[30px] w-full max-w-5xl h-[90vh] overflow-hidden flex flex-col">
+            <div class="px-6 py-5 border-b border-white/10 flex items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-black">그리드 에디터</h2>
+                    <p class="text-sm text-slate-400 mt-1">그리드 설정, 패턴 그리기, 이미지 배치로 배경을 만들고 모든 면에 적용할 수 있습니다.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="grid-editor-clear" class="tool-button danger">그림 지우기</button>
+                    <button id="grid-editor-apply-all" class="tool-button success">모든 면에 적용</button>
+                    <button id="grid-editor-apply" class="tool-button primary">현재 면에 적용</button>
+                    <button id="grid-editor-close" class="tool-button">닫기</button>
+                </div>
+            </div>
+            <div class="flex-1 min-h-0 flex">
+                <div class="w-[300px] shrink-0 border-r border-white/10 p-5 overflow-y-auto scrollbar space-y-4">
+                    <div class="property-group space-y-3">
+                        <div class="property-label">그리드 타입</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" class="tool-button primary" data-ge-mode="sphere">구체그리드</button>
+                            <button type="button" class="tool-button" data-ge-mode="white">흰그리드</button>
+                            <button type="button" class="tool-button" data-ge-mode="black">검은그리드</button>
+                            <button type="button" class="tool-button" data-ge-mode="none">단색</button>
+                        </div>
+                    </div>
+                    <div class="property-group space-y-3">
+                        <div class="property-label">색상</div>
+                        <div class="flex items-center gap-3">
+                            <label class="flex-1 text-[11px] text-slate-400">배경색
+                                <input id="ge-bg-color" type="color" value="#0a0f1a" class="w-full mt-1">
+                            </label>
+                            <label class="flex-1 text-[11px] text-slate-400">선 색상
+                                <input id="ge-line-color" type="color" value="#67e8f9" class="w-full mt-1">
+                            </label>
+                        </div>
+                    </div>
+                    <div class="property-group space-y-3">
+                        <div class="property-label">선 설정</div>
+                        <label class="block text-[11px] font-bold text-slate-400">
+                            <span class="flex items-center justify-between mb-1">두께 <b id="ge-line-width-value" class="text-cyan-200">1.5</b></span>
+                            <input id="ge-line-width" type="range" min="0.5" max="6" step="0.1" value="1.5" class="w-full">
+                        </label>
+                        <label class="block text-[11px] font-bold text-slate-400">
+                            <span class="flex items-center justify-between mb-1">간격(도) <b id="ge-spacing-value" class="text-cyan-200">15°</b></span>
+                            <input id="ge-spacing" type="range" min="5" max="90" step="5" value="15" class="w-full">
+                        </label>
+                        <label class="flex items-center gap-2 text-[11px] text-slate-400 cursor-pointer">
+                            <input id="ge-equator" type="checkbox" checked class="accent-cyan-400"> 적도선
+                        </label>
+                        <label class="flex items-center gap-2 text-[11px] text-slate-400 cursor-pointer">
+                            <input id="ge-meridian" type="checkbox" checked class="accent-cyan-400"> 자오선
+                        </label>
+                    </div>
+                    <div class="property-group space-y-3">
+                        <div class="property-label">그리기 도구</div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button" class="tool-button primary" data-ge-tool="pen">펜</button>
+                            <button type="button" class="tool-button" data-ge-tool="eraser">지우개</button>
+                            <button type="button" class="tool-button" data-ge-tool="move">이동</button>
+                        </div>
+                        <label class="block text-[11px] font-bold text-slate-400">
+                            <span class="flex items-center justify-between mb-1">브러쉬 크기 <b id="ge-brush-size-value" class="text-cyan-200">8</b></span>
+                            <input id="ge-brush-size" type="range" min="1" max="80" step="1" value="8" class="w-full">
+                        </label>
+                        <div class="flex items-center gap-3">
+                            <label class="flex-1 text-[11px] text-slate-400">펜 색상
+                                <input id="ge-pen-color" type="color" value="#ffffff" class="w-full mt-1">
+                            </label>
+                            <label class="flex-1 text-[11px] text-slate-400">불투명도
+                                <input id="ge-pen-opacity" type="range" min="0.1" max="1" step="0.05" value="1" class="w-full mt-1">
+                            </label>
+                        </div>
+                    </div>
+                    <div class="property-group space-y-3">
+                        <div class="property-label">이미지 추가</div>
+                        <label class="tool-button w-full cursor-pointer">이미지 선택<input type="file" id="ge-image-input" class="hidden" accept="image/*"></label>
+                        <div id="ge-image-list" class="space-y-2 max-h-40 overflow-y-auto scrollbar"></div>
+                    </div>
+                    <div class="property-group space-y-3">
+                        <div class="property-label">미리보기 크기</div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button" class="tool-button" data-ge-zoom="512">512</button>
+                            <button type="button" class="tool-button primary" data-ge-zoom="1024">1024</button>
+                            <button type="button" class="tool-button" data-ge-zoom="2048">2048</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0 bg-[#02050a] grid-bg flex items-center justify-center p-6 overflow-auto scrollbar">
+                    <div class="relative inline-block">
+                        <canvas id="ge-canvas" width="1024" height="1024" class="rounded-2xl border border-white/10 shadow-2xl cursor-crosshair max-w-full max-h-full" style="image-rendering:auto"></canvas>
+                        <canvas id="ge-overlay" width="1024" height="1024" class="absolute inset-0 rounded-2xl pointer-events-none" style="image-rendering:auto"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <header class="shrink-0 border-b border-white/10 px-5 py-4 bg-black/40 backdrop-blur-xl">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-4">

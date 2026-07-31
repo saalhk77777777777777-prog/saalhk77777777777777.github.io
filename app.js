@@ -922,7 +922,12 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         function applyCustomGridBackground() {
-            const faceState = getFaceState();
+            applyCustomGridBackgroundToFace(activeFace);
+            render();
+        }
+
+        function applyCustomGridBackgroundToFace(face) {
+            const faceState = state[face];
             if (backgroundGridMode === 'sphere') {
                 faceState.background = createCustomGridBackground(sphereGridBgSettings.bgColor, 'sphere');
                 faceState.backgroundName = `sphere_grid_${Date.now()}.png`;
@@ -935,8 +940,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             }
             faceState.backgroundOpacity = 1;
             const modeLabels = { none: '그리드 없음', white: '흰 그리드', black: '검은 그리드', sphere: '구체 그리드' };
-            lastBackgroundUploadReport = `[배경 템플릿]\n${activeFace.toUpperCase()} -> ${modeLabels[backgroundGridMode] || 'Solid'}`;
-            render();
+            lastBackgroundUploadReport = `[배경 템플릿]\n${face.toUpperCase()} -> ${modeLabels[backgroundGridMode] || 'Solid'}`;
         }
 
         function applyPosterBackgroundPreset() {
@@ -6437,12 +6441,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         backgroundTemplateColor.addEventListener('input', updateAndApplyCustomGridBackground);
         applyBackgroundTemplateButton.addEventListener('click', applyCustomGridBackground);
         document.getElementById('apply-background-template-all')?.addEventListener('click', () => {
-            const prevFace = activeFace;
-            FACES.forEach(face => {
-                activeFace = face;
-                applyCustomGridBackground();
-            });
-            activeFace = prevFace;
+            FACES.forEach(face => applyCustomGridBackgroundToFace(face));
             render();
         });
         document.querySelectorAll('[data-grid-mode]').forEach(button => {
@@ -6540,4 +6539,296 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             presetStatusText.textContent = '공개 배포에서는 내장 프리셋, 이미지 편집, 저장/내보내기는 사용할 수 있지만 AI 추천과 AI 배경제거는 별도 서버 설정이 필요합니다.';
         }
         loadBundledPresetManifest();
+
+        // ========== Grid Editor ==========
+        const geCanvas = document.getElementById('ge-canvas');
+        const geCtx = geCanvas?.getContext('2d');
+        const geOverlay = document.getElementById('ge-overlay');
+        const geOverlayCtx = geOverlay?.getContext('2d');
+        const geModal = document.getElementById('grid-editor-modal');
+        let geMode = 'sphere';
+        let geTool = 'pen';
+        let geBrushSize = 8;
+        let gePenColor = '#ffffff';
+        let gePenOpacity = 1;
+        let geBgColor = '#0a0f1a';
+        let geLineColor = '#67e8f9';
+        let geLineWidth = 1.5;
+        let geSpacing = 15;
+        let geEquator = true;
+        let geMeridian = true;
+        let geZoom = 1024;
+        let geDrawing = false;
+        let geLastPoint = null;
+        let geImages = [];
+
+        function openGridEditor() {
+            if (!geModal) return;
+            geBgColor = backgroundGridMode === 'sphere' ? sphereGridBgSettings.bgColor : backgroundTemplateColor.value;
+            geLineColor = sphereGridBgSettings.lineColor;
+            geLineWidth = sphereGridBgSettings.lineWidth;
+            geSpacing = sphereGridBgSettings.spacing;
+            geEquator = sphereGridBgSettings.showEquator;
+            geMeridian = sphereGridBgSettings.showMeridian;
+            syncGridEditorUI();
+            renderGridEditor();
+            geModal.classList.add('visible');
+        }
+
+        function closeGridEditor() {
+            if (geModal) geModal.classList.remove('visible');
+        }
+
+        function syncGridEditorUI() {
+            const el = id => document.getElementById(id);
+            if (el('ge-bg-color')) el('ge-bg-color').value = geBgColor;
+            if (el('ge-line-color')) el('ge-line-color').value = geLineColor;
+            if (el('ge-line-width')) el('ge-line-width').value = geLineWidth;
+            if (el('ge-line-width-value')) el('ge-line-width-value').textContent = geLineWidth.toFixed(1);
+            if (el('ge-spacing')) el('ge-spacing').value = geSpacing;
+            if (el('ge-spacing-value')) el('ge-spacing-value').textContent = `${geSpacing}°`;
+            if (el('ge-equator')) el('ge-equator').checked = geEquator;
+            if (el('ge-meridian')) el('ge-meridian').checked = geMeridian;
+            if (el('ge-brush-size')) el('ge-brush-size').value = geBrushSize;
+            if (el('ge-brush-size-value')) el('ge-brush-size-value').textContent = geBrushSize;
+            if (el('ge-pen-color')) el('ge-pen-color').value = gePenColor;
+            if (el('ge-pen-opacity')) el('ge-pen-opacity').value = gePenOpacity;
+            document.querySelectorAll('[data-ge-mode]').forEach(b => b.classList.toggle('primary', b.dataset.geMode === geMode));
+            document.querySelectorAll('[data-ge-tool]').forEach(b => b.classList.toggle('primary', b.dataset.geTool === geTool));
+            document.querySelectorAll('[data-ge-zoom]').forEach(b => b.classList.toggle('primary', Number(b.dataset.geZoom) === geZoom));
+            renderGeImageList();
+        }
+
+        function renderGeImageList() {
+            const list = document.getElementById('ge-image-list');
+            if (!list) return;
+            list.innerHTML = geImages.map((img, i) => `
+                <div class="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/10">
+                    <img src="${img.dataURL}" class="w-10 h-10 object-cover rounded-lg">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-[11px] text-slate-300 truncate">${img.name}</div>
+                        <div class="text-[10px] text-slate-500">${img.width}x${img.height}</div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <input type="range" min="16" max="512" value="${img.size}" data-ge-img-size="${i}" class="w-16 h-1 accent-cyan-400">
+                        <button type="button" data-ge-img-del="${i}" class="text-rose-400 text-xs hover:text-rose-300">X</button>
+                    </div>
+                </div>
+            `).join('');
+            list.querySelectorAll('[data-ge-img-del]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    geImages.splice(Number(btn.dataset.geImgDel), 1);
+                    renderGeImageList();
+                    renderGridEditor();
+                });
+            });
+            list.querySelectorAll('[data-ge-img-size]').forEach(input => {
+                input.addEventListener('input', () => {
+                    geImages[Number(input.dataset.geImgSize)].size = Number(input.value);
+                    renderGridEditor();
+                });
+            });
+        }
+
+        function drawGridOnCanvas(ctx, w, h) {
+            const pxPerDeg = w / 90;
+            ctx.fillStyle = geBgColor;
+            ctx.fillRect(0, 0, w, h);
+            ctx.save();
+            for (let deg = 0; deg <= 90; deg += geSpacing) {
+                const y = Math.round(deg * pxPerDeg) + 0.5;
+                const isCenter = Math.abs(deg - 45) < 0.1;
+                ctx.strokeStyle = isCenter && geEquator ? '#facc15' : geLineColor;
+                ctx.lineWidth = isCenter && geEquator ? geLineWidth * 2 : geLineWidth;
+                ctx.globalAlpha = isCenter && geEquator ? 0.9 : 0.5;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+            for (let deg = 0; deg <= 90; deg += geSpacing) {
+                const x = Math.round(deg * pxPerDeg) + 0.5;
+                const isCenter = Math.abs(deg - 45) < 0.1;
+                ctx.strokeStyle = isCenter && geMeridian ? '#f87171' : geLineColor;
+                ctx.lineWidth = isCenter && geMeridian ? geLineWidth * 1.8 : geLineWidth;
+                ctx.globalAlpha = isCenter && geMeridian ? 0.9 : 0.4;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function renderGridEditor() {
+            if (!geCanvas || !geCtx) return;
+            const w = geZoom, h = geZoom;
+            geCanvas.width = w; geCanvas.height = h;
+            if (geOverlay) { geOverlay.width = w; geOverlay.height = h; }
+            geCtx.clearRect(0, 0, w, h);
+            drawGridOnCanvas(geCtx, w, h);
+            geImages.forEach(img => {
+                const size = img.size || 64;
+                const ix = (img.posX || 0.5) * w - size / 2;
+                const iy = (img.posY || 0.5) * h - size / 2;
+                geCtx.globalAlpha = 1;
+                geCtx.drawImage(img.img, ix, iy, size, size);
+                geCtx.globalAlpha = 1;
+            });
+            drawGeOverlay();
+        }
+
+        function drawGeOverlay() {
+            if (!geOverlayCtx || !geOverlay) return;
+            geOverlayCtx.clearRect(0, 0, geOverlay.width, geOverlay.height);
+        }
+
+        function geCanvasCoords(e) {
+            const rect = geCanvas.getBoundingClientRect();
+            const scaleX = geCanvas.width / rect.width;
+            const scaleY = geCanvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        function geDrawAt(x, y) {
+            if (geTool === 'pen') {
+                geCtx.save();
+                geCtx.globalAlpha = gePenOpacity;
+                geCtx.fillStyle = gePenColor;
+                geCtx.beginPath();
+                geCtx.arc(x, y, geBrushSize / 2, 0, Math.PI * 2);
+                geCtx.fill();
+                geCtx.restore();
+            } else if (geTool === 'eraser') {
+                geCtx.save();
+                geCtx.globalCompositeOperation = 'destination-out';
+                geCtx.beginPath();
+                geCtx.arc(x, y, geBrushSize / 2, 0, Math.PI * 2);
+                geCtx.fill();
+                geCtx.restore();
+                geCtx.save();
+                drawGridOnCanvas(geCtx, geCanvas.width, geCanvas.height);
+                geCtx.restore();
+            } else if (geTool === 'move' && geImages.length) {
+                const img = geImages[geImages.length - 1];
+                img.posX = x / geCanvas.width;
+                img.posY = y / geCanvas.height;
+                renderGridEditor();
+            }
+        }
+
+        geCanvas?.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            geDrawing = true;
+            geLastPoint = geCanvasCoords(e);
+            geDrawAt(geLastPoint.x, geLastPoint.y);
+        });
+        geCanvas?.addEventListener('pointermove', e => {
+            if (!geDrawing) return;
+            const p = geCanvasCoords(e);
+            if (geTool === 'pen' || geTool === 'eraser') {
+                if (geLastPoint) {
+                    const dx = p.x - geLastPoint.x, dy = p.y - geLastPoint.y;
+                    const dist = Math.hypot(dx, dy);
+                    const step = Math.max(1, geBrushSize / 4);
+                    for (let i = step; i < dist; i += step) {
+                        geDrawAt(geLastPoint.x + dx * i / dist, geLastPoint.y + dy * i / dist);
+                    }
+                }
+                geDrawAt(p.x, p.y);
+            }
+            geLastPoint = p;
+        });
+        geCanvas?.addEventListener('pointerup', () => { geDrawing = false; geLastPoint = null; });
+        geCanvas?.addEventListener('pointerleave', () => { geDrawing = false; geLastPoint = null; });
+
+        document.getElementById('ge-bg-color')?.addEventListener('input', e => { geBgColor = e.target.value; renderGridEditor(); });
+        document.getElementById('ge-line-color')?.addEventListener('input', e => { geLineColor = e.target.value; renderGridEditor(); });
+        document.getElementById('ge-line-width')?.addEventListener('input', e => { geLineWidth = Number(e.target.value); document.getElementById('ge-line-width-value').textContent = geLineWidth.toFixed(1); renderGridEditor(); });
+        document.getElementById('ge-spacing')?.addEventListener('input', e => { geSpacing = Number(e.target.value); document.getElementById('ge-spacing-value').textContent = `${geSpacing}°`; renderGridEditor(); });
+        document.getElementById('ge-equator')?.addEventListener('change', e => { geEquator = e.target.checked; renderGridEditor(); });
+        document.getElementById('ge-meridian')?.addEventListener('change', e => { geMeridian = e.target.checked; renderGridEditor(); });
+        document.getElementById('ge-brush-size')?.addEventListener('input', e => { geBrushSize = Number(e.target.value); document.getElementById('ge-brush-size-value').textContent = geBrushSize; });
+        document.getElementById('ge-pen-color')?.addEventListener('input', e => { gePenColor = e.target.value; });
+        document.getElementById('ge-pen-opacity')?.addEventListener('input', e => { gePenOpacity = Number(e.target.value); });
+
+        document.querySelectorAll('[data-ge-mode]').forEach(b => {
+            b.addEventListener('click', () => { geMode = b.dataset.geMode; syncGridEditorUI(); renderGridEditor(); });
+        });
+        document.querySelectorAll('[data-ge-tool]').forEach(b => {
+            b.addEventListener('click', () => { geTool = b.dataset.geTool; syncGridEditorUI(); });
+        });
+        document.querySelectorAll('[data-ge-zoom]').forEach(b => {
+            b.addEventListener('click', () => { geZoom = Number(b.dataset.geZoom); syncGridEditorUI(); renderGridEditor(); });
+        });
+
+        document.getElementById('ge-image-input')?.addEventListener('change', async e => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            const img = await loadImageFromURL(url);
+            URL.revokeObjectURL(url);
+            geImages.push({ name: file.name, img, dataURL: url, width: img.width, height: img.height, size: Math.min(128, Math.max(img.width, img.height)), posX: 0.5, posY: 0.5 });
+            e.target.value = '';
+            renderGeImageList();
+            renderGridEditor();
+        });
+
+        document.getElementById('grid-editor-clear')?.addEventListener('click', () => {
+            geImages = [];
+            renderGeImageList();
+            renderGridEditor();
+        });
+
+        document.getElementById('grid-editor-apply')?.addEventListener('click', () => {
+            sphereGridBgSettings.bgColor = geBgColor;
+            sphereGridBgSettings.lineColor = geLineColor;
+            sphereGridBgSettings.lineWidth = geLineWidth;
+            sphereGridBgSettings.spacing = geSpacing;
+            sphereGridBgSettings.showEquator = geEquator;
+            sphereGridBgSettings.showMeridian = geMeridian;
+            saveSphereGridBgSettings();
+            backgroundGridMode = geMode;
+            const previewCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
+            const pCtx = previewCanvas.getContext('2d');
+            pCtx.drawImage(geCanvas, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            const faceState = getFaceState();
+            faceState.background = previewCanvas;
+            faceState.backgroundName = `grid_editor_${Date.now()}.png`;
+            faceState.backgroundColor = geBgColor;
+            faceState.backgroundOpacity = 1;
+            render();
+            renderBackgroundTemplates();
+            closeGridEditor();
+        });
+
+        document.getElementById('grid-editor-apply-all')?.addEventListener('click', () => {
+            sphereGridBgSettings.bgColor = geBgColor;
+            sphereGridBgSettings.lineColor = geLineColor;
+            sphereGridBgSettings.lineWidth = geLineWidth;
+            sphereGridBgSettings.spacing = geSpacing;
+            sphereGridBgSettings.showEquator = geEquator;
+            sphereGridBgSettings.showMeridian = geMeridian;
+            saveSphereGridBgSettings();
+            backgroundGridMode = geMode;
+            const previewCanvas = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
+            const pCtx = previewCanvas.getContext('2d');
+            pCtx.drawImage(geCanvas, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            FACES.forEach(face => {
+                const fc = copyCanvas(previewCanvas);
+                state[face].background = fc;
+                state[face].backgroundName = `grid_editor_${face}_${Date.now()}.png`;
+                state[face].backgroundColor = geBgColor;
+                state[face].backgroundOpacity = 1;
+            });
+            render();
+            renderBackgroundTemplates();
+            closeGridEditor();
+        });
+
+        document.getElementById('grid-editor-close')?.addEventListener('click', closeGridEditor);
+        document.getElementById('background-template-preview')?.addEventListener('click', openGridEditor);
 
