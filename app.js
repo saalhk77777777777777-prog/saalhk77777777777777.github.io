@@ -827,44 +827,78 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             const spacing = clamp(Number(s.spacing || 15), 5, 90);
             renderCtx.fillStyle = bgColor;
             renderCtx.fillRect(0, 0, size, size);
-            const range = FACE_LON_LAT_RANGES[face];
-            if (!range) return;
             renderCtx.save();
-            for (let lat = Math.ceil(range.latMin / spacing) * spacing; lat <= range.latMax; lat += spacing) {
-                const v = (range.latMax - lat) / (range.latMax - range.latMin);
-                const y = Math.round(v * size) + 0.5;
-                const isEq = lat === 0;
-                renderCtx.strokeStyle = isEq && s.showEquator ? '#facc15' : lineColor;
-                renderCtx.lineWidth = isEq && s.showEquator ? lineWidth * 2 : lineWidth;
-                renderCtx.globalAlpha = isEq && s.showEquator ? 0.9 : 0.45;
-                renderCtx.beginPath();
-                renderCtx.moveTo(0, y);
-                renderCtx.lineTo(size, y);
-                renderCtx.stroke();
-            }
-            for (let lon = Math.ceil(range.lonMin / spacing) * spacing; lon <= range.lonMax; lon += spacing) {
-                const u = (lon - range.lonMin) / (range.lonMax - range.lonMin);
-                const x = Math.round(u * size) + 0.5;
-                const isMeridian = lon === 0;
-                renderCtx.strokeStyle = isMeridian && s.showMeridian ? '#f87171' : lineColor;
-                renderCtx.lineWidth = isMeridian && s.showMeridian ? lineWidth * 1.8 : lineWidth;
-                renderCtx.globalAlpha = isMeridian && s.showMeridian ? 0.9 : 0.35;
-                renderCtx.beginPath();
-                renderCtx.moveTo(x, 0);
-                renderCtx.lineTo(x, size);
-                renderCtx.stroke();
-            }
+            const step = 3;
+            const latLines = [];
+            for (let lat = -90 + spacing; lat < 90; lat += spacing) latLines.push(lat);
+            if (!latLines.includes(0)) latLines.push(0);
+            latLines.sort((a, b) => a - b);
+            const lonLines = [];
+            for (let lon = -180; lon < 180; lon += spacing) lonLines.push(lon);
+            if (!lonLines.includes(0)) lonLines.push(0);
+            lonLines.sort((a, b) => a - b);
+            latLines.forEach(lat => {
+                const segments = projectLatLineToFace(face, lat, step, size);
+                segments.forEach(seg => {
+                    if (seg.length < 2) return;
+                    const isEq = lat === 0;
+                    renderCtx.strokeStyle = isEq && s.showEquator ? '#facc15' : lineColor;
+                    renderCtx.lineWidth = isEq && s.showEquator ? lineWidth * 2 : lineWidth;
+                    renderCtx.globalAlpha = isEq && s.showEquator ? 0.9 : 0.45;
+                    renderCtx.beginPath();
+                    seg.forEach((p, i) => i === 0 ? renderCtx.moveTo(p.x, p.y) : renderCtx.lineTo(p.x, p.y));
+                    renderCtx.stroke();
+                });
+            });
+            lonLines.forEach(lon => {
+                const segments = projectLonLineToFace(face, lon, step, size);
+                segments.forEach(seg => {
+                    if (seg.length < 2) return;
+                    const isM = lon === 0;
+                    renderCtx.strokeStyle = isM && s.showMeridian ? '#f87171' : lineColor;
+                    renderCtx.lineWidth = isM && s.showMeridian ? lineWidth * 1.8 : lineWidth;
+                    renderCtx.globalAlpha = isM && s.showMeridian ? 0.9 : 0.35;
+                    renderCtx.beginPath();
+                    seg.forEach((p, i) => i === 0 ? renderCtx.moveTo(p.x, p.y) : renderCtx.lineTo(p.x, p.y));
+                    renderCtx.stroke();
+                });
+            });
             renderCtx.restore();
         }
 
-        const FACE_LON_LAT_RANGES = {
-            ft: { lonMin: -45, lonMax: 45,   latMin: -35.26, latMax: 35.26 },
-            bk: { lonMin: 135, lonMax: 225,  latMin: -35.26, latMax: 35.26 },
-            rt: { lonMin: 45,  lonMax: 135,  latMin: -35.26, latMax: 35.26 },
-            lf: { lonMin: -135, lonMax: -45, latMin: -35.26, latMax: 35.26 },
-            up: { lonMin: -180, lonMax: 180, latMin: 35.26,  latMax: 90 },
-            dn: { lonMin: -180, lonMax: 180, latMin: -90,    latMax: -35.26 }
-        };
+        function projectLatLineToFace(face, lat, step, size) {
+            const segments = [];
+            let current = [];
+            for (let lon = -180; lon <= 180; lon += step) {
+                const dir = directionFromGlobeLonLat(lon, lat);
+                const uv = directionToCubeFaceUV(dir);
+                if (uv.face !== face) {
+                    if (current.length >= 2) segments.push(current);
+                    current = [];
+                    continue;
+                }
+                current.push({ x: clamp(uv.u, 0, 1) * size, y: clamp(uv.v, 0, 1) * size });
+            }
+            if (current.length >= 2) segments.push(current);
+            return segments;
+        }
+
+        function projectLonLineToFace(face, lon, step, size) {
+            const segments = [];
+            let current = [];
+            for (let lat = -86; lat <= 86; lat += step) {
+                const dir = directionFromGlobeLonLat(lon, lat);
+                const uv = directionToCubeFaceUV(dir);
+                if (uv.face !== face) {
+                    if (current.length >= 2) segments.push(current);
+                    current = [];
+                    continue;
+                }
+                current.push({ x: clamp(uv.u, 0, 1) * size, y: clamp(uv.v, 0, 1) * size });
+            }
+            if (current.length >= 2) segments.push(current);
+            return segments;
+        }
 
         function createBackgroundTemplateCanvas(template, size = CANVAS_SIZE) {
             const templateCanvas = createEmptyCanvas(size, size);
