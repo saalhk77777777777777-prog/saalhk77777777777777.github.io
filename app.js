@@ -4707,7 +4707,6 @@ ${created.length} images arranged on the inside spherical wall.`;
             renderCtx.fill();
 
             drawGlobeDeadZone(renderCtx);
-            drawGlobeSurfaceGrid(renderCtx);
             drawGlobeCubeSeams(renderCtx);
             drawGlobeFaceLabels(renderCtx);
 
