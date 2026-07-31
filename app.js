@@ -829,38 +829,78 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             renderCtx.fillRect(0, 0, size, size);
             const range = FACE_LON_LAT_RANGES[face];
             if (!range) return;
-            const latMin = range.latMin;
-            const latMax = range.latMax;
-            const lonMin = range.lonMin;
-            const lonMax = range.lonMax;
-            const latRange = latMax - latMin;
-            const lonRange = lonMax - lonMin;
-            renderCtx.save();
-            for (let lat = Math.ceil(latMin / spacing) * spacing; lat <= latMax; lat += spacing) {
-                const v = 1 - (lat - latMin) / latRange;
-                const y = Math.round(v * size) + 0.5;
+            const step = 2;
+            function dirToFaceUV(dir) {
+                const result = directionToCubeFaceUV(dir);
+                if (!result || result.face !== face) return null;
+                return { u: result.u, v: result.v };
+            }
+            function drawCurve(points, color, width, alpha) {
+                if (points.length < 2) return;
+                renderCtx.save();
+                renderCtx.strokeStyle = color;
+                renderCtx.lineWidth = width;
+                renderCtx.globalAlpha = alpha;
+                renderCtx.beginPath();
+                renderCtx.moveTo(points[0].x, points[0].y);
+                for (let i = 1; i < points.length; i++) {
+                    renderCtx.lineTo(points[i].x, points[i].y);
+                }
+                renderCtx.stroke();
+                renderCtx.restore();
+            }
+            const latLines = [];
+            for (let lat = Math.ceil(range.latMin / spacing) * spacing; lat <= range.latMax; lat += spacing) {
+                latLines.push(lat);
+            }
+            latLines.forEach(lat => {
+                const segments = [];
+                let current = [];
+                for (let lon = -180; lon <= 180; lon += step) {
+                    const uv = dirToFaceUV(directionFromGlobeLonLat(lon, lat));
+                    if (uv) {
+                        current.push({ x: uv.u * size, y: (1 - uv.v) * size });
+                    } else {
+                        if (current.length >= 2) segments.push(current);
+                        current = [];
+                    }
+                }
+                if (current.length >= 2) segments.push(current);
                 const isEq = lat === 0;
-                renderCtx.strokeStyle = isEq && s.showEquator ? '#facc15' : lineColor;
-                renderCtx.lineWidth = isEq && s.showEquator ? lineWidth * 2 : lineWidth;
-                renderCtx.globalAlpha = isEq && s.showEquator ? 0.9 : 0.45;
-                renderCtx.beginPath();
-                renderCtx.moveTo(0, y);
-                renderCtx.lineTo(size, y);
-                renderCtx.stroke();
+                segments.forEach(seg => {
+                    drawCurve(seg,
+                        isEq && s.showEquator ? '#facc15' : lineColor,
+                        isEq && s.showEquator ? lineWidth * 2 : lineWidth,
+                        isEq && s.showEquator ? 0.9 : 0.45
+                    );
+                });
+            });
+            const lonLines = [];
+            for (let lon = Math.ceil(range.lonMin / spacing) * spacing; lon <= range.lonMax; lon += spacing) {
+                lonLines.push(lon);
             }
-            for (let lon = Math.ceil(lonMin / spacing) * spacing; lon <= lonMax; lon += spacing) {
-                const u = (lon - lonMin) / lonRange;
-                const x = Math.round(u * size) + 0.5;
+            lonLines.forEach(lon => {
+                const segments = [];
+                let current = [];
+                for (let lat = -90; lat <= 90; lat += step) {
+                    const uv = dirToFaceUV(directionFromGlobeLonLat(lon, lat));
+                    if (uv) {
+                        current.push({ x: uv.u * size, y: (1 - uv.v) * size });
+                    } else {
+                        if (current.length >= 2) segments.push(current);
+                        current = [];
+                    }
+                }
+                if (current.length >= 2) segments.push(current);
                 const isM = lon === 0;
-                renderCtx.strokeStyle = isM && s.showMeridian ? '#f87171' : lineColor;
-                renderCtx.lineWidth = isM && s.showMeridian ? lineWidth * 1.8 : lineWidth;
-                renderCtx.globalAlpha = isM && s.showMeridian ? 0.9 : 0.35;
-                renderCtx.beginPath();
-                renderCtx.moveTo(x, 0);
-                renderCtx.lineTo(x, size);
-                renderCtx.stroke();
-            }
-            renderCtx.restore();
+                segments.forEach(seg => {
+                    drawCurve(seg,
+                        isM && s.showMeridian ? '#f87171' : lineColor,
+                        isM && s.showMeridian ? lineWidth * 1.8 : lineWidth,
+                        isM && s.showMeridian ? 0.9 : 0.35
+                    );
+                });
+            });
         }
 
         const FACE_LON_LAT_RANGES = {
