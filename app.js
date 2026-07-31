@@ -827,131 +827,50 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             const spacing = clamp(Number(s.spacing || 15), 5, 90);
             renderCtx.fillStyle = bgColor;
             renderCtx.fillRect(0, 0, size, size);
+            const range = FACE_LON_LAT_RANGES[face];
+            if (!range) return;
+            const latMin = range.latMin;
+            const latMax = range.latMax;
+            const lonMin = range.lonMin;
+            const lonMax = range.lonMax;
+            const latRange = latMax - latMin;
+            const lonRange = lonMax - lonMin;
             renderCtx.save();
-            const step = 1;
-            const latLines = [];
-            for (let lat = -90 + spacing; lat < 90; lat += spacing) latLines.push(lat);
-            if (!latLines.includes(0)) latLines.push(0);
-            latLines.sort((a, b) => a - b);
-            const lonLines = [];
-            for (let lon = -180; lon < 180; lon += spacing) lonLines.push(lon);
-            if (!lonLines.includes(0)) lonLines.push(0);
-            lonLines.sort((a, b) => a - b);
-            latLines.forEach(lat => {
-                const segments = projectLatLineToFace(face, lat, step, size);
-                segments.forEach(seg => {
-                    if (seg.length < 2) return;
-                    const isEq = lat === 0;
-                    renderCtx.strokeStyle = isEq && s.showEquator ? '#facc15' : lineColor;
-                    renderCtx.lineWidth = isEq && s.showEquator ? lineWidth * 2 : lineWidth;
-                    renderCtx.globalAlpha = isEq && s.showEquator ? 0.9 : 0.45;
-                    drawSmoothPath(renderCtx, seg);
-                });
-            });
-            lonLines.forEach(lon => {
-                const segments = projectLonLineToFace(face, lon, step, size);
-                segments.forEach(seg => {
-                    if (seg.length < 2) return;
-                    const isM = lon === 0;
-                    renderCtx.strokeStyle = isM && s.showMeridian ? '#f87171' : lineColor;
-                    renderCtx.lineWidth = isM && s.showMeridian ? lineWidth * 1.8 : lineWidth;
-                    renderCtx.globalAlpha = isM && s.showMeridian ? 0.9 : 0.35;
-                    drawSmoothPath(renderCtx, seg);
-                });
-            });
+            for (let lat = Math.ceil(latMin / spacing) * spacing; lat <= latMax; lat += spacing) {
+                const v = 1 - (lat - latMin) / latRange;
+                const y = Math.round(v * size) + 0.5;
+                const isEq = lat === 0;
+                renderCtx.strokeStyle = isEq && s.showEquator ? '#facc15' : lineColor;
+                renderCtx.lineWidth = isEq && s.showEquator ? lineWidth * 2 : lineWidth;
+                renderCtx.globalAlpha = isEq && s.showEquator ? 0.9 : 0.45;
+                renderCtx.beginPath();
+                renderCtx.moveTo(0, y);
+                renderCtx.lineTo(size, y);
+                renderCtx.stroke();
+            }
+            for (let lon = Math.ceil(lonMin / spacing) * spacing; lon <= lonMax; lon += spacing) {
+                const u = (lon - lonMin) / lonRange;
+                const x = Math.round(u * size) + 0.5;
+                const isM = lon === 0;
+                renderCtx.strokeStyle = isM && s.showMeridian ? '#f87171' : lineColor;
+                renderCtx.lineWidth = isM && s.showMeridian ? lineWidth * 1.8 : lineWidth;
+                renderCtx.globalAlpha = isM && s.showMeridian ? 0.9 : 0.35;
+                renderCtx.beginPath();
+                renderCtx.moveTo(x, 0);
+                renderCtx.lineTo(x, size);
+                renderCtx.stroke();
+            }
             renderCtx.restore();
         }
 
-        function drawSmoothPath(ctx, points) {
-            if (points.length < 2) return;
-            ctx.beginPath();
-            ctx.moveTo(points[0].x, points[0].y);
-            if (points.length === 2) {
-                ctx.lineTo(points[1].x, points[1].y);
-            } else {
-                for (let i = 1; i < points.length - 1; i++) {
-                    const mx = (points[i].x + points[i + 1].x) / 2;
-                    const my = (points[i].y + points[i + 1].y) / 2;
-                    ctx.quadraticCurveTo(points[i].x, points[i].y, mx, my);
-                }
-                const last = points[points.length - 1];
-                const prev = points[points.length - 2];
-                ctx.quadraticCurveTo(prev.x + (last.x - prev.x) * 0.8, prev.y + (last.y - prev.y) * 0.8, last.x, last.y);
-            }
-            ctx.stroke();
-        }
-
-        function projectLatLineToFace(face, lat, step, size) {
-            const segments = [];
-            let current = [];
-            let lastFace = null;
-            for (let lon = -180; lon <= 180; lon += step) {
-                const dir = directionFromGlobeLonLat(lon, lat);
-                const uv = directionToCubeFaceUV(dir);
-                if (uv.face !== face) {
-                    if (current.length >= 2) segments.push(current);
-                    current = [];
-                    lastFace = uv.face;
-                    continue;
-                }
-                if (lastFace && lastFace !== face && current.length === 0) {
-                    const prevDir = directionFromGlobeLonLat(lon - step, lat);
-                    const prevUv = directionToCubeFaceUV(prevDir);
-                    if (prevUv.face) {
-                        const edgePoint = findFaceEdgePoint(face, prevUv.face, lat, size);
-                        if (edgePoint) current.push(edgePoint);
-                    }
-                }
-                current.push({ x: clamp(uv.u, 0, 1) * size, y: clamp(uv.v, 0, 1) * size });
-                lastFace = uv.face;
-            }
-            if (current.length >= 2) segments.push(current);
-            return segments;
-        }
-
-        function projectLonLineToFace(face, lon, step, size) {
-            const segments = [];
-            let current = [];
-            let lastFace = null;
-            for (let lat = -86; lat <= 86; lat += step) {
-                const dir = directionFromGlobeLonLat(lon, lat);
-                const uv = directionToCubeFaceUV(dir);
-                if (uv.face !== face) {
-                    if (current.length >= 2) segments.push(current);
-                    current = [];
-                    lastFace = uv.face;
-                    continue;
-                }
-                if (lastFace && lastFace !== face && current.length === 0) {
-                    const prevDir = directionFromGlobeLonLat(lon, lat - step);
-                    const prevUv = directionToCubeFaceUV(prevDir);
-                    if (prevUv.face) {
-                        const edgePoint = findFaceEdgePoint(face, prevUv.face, lon, size);
-                        if (edgePoint) current.push(edgePoint);
-                    }
-                }
-                current.push({ x: clamp(uv.u, 0, 1) * size, y: clamp(uv.v, 0, 1) * size });
-                lastFace = uv.face;
-            }
-            if (current.length >= 2) segments.push(current);
-            return segments;
-        }
-
-        function findFaceEdgePoint(fromFace, toFace, fixedAngle, size) {
-            for (let t = 0; t <= 1; t += 0.01) {
-                const dir = fromFace === 'ft' || fromFace === 'bk' || fromFace === 'rt' || fromFace === 'lf'
-                    ? directionFromGlobeLonLat(
-                        fromFace === 'ft' ? -45 + t * 90 : fromFace === 'bk' ? 135 + t * 90 : fromFace === 'rt' ? 45 + t * 90 : -135 + t * 90,
-                        fixedAngle
-                    )
-                    : directionFromGlobeLonLat(t * 360 - 180, fromFace === 'up' ? 35.26 : -35.26);
-                const uv = directionToCubeFaceUV(dir);
-                if (uv.face === fromFace) {
-                    return { x: clamp(uv.u, 0, 1) * size, y: clamp(uv.v, 0, 1) * size };
-                }
-            }
-            return null;
-        }
+        const FACE_LON_LAT_RANGES = {
+            ft: { lonMin: -45, lonMax: 45,   latMin: -35.26, latMax: 35.26 },
+            bk: { lonMin: 135, lonMax: 225,  latMin: -35.26, latMax: 35.26 },
+            rt: { lonMin: 45,  lonMax: 135,  latMin: -35.26, latMax: 35.26 },
+            lf: { lonMin: -135, lonMax: -45, latMin: -35.26, latMax: 35.26 },
+            up: { lonMin: -180, lonMax: 180, latMin: 35.26,  latMax: 90 },
+            dn: { lonMin: -180, lonMax: 180, latMin: -90,    latMax: -35.26 }
+        };
 
         function createBackgroundTemplateCanvas(template, size = CANVAS_SIZE) {
             const templateCanvas = createEmptyCanvas(size, size);
