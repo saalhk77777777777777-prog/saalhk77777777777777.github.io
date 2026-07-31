@@ -137,17 +137,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         function syncGlobeGridUI(settings = globeGridSettings) {
-            const normalized = normalizeGlobeGridSettings(settings);
-            globeGridSettings = normalized;
-            if (globeGridSpacing) globeGridSpacing.value = String(normalized.lineSpacingDeg);
-            if (globeGridSpacingValue) globeGridSpacingValue.textContent = `${Math.round(normalized.lineSpacingDeg)}°`;
-            if (globeGridCount) globeGridCount.value = String(normalized.longitudeCount);
-            if (globeGridCountValue) globeGridCountValue.textContent = String(normalized.longitudeCount);
-            if (globeGridOpacity) globeGridOpacity.value = String(Math.round(normalized.opacity * 100));
-            if (globeGridOpacityValue) globeGridOpacityValue.textContent = `${Math.round(normalized.opacity * 100)}%`;
-            if (globeGridWidth) globeGridWidth.value = String(normalized.lineWidth);
-            if (globeGridWidthValue) globeGridWidthValue.textContent = `${Number(normalized.lineWidth).toFixed(1)}px`;
-            if (globeGridColor) globeGridColor.value = normalized.color;
+            globeGridSettings = normalizeGlobeGridSettings(settings);
         }
 
         const state = Object.fromEntries(FACES.map(face => [face, {
@@ -206,17 +196,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         const mobileQuickBorderWidth = document.getElementById('mobile-quick-border-width');
         const mobileQuickBorderStrength = document.getElementById('mobile-quick-border-strength');
         const mobileQuickBorderColor = document.getElementById('mobile-quick-border-color');
-        const globeGridPanel = document.querySelector('.sphere-grid-panel');
-        const globeGridSpacing = document.getElementById('globe-grid-spacing');
-        const globeGridSpacingValue = document.getElementById('globe-grid-spacing-value');
-        const globeGridCount = document.getElementById('globe-grid-count');
-        const globeGridCountValue = document.getElementById('globe-grid-count-value');
-        const globeGridOpacity = document.getElementById('globe-grid-opacity');
-        const globeGridOpacityValue = document.getElementById('globe-grid-opacity-value');
-        const globeGridWidth = document.getElementById('globe-grid-width');
-        const globeGridWidthValue = document.getElementById('globe-grid-width-value');
-        const globeGridColor = document.getElementById('globe-grid-color');
-        const globeGridReset = document.getElementById('globe-grid-reset');
+
         const bgQuotaStatus = document.getElementById('bg-quota-status');
         const posterCountModal = document.getElementById('poster-count-modal');
         const posterCountCancel = document.getElementById('poster-count-cancel');
@@ -274,6 +254,20 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
 
         const QUICK_BACKGROUND_COLORS = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#94a3b8', '#0f172a'];
         let backgroundGridMode = 'none';
+        const SPHERE_GRID_SETTINGS_KEY = 'skybox-sphere-grid-bg-settings-v1';
+        const DEFAULT_SPHERE_GRID_SETTINGS = {
+            bgColor: '#0a0f1a',
+            lineColor: '#67e8f9',
+            lineWidth: 1.5,
+            spacing: 15,
+            showEquator: true,
+            showMeridian: true
+        };
+        let sphereGridBgSettings = (() => {
+            try { return { ...DEFAULT_SPHERE_GRID_SETTINGS, ...JSON.parse(localStorage.getItem(SPHERE_GRID_SETTINGS_KEY) || '{}') }; }
+            catch { return { ...DEFAULT_SPHERE_GRID_SETTINGS }; }
+        })();
+        function saveSphereGridBgSettings() { localStorage.setItem(SPHERE_GRID_SETTINGS_KEY, JSON.stringify(sphereGridBgSettings)); }
 
         const aiConfig = {
             endpoint: IS_PUBLIC_HOSTED ? '' : 'http://127.0.0.1:1234/v1/chat/completions',
@@ -815,10 +809,69 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         function createCustomGridBackground(color, mode, size = CANVAS_SIZE) {
             const templateCanvas = createEmptyCanvas(size, size);
             const templateCtx = templateCanvas.getContext('2d');
+            if (mode === 'sphere') {
+                drawSphereGrid(templateCtx, size);
+                return templateCanvas;
+            }
             templateCtx.fillStyle = color;
             templateCtx.fillRect(0, 0, size, size);
             drawStraightGrid(templateCtx, size, mode);
             return templateCanvas;
+        }
+
+        function drawSphereGrid(renderCtx, size) {
+            const s = sphereGridBgSettings;
+            const bgColor = s.bgColor || '#0a0f1a';
+            const lineColor = s.lineColor || '#67e8f9';
+            const lineWidth = clamp(Number(s.lineWidth || 1.5), 0.5, 6);
+            const spacing = clamp(Number(s.spacing || 15), 5, 90);
+            const pxPerDeg = size / 90;
+            renderCtx.fillStyle = bgColor;
+            renderCtx.fillRect(0, 0, size, size);
+            renderCtx.save();
+            for (let deg = 0; deg <= 90; deg += spacing) {
+                const y = Math.round(deg * pxPerDeg) + 0.5;
+                const isCenter = Math.abs(deg - 45) < 0.1;
+                renderCtx.strokeStyle = isCenter ? 'rgba(250,204,21,0.7)' : lineColor;
+                renderCtx.lineWidth = isCenter ? lineWidth * 1.6 : lineWidth;
+                renderCtx.globalAlpha = isCenter ? 0.85 : 0.55;
+                renderCtx.beginPath();
+                renderCtx.moveTo(0, y);
+                renderCtx.lineTo(size, y);
+                renderCtx.stroke();
+            }
+            for (let deg = 0; deg <= 90; deg += spacing) {
+                const x = Math.round(deg * pxPerDeg) + 0.5;
+                const isCenter = Math.abs(deg - 45) < 0.1;
+                renderCtx.strokeStyle = isCenter ? 'rgba(248,113,113,0.7)' : lineColor;
+                renderCtx.lineWidth = isCenter ? lineWidth * 1.4 : lineWidth;
+                renderCtx.globalAlpha = isCenter ? 0.85 : 0.45;
+                renderCtx.beginPath();
+                renderCtx.moveTo(x, 0);
+                renderCtx.lineTo(x, size);
+                renderCtx.stroke();
+            }
+            if (s.showEquator) {
+                const eqY = Math.round(45 * pxPerDeg) + 0.5;
+                renderCtx.strokeStyle = '#facc15';
+                renderCtx.lineWidth = lineWidth * 2;
+                renderCtx.globalAlpha = 0.9;
+                renderCtx.beginPath();
+                renderCtx.moveTo(0, eqY);
+                renderCtx.lineTo(size, eqY);
+                renderCtx.stroke();
+            }
+            if (s.showMeridian) {
+                const mX = Math.round(45 * pxPerDeg) + 0.5;
+                renderCtx.strokeStyle = '#f87171';
+                renderCtx.lineWidth = lineWidth * 1.8;
+                renderCtx.globalAlpha = 0.9;
+                renderCtx.beginPath();
+                renderCtx.moveTo(mX, 0);
+                renderCtx.lineTo(mX, size);
+                renderCtx.stroke();
+            }
+            renderCtx.restore();
         }
 
         function createBackgroundTemplateCanvas(template, size = CANVAS_SIZE) {
@@ -837,19 +890,26 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         function renderBackgroundTemplates() {
-            backgroundTemplateCount.textContent = backgroundGridMode === 'white' ? 'White Grid' : backgroundGridMode === 'black' ? 'Black Grid' : 'Solid';
-            const preview = createCustomGridBackground(backgroundTemplateColor.value, backgroundGridMode, backgroundTemplatePreview.width);
+            const modeLabels = { none: 'Solid', white: 'White Grid', black: 'Black Grid', sphere: 'Sphere Grid' };
+            backgroundTemplateCount.textContent = modeLabels[backgroundGridMode] || 'Solid';
+            const preview = createCustomGridBackground(backgroundGridMode === 'sphere' ? sphereGridBgSettings.bgColor : backgroundTemplateColor.value, backgroundGridMode, backgroundTemplatePreview.width);
             backgroundTemplatePreviewCtx.clearRect(0, 0, backgroundTemplatePreview.width, backgroundTemplatePreview.height);
             backgroundTemplatePreviewCtx.drawImage(preview, 0, 0, backgroundTemplatePreview.width, backgroundTemplatePreview.height);
             document.querySelectorAll('[data-grid-mode]').forEach(button => {
                 button.classList.toggle('primary', button.dataset.gridMode === backgroundGridMode);
             });
+            const sphereControls = document.getElementById('sphere-grid-controls');
+            if (sphereControls) sphereControls.style.display = backgroundGridMode === 'sphere' ? '' : 'none';
             backgroundTemplateList.innerHTML = QUICK_BACKGROUND_COLORS.map(color => `
                 <button type="button" class="h-8 rounded-xl border border-white/10" style="background:${color}" data-quick-color="${color}" title="${color}"></button>
             `).join('');
             backgroundTemplateList.querySelectorAll('[data-quick-color]').forEach(button => {
                 button.addEventListener('click', () => {
                     backgroundTemplateColor.value = button.dataset.quickColor;
+                    if (backgroundGridMode === 'sphere') {
+                        sphereGridBgSettings.bgColor = button.dataset.quickColor;
+                        saveSphereGridBgSettings();
+                    }
                     renderBackgroundTemplates();
                     applyCustomGridBackground();
                 });
@@ -862,14 +922,20 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         function applyCustomGridBackground() {
-            const color = backgroundTemplateColor.value;
             const faceState = getFaceState();
-            faceState.background = createCustomGridBackground(color, backgroundGridMode);
-            faceState.backgroundName = `template_${color.replace('#', '')}_${backgroundGridMode}_grid.png`;
-            faceState.backgroundColor = color;
+            if (backgroundGridMode === 'sphere') {
+                faceState.background = createCustomGridBackground(sphereGridBgSettings.bgColor, 'sphere');
+                faceState.backgroundName = `sphere_grid_${Date.now()}.png`;
+                faceState.backgroundColor = sphereGridBgSettings.bgColor;
+            } else {
+                const color = backgroundTemplateColor.value;
+                faceState.background = createCustomGridBackground(color, backgroundGridMode);
+                faceState.backgroundName = `template_${color.replace('#', '')}_${backgroundGridMode}_grid.png`;
+                faceState.backgroundColor = color;
+            }
             faceState.backgroundOpacity = 1;
-            const modeLabel = backgroundGridMode === 'white' ? '흰 그리드' : backgroundGridMode === 'black' ? '검은 그리드' : '그리드 없음';
-            lastBackgroundUploadReport = `[배경 템플릿]\n${activeFace.toUpperCase()} -> ${color} / ${modeLabel}`;
+            const modeLabels = { none: '그리드 없음', white: '흰 그리드', black: '검은 그리드', sphere: '구체 그리드' };
+            lastBackgroundUploadReport = `[배경 템플릿]\n${activeFace.toUpperCase()} -> ${modeLabels[backgroundGridMode] || 'Solid'}`;
             render();
         }
 
@@ -6228,29 +6294,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             sphereOverlayVisible = !sphereOverlayVisible;
             render();
         });
-        const updateGlobeGridFromInputs = () => {
-            globeGridSettings = normalizeGlobeGridSettings({
-                lineSpacingDeg: Number(globeGridSpacing?.value ?? DEFAULT_GLOBE_GRID_SETTINGS.lineSpacingDeg),
-                longitudeCount: Number(globeGridCount?.value ?? DEFAULT_GLOBE_GRID_SETTINGS.longitudeCount),
-                opacity: Number(globeGridOpacity?.value ?? Math.round(DEFAULT_GLOBE_GRID_SETTINGS.opacity * 100)) / 100,
-                color: globeGridColor?.value || DEFAULT_GLOBE_GRID_SETTINGS.color,
-                lineWidth: Number(globeGridWidth?.value ?? DEFAULT_GLOBE_GRID_SETTINGS.lineWidth)
-            });
-            setGlobeGridSettings(globeGridSettings);
-            syncGlobeGridUI(globeGridSettings);
-            render();
-        };
-        globeGridSpacing?.addEventListener('input', updateGlobeGridFromInputs);
-        globeGridCount?.addEventListener('input', updateGlobeGridFromInputs);
-        globeGridOpacity?.addEventListener('input', updateGlobeGridFromInputs);
-        globeGridWidth?.addEventListener('input', updateGlobeGridFromInputs);
-        globeGridColor?.addEventListener('input', updateGlobeGridFromInputs);
-        globeGridReset?.addEventListener('click', () => {
-            globeGridSettings = normalizeGlobeGridSettings();
-            setGlobeGridSettings(globeGridSettings);
-            syncGlobeGridUI(globeGridSettings);
-            render();
-        });
+
         posterQuickStart?.addEventListener('click', async () => {
             const count = await requestPosterFileCount();
             if (!count || !posterQuickInput) return;
@@ -6397,6 +6441,33 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 backgroundGridMode = button.dataset.gridMode;
                 updateAndApplyCustomGridBackground();
             });
+        });
+        document.getElementById('sphere-grid-line-color')?.addEventListener('input', event => {
+            sphereGridBgSettings.lineColor = event.target.value;
+            saveSphereGridBgSettings();
+            renderBackgroundTemplates();
+        });
+        document.getElementById('sphere-grid-line-width')?.addEventListener('input', event => {
+            sphereGridBgSettings.lineWidth = Number(event.target.value);
+            document.getElementById('sphere-grid-line-width-value').textContent = Number(event.target.value).toFixed(1);
+            saveSphereGridBgSettings();
+            renderBackgroundTemplates();
+        });
+        document.getElementById('sphere-grid-spacing')?.addEventListener('input', event => {
+            sphereGridBgSettings.spacing = Number(event.target.value);
+            document.getElementById('sphere-grid-spacing-value').textContent = `${event.target.value}°`;
+            saveSphereGridBgSettings();
+            renderBackgroundTemplates();
+        });
+        document.getElementById('sphere-grid-equator')?.addEventListener('change', event => {
+            sphereGridBgSettings.showEquator = event.target.checked;
+            saveSphereGridBgSettings();
+            renderBackgroundTemplates();
+        });
+        document.getElementById('sphere-grid-meridian')?.addEventListener('change', event => {
+            sphereGridBgSettings.showMeridian = event.target.checked;
+            saveSphereGridBgSettings();
+            renderBackgroundTemplates();
         });
         document.querySelectorAll('.face-tab').forEach(button => button.addEventListener('click', () => setActiveFace(button.dataset.face)));
         document.querySelectorAll('.face-pair-tab').forEach(button => button.addEventListener('click', () => setActiveFacePair(button.dataset.facePair)));
