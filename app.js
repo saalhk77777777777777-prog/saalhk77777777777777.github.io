@@ -1159,10 +1159,10 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                 try {
                     const directoryHandle = await window.showDirectoryPicker({ mode: 'read' });
                     const files = await collectDirectoryFilesFromHandle(directoryHandle);
-if (files.length) {
+                    if (files.length) {
                         try {
                             await buildPresetLibraryFromFiles(files);
-if (importedPresetSets.length === 0) {
+                            if (importedPresetSets.length === 0) {
                             alert('선택한 폴더에서 유효한 스카이박스 프리셋을 찾을 수 없습니다.\n파일명에 ft/bk/lf/rt/up/dn 6면 파일명이 포함되어야 합니다.');
                         } else {
                             alert(`스카이박스 프리셋 ${importedPresetSets.length}개가 추가되었습니다.\n좌측 Skybox Presets 목록에서 선택해 적용하세요.`);
@@ -1173,6 +1173,7 @@ if (importedPresetSets.length === 0) {
                             }
                         }
                         return;
+                    }
                 } catch (error) {
                     if (error?.name === 'AbortError') return;
                 }
@@ -6294,7 +6295,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             }
         });
         document.getElementById('preset-folder-button').addEventListener('click', importPresetFolder);
-document.getElementById('preset-folder-input').addEventListener('change', async event => {
+        document.getElementById('preset-folder-input').addEventListener('change', async event => {
             const files = Array.from(event.target.files || []);
             if (files.length) {
                 try {
