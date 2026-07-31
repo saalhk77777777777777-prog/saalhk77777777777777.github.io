@@ -62,13 +62,15 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         let aiLastPreview = '';
         let lastBackgroundUploadReport = '아직 업로드 기록이 없습니다.';
         let importedPresetSets = [];
-        let autoSaveTimer = null;
         let isRestoringProject = false;
         let canvasZoom = 74;
         let showEditorGrid = true;
         let snapToGrid = false;
         let layoutMode = 'pc';
         let sphericalEditMode = true;
+        const undoStack = [];
+        const redoStack = [];
+        const UNDO_MAX = 50;
         let sphereOverlayVisible = true;
         let sphereView = { yaw: 0, pitch: 0, fov: 96, zoom: 1 };
         let sphereDragState = null;
@@ -83,7 +85,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         let isSliderPreviewActive = false;
         let localBgRemovalModulePromise = null;
         const POSTER_BACKGROUND_COLOR = '#0a0f1a';
-        const POSTER_GRID_MODE = 'none';
         const DEFAULT_GLOBE_GRID_SETTINGS = {
             lineSpacingDeg: 10,
             longitudeCount: 24,
@@ -292,6 +293,67 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
 
         function getFaceState(face = activeFace) { return state[face]; }
         function generateId() { return `layer-${idCounter++}`; }
+        function createUndoSnapshot() {
+            const snapshot = {
+                state: JSON.parse(JSON.stringify(state, (key, value) => {
+                    if (value instanceof HTMLCanvasElement) return { __type: 'canvas', data: value.toDataURL() };
+                    return value;
+                })),
+                selectedId,
+                activeFace
+            };
+            undoStack.push(snapshot);
+            if (undoStack.length > UNDO_MAX) undoStack.shift();
+            redoStack.length = 0;
+        }
+        function restoreSnapshot(snapshot) {
+            isRestoringProject = true;
+            const prevSelectedId = selectedId;
+            selectedId = snapshot.selectedId;
+            activeFace = snapshot.activeFace;
+            Object.keys(state).forEach(face => {
+                const snap = snapshot.state[face];
+                if (!snap) return;
+                Object.assign(state[face], {
+                    background: snap.background,
+                    backgroundName: snap.backgroundName || '',
+                    backgroundColor: snap.backgroundColor || '#0a0f1a',
+                    backgroundOpacity: snap.backgroundOpacity ?? 1,
+                    backgroundCurve: snap.backgroundCurve || 0,
+                    backgroundSeam: snap.backgroundSeam || 0,
+                    backgroundDiagonal: snap.backgroundDiagonal || 0,
+                    elements: snap.elements || []
+                });
+            });
+            isRestoringProject = false;
+            render();
+        }
+        function undo() {
+            if (undoStack.length === 0) return;
+            const current = {
+                state: JSON.parse(JSON.stringify(state, (key, value) => {
+                    if (value instanceof HTMLCanvasElement) return { __type: 'canvas', data: value.toDataURL() };
+                    return value;
+                })),
+                selectedId,
+                activeFace
+            };
+            redoStack.push(current);
+            restoreSnapshot(undoStack.pop());
+        }
+        function redo() {
+            if (redoStack.length === 0) return;
+            const current = {
+                state: JSON.parse(JSON.stringify(state, (key, value) => {
+                    if (value instanceof HTMLCanvasElement) return { __type: 'canvas', data: value.toDataURL() };
+                    return value;
+                })),
+                selectedId,
+                activeFace
+            };
+            undoStack.push(current);
+            restoreSnapshot(redoStack.pop());
+        }
         function showLoading(message) { loadingText.textContent = message; loadingOverlay.classList.add('visible'); }
         function hideLoading() { loadingOverlay.classList.remove('visible'); }
         function clamp(value, min, max) { return Math.min(Math.max(value, min), max); }
@@ -1016,6 +1078,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         function applyCustomGridBackgroundToFace(face) {
+            createUndoSnapshot();
             const faceState = state[face];
             if (backgroundGridMode === 'sphere') {
                 faceState.background = createCustomGridBackground(sphereGridBgSettings.bgColor, 'sphere', CANVAS_SIZE, face, sphereGridBgSettings);
@@ -2643,9 +2706,12 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             syncCanvasView();
         }
 
+        let lastNudgeSnapshotTime = 0;
         function nudgeSelectedElement(dx, dy, multiplier = 1) {
             const selected = getSelectedElement();
             if (!selected || selected.locked) return;
+            const now = Date.now();
+            if (now - lastNudgeSnapshotTime > 300) { createUndoSnapshot(); lastNudgeSnapshotTime = now; }
             selected.x = clamp(snapCanvasValue(selected.x + dx * multiplier), 0, CANVAS_SIZE);
             selected.y = clamp(snapCanvasValue(selected.y + dy * multiplier), 0, CANVAS_SIZE);
             render();
@@ -3709,6 +3775,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         async function addImages(files) {
+            createUndoSnapshot();
             if (isFacePairMode()) {
                 await addImagesToFacePair(files);
                 return;
@@ -3871,6 +3938,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         async function setBackgrounds(files) {
+            createUndoSnapshot();
             showLoading('스카이박스 배경을 불러오는 중이에요.');
             try {
                 const allowedExtensions = new Set(['tex', 'png', 'jpg', 'jpeg', 'webp', 'webg']);
@@ -4900,7 +4968,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                 originalCanvas: copyCanvas(warpedCanvas),
                 maskCanvas: copyCanvas(warpedCanvas),
                 processedCanvas: copyCanvas(warpedCanvas),
-                flipX: !element.flipX,
+                flipX: !element.flipX, // Roblox 좌표계 호환을 위한 내보내기 시 반전
                 previewUrl: ''
             };
             await updateImageProcessing(exportElement);
@@ -5784,7 +5852,9 @@ ${created.length} images arranged on the inside spherical wall.`;
                     savePropertyFoldState(event.currentTarget.dataset.foldKey, event.currentTarget.open);
                 });
             });
+            let bindSnapshotTaken = false;
             propertyPanel.querySelectorAll('[data-bind]').forEach(input => {
+                input.addEventListener('pointerdown', () => { bindSnapshotTaken = false; });
                 input.addEventListener('input', async () => {
                     const selectedElement = getSelectedElement();
                     if (!selectedElement) return;
@@ -5792,6 +5862,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                         syncPropertyPanelValues(selectedElement);
                         return;
                     }
+                    if (!bindSnapshotTaken) { createUndoSnapshot(); bindSnapshotTaken = true; }
                     setBoundValue(selectedElement, input.dataset.bind, input.value, input.type);
                     if (selectedElement.type === 'image' && needsImageRefresh(input.dataset.bind)) await updateImageProcessing(selectedElement);
                     render();
@@ -5811,6 +5882,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function addTextLayer() {
+            createUndoSnapshot();
             const element = createTextElement();
             if (sphericalEditMode) prepareElementForSphere(element);
             getFaceState().elements.push(element);
@@ -5819,6 +5891,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function removeElement(id) {
+            createUndoSnapshot();
             let removed = false;
             for (const faceKey of FACES) {
                 const face = getFaceState(faceKey);
@@ -5834,6 +5907,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function duplicateSelectedElement() {
+            createUndoSnapshot();
             const selected = getSelectedElement();
             if (!selected) return;
             const copy = selected.type === 'image'
@@ -5865,6 +5939,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function moveElementOrder(direction) {
+            createUndoSnapshot();
             const container = getSelectedElementContainer();
             if (!container) return;
             const { face, index } = container;
@@ -5888,6 +5963,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function clearCurrentFace() {
+            createUndoSnapshot();
             const face = getFaceState();
             face.background = null;
             face.backgroundName = '';
@@ -6219,6 +6295,7 @@ ${created.length} images arranged on the inside spherical wall.`;
             selectedId = target.id;
             if (!target.locked) {
                 isDragging = true;
+                createUndoSnapshot();
                 if (sphericalEditMode && target.spherical) {
                     sphereDragState = { mode: 'element', elementId: target.id };
                 } else {
@@ -6604,6 +6681,16 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             const tag = document.activeElement?.tagName;
             const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
             if (typing) return;
+            if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z') {
+                event.preventDefault();
+                undo();
+                return;
+            }
+            if ((event.ctrlKey || event.metaKey) && (event.shiftKey && event.key.toLowerCase() === 'z' || event.key.toLowerCase() === 'y')) {
+                event.preventDefault();
+                redo();
+                return;
+            }
             if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId && !getSelectedElement()?.locked) removeElement(selectedId);
             if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key) && selectedId) {
                 event.preventDefault();
