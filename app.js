@@ -4651,13 +4651,21 @@ ${created.length} images arranged on the inside spherical wall.`;
             targetCtx.putImageData(imageData, 0, 0);
         }
 
-        function drawSphericalElementsOnFace(faceKey, renderCtx) {
+        function drawSphericalElementsOnFace(faceKey, renderCtx, flipForExport = false) {
             if (!getAllSphericalElements().some(element => element.visible && element.spherical)) return;
             const overlay = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
             drawSphericalElementsOnDirectionCanvas(overlay, (x, y, width, height) => {
                 return directionFromCubeFaceUV(faceKey, x / Math.max(1, width - 1), y / Math.max(1, height - 1));
             });
-            renderCtx.drawImage(overlay, 0, 0);
+            if (flipForExport) {
+                renderCtx.save();
+                renderCtx.translate(CANVAS_SIZE, 0);
+                renderCtx.scale(-1, 1);
+                renderCtx.drawImage(overlay, 0, 0);
+                renderCtx.restore();
+            } else {
+                renderCtx.drawImage(overlay, 0, 0);
+            }
         }
 
         function directionFromGlobeLonLat(lonDeg, latDeg) {
@@ -4954,6 +4962,15 @@ ${created.length} images arranged on the inside spherical wall.`;
             });
         }
 
+        function flipCanvasHorizontal(source) {
+            const flipped = createEmptyCanvas(source.width, source.height);
+            const ctx = flipped.getContext('2d');
+            ctx.translate(source.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(source, 0, 0);
+            return flipped;
+        }
+
         async function createExportImageElement(element, pairWarpCache) {
             let warpedCanvas = element.originalCanvas;
             if (element.autoPairWarp && element.pairSourceCanvas && Array.isArray(element.pairFaces)) {
@@ -4963,12 +4980,13 @@ ${created.length} images arranged on the inside spherical wall.`;
                 }
                 warpedCanvas = pairWarpCache.get(cacheKey)[Number(element.pairIndex || 0)] || element.originalCanvas;
             }
+            const flippedCanvas = flipCanvasHorizontal(warpedCanvas);
             const exportElement = {
                 ...element,
-                originalCanvas: copyCanvas(warpedCanvas),
-                maskCanvas: copyCanvas(warpedCanvas),
-                processedCanvas: copyCanvas(warpedCanvas),
-                flipX: !element.flipX, // Roblox 좌표계 호환을 위한 내보내기 시 반전
+                originalCanvas: flippedCanvas,
+                maskCanvas: copyCanvas(flippedCanvas),
+                processedCanvas: copyCanvas(flippedCanvas),
+                flipX: false,
                 previewUrl: ''
             };
             await updateImageProcessing(exportElement);
@@ -4989,7 +5007,13 @@ ${created.length} images arranged on the inside spherical wall.`;
                         const exportElement = await createExportImageElement(element, pairWarpCache);
                         drawImageElement(exportElement, flatCtx, false);
                     }
-                    if (element.type === 'text') drawTextElement(element, flatCtx, false);
+                    if (element.type === 'text') {
+                        flatCtx.save();
+                        flatCtx.translate(CANVAS_SIZE, 0);
+                        flatCtx.scale(-1, 1);
+                        drawTextElement(element, flatCtx, false);
+                        flatCtx.restore();
+                    }
                 }
                 canvases[faceKey] = flatCanvas;
             }
@@ -5078,7 +5102,7 @@ ${created.length} images arranged on the inside spherical wall.`;
 
         function drawSceneForExport(faceKey, renderCtx, flatExportFaces, flatExportFaceData) {
             drawSphereToOuterCubePrewarpedFace(faceKey, flatExportFaces, flatExportFaceData, renderCtx);
-            drawSphericalElementsOnFace(faceKey, renderCtx);
+            drawSphericalElementsOnFace(faceKey, renderCtx, true);
         }
 
         function getActivePairFaces() {
