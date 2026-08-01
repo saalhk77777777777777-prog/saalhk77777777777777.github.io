@@ -713,6 +713,67 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             return { r: pixels[0], g: pixels[1], b: pixels[2] };
         }
 
+        function extractDominantColors(source, maxColors = 6) {
+            const size = 64;
+            const canvas = createEmptyCanvas(size, size);
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(source, 0, 0, size, size);
+            const pixels = ctx.getImageData(0, 0, size, size).data;
+            const edgeSamples = [];
+            const centerSamples = [];
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const i = (y * size + x) * 4;
+                    const a = pixels[i + 3];
+                    if (a < 30) continue;
+                    const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+                    const isEdge = x < 4 || x >= size - 4 || y < 4 || y >= size - 4;
+                    const sample = { r, g, b };
+                    if (isEdge) edgeSamples.push(sample);
+                    else centerSamples.push(sample);
+                }
+            }
+            function kMeansCluster(samples, k, iterations = 10) {
+                if (samples.length === 0) return [];
+                let centers = samples.slice(0, k).map(s => ({ ...s }));
+                for (let iter = 0; iter < iterations; iter++) {
+                    const buckets = Array.from({ length: k }, () => []);
+                    for (const s of samples) {
+                        let minDist = Infinity, minIdx = 0;
+                        for (let c = 0; c < centers.length; c++) {
+                            const d = (s.r - centers[c].r) ** 2 + (s.g - centers[c].g) ** 2 + (s.b - centers[c].b) ** 2;
+                            if (d < minDist) { minDist = d; minIdx = c; }
+                        }
+                        buckets[minIdx].push(s);
+                    }
+                    for (let c = 0; c < k; c++) {
+                        if (buckets[c].length === 0) continue;
+                        centers[c] = {
+                            r: Math.round(buckets[c].reduce((s, p) => s + p.r, 0) / buckets[c].length),
+                            g: Math.round(buckets[c].reduce((s, p) => s + p.g, 0) / buckets[c].length),
+                            b: Math.round(buckets[c].reduce((s, p) => s + p.b, 0) / buckets[c].length)
+                        };
+                    }
+                }
+                return centers;
+            }
+            const allSamples = [...edgeSamples, ...centerSamples];
+            const allClusters = kMeansCluster(allSamples, maxColors);
+            const edgeClusters = kMeansCluster(edgeSamples, Math.min(3, edgeSamples.length > 0 ? 3 : 0));
+            const combined = [...edgeClusters, ...allClusters];
+            const unique = [];
+            const seen = new Set();
+            for (const c of combined) {
+                const hex = rgbToHex(c.r, c.g, c.b);
+                const key = hex.toLowerCase();
+                if (seen.has(key)) continue;
+                seen.add(key);
+                unique.push(hex);
+                if (unique.length >= maxColors) break;
+            }
+            return unique;
+        }
+
         function estimateRecommendedOutlineColor(element) {
             const source = element.maskCanvas || element.originalCanvas || element.processedCanvas;
             if (!source) return '#7c3aed';
@@ -1256,9 +1317,42 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             });
         }
 
-        function requestPosterOptions() {
+        function requestPosterOptions(imageFiles = []) {
             if (!posterOptionsModal || !posterAccentColor) return Promise.resolve({ accentColor: '#ff1f2d' });
             posterAccentColor.value = posterAccentColor.value || '#ff1f2d';
+            const extractedContainer = document.getElementById('poster-extracted-colors');
+            const extractedSwatches = document.getElementById('poster-extracted-swatches');
+            if (extractedContainer && extractedSwatches && imageFiles.length > 0) {
+                extractedSwatches.innerHTML = '';
+                extractedContainer.style.display = '';
+                const allColors = [];
+                for (const file of imageFiles.slice(0, 5)) {
+                    const img = new Image();
+                    img.src = URL.createObjectURL(file);
+                    try {
+                        const canvas = imageToCanvas(img, 256);
+                        const colors = extractDominantColors(canvas, 3);
+                        allColors.push(...colors);
+                    } catch (e) { /* skip failed images */ }
+                }
+                const unique = [...new Set(allColors)].slice(0, 8);
+                for (const hex of unique) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'h-9 w-9 rounded-2xl border-2 border-transparent hover:border-white/60 transition-colors';
+                    btn.style.backgroundColor = hex;
+                    btn.title = hex;
+                    btn.dataset.posterColor = hex;
+                    btn.addEventListener('click', () => {
+                        posterAccentColor.value = hex;
+                        extractedSwatches.querySelectorAll('button').forEach(b => b.classList.remove('border-white'));
+                        btn.classList.add('border-white');
+                    });
+                    extractedSwatches.appendChild(btn);
+                }
+            } else if (extractedContainer) {
+                extractedContainer.style.display = 'none';
+            }
             posterOptionsModal.classList.add('visible');
             return new Promise(resolve => {
                 const cleanup = result => {
@@ -3839,7 +3933,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                 const [mainFile, ...subFiles] = fileList;
                 if (!mainFile) return;
                 hideLoading();
-                const options = await requestPosterOptions();
+                const options = await requestPosterOptions(fileList);
                 if (!options) return;
 
                 try {
