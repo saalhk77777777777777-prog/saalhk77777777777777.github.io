@@ -1345,30 +1345,40 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                 extractedSwatches.innerHTML = '';
                 extractedContainer.style.display = '';
                 const allColors = [];
-                for (const file of imageFiles.slice(0, 5)) {
-                    const img = new Image();
-                    img.src = URL.createObjectURL(file);
-                    try {
-                        const canvas = imageToCanvas(img, 256);
-                        const colors = extractDominantColors(canvas, 3);
-                        allColors.push(...colors);
-                    } catch (e) { /* skip failed images */ }
-                }
-                const unique = [...new Set(allColors)].slice(0, 8);
-                for (const hex of unique) {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'h-9 w-9 rounded-2xl border-2 border-transparent hover:border-white/60 transition-colors';
-                    btn.style.backgroundColor = hex;
-                    btn.title = hex;
-                    btn.dataset.posterColor = hex;
-                    btn.addEventListener('click', () => {
-                        posterAccentColor.value = hex;
-                        extractedSwatches.querySelectorAll('button').forEach(b => b.classList.remove('border-white'));
-                        btn.classList.add('border-white');
+                const loadPromise = imageFiles.slice(0, 5).map(file => {
+                    return new Promise(resolve => {
+                        const url = URL.createObjectURL(file);
+                        const img = new Image();
+                        img.onload = () => {
+                            try {
+                                const canvas = imageToCanvas(img, 256);
+                                const colors = extractDominantColors(canvas, 3);
+                                allColors.push(...colors);
+                            } catch (e) { /* skip */ }
+                            URL.revokeObjectURL(url);
+                            resolve();
+                        };
+                        img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+                        img.src = url;
                     });
-                    extractedSwatches.appendChild(btn);
-                }
+                });
+                Promise.all(loadPromise).then(() => {
+                    const unique = [...new Set(allColors)].slice(0, 8);
+                    for (const hex of unique) {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'h-9 w-9 rounded-2xl border-2 border-transparent hover:border-white/60 transition-colors';
+                        btn.style.backgroundColor = hex;
+                        btn.title = hex;
+                        btn.dataset.posterColor = hex;
+                        btn.addEventListener('click', () => {
+                            posterAccentColor.value = hex;
+                            extractedSwatches.querySelectorAll('button').forEach(b => b.classList.remove('border-white'));
+                            btn.classList.add('border-white');
+                        });
+                        extractedSwatches.appendChild(btn);
+                    }
+                });
             } else if (extractedContainer) {
                 extractedContainer.style.display = 'none';
             }
