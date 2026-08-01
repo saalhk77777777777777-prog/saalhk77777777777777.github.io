@@ -714,60 +714,79 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         function extractDominantColors(source, maxColors = 6) {
-            const size = 64;
-            const canvas = createEmptyCanvas(size, size);
+            const maxSize = 256;
+            const sw = Math.min(source.width || maxSize, maxSize);
+            const sh = Math.min(source.height || maxSize, maxSize);
+            const canvas = createEmptyCanvas(sw, sh);
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            ctx.drawImage(source, 0, 0, size, size);
-            const pixels = ctx.getImageData(0, 0, size, size).data;
+            ctx.drawImage(source, 0, 0, sw, sh);
+            const pixels = ctx.getImageData(0, 0, sw, sh).data;
             const edgeSamples = [];
             const centerSamples = [];
-            for (let y = 0; y < size; y++) {
-                for (let x = 0; x < size; x++) {
-                    const i = (y * size + x) * 4;
+            const border = Math.max(2, Math.floor(Math.min(sw, sh) * 0.05));
+            for (let y = 0; y < sh; y++) {
+                for (let x = 0; x < sw; x++) {
+                    const i = (y * sw + x) * 4;
                     const a = pixels[i + 3];
                     if (a < 30) continue;
                     const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
-                    const isEdge = x < 4 || x >= size - 4 || y < 4 || y >= size - 4;
+                    const isEdge = x < border || x >= sw - border || y < border || y >= sh - border;
                     const sample = { r, g, b };
                     if (isEdge) edgeSamples.push(sample);
                     else centerSamples.push(sample);
                 }
             }
-            function kMeansCluster(samples, k, iterations = 10) {
+            function kMeansCluster(samples, k, iterations = 15) {
                 if (samples.length === 0) return [];
-                let centers = samples.slice(0, k).map(s => ({ ...s }));
+                const initCount = Math.min(samples.length, k * 4);
+                const step = Math.max(1, Math.floor(samples.length / initCount));
+                let centers = [];
+                for (let i = 0; i < samples.length && centers.length < k; i += step) {
+                    centers.push({ ...samples[i] });
+                }
+                while (centers.length < k) centers.push({ ...samples[Math.floor(Math.random() * samples.length)] });
                 for (let iter = 0; iter < iterations; iter++) {
                     const buckets = Array.from({ length: k }, () => []);
-                    for (const s of samples) {
+                    for (let si = 0; si < samples.length; si++) {
+                        const s = samples[si];
                         let minDist = Infinity, minIdx = 0;
                         for (let c = 0; c < centers.length; c++) {
-                            const d = (s.r - centers[c].r) ** 2 + (s.g - centers[c].g) ** 2 + (s.b - centers[c].b) ** 2;
+                            const dr = s.r - centers[c].r, dg = s.g - centers[c].g, db = s.b - centers[c].b;
+                            const d = dr * dr + dg * dg + db * db;
                             if (d < minDist) { minDist = d; minIdx = c; }
                         }
                         buckets[minIdx].push(s);
                     }
                     for (let c = 0; c < k; c++) {
                         if (buckets[c].length === 0) continue;
-                        centers[c] = {
-                            r: Math.round(buckets[c].reduce((s, p) => s + p.r, 0) / buckets[c].length),
-                            g: Math.round(buckets[c].reduce((s, p) => s + p.g, 0) / buckets[c].length),
-                            b: Math.round(buckets[c].reduce((s, p) => s + p.b, 0) / buckets[c].length)
-                        };
+                        let rSum = 0, gSum = 0, bSum = 0;
+                        for (let j = 0; j < buckets[c].length; j++) {
+                            rSum += buckets[c][j].r;
+                            gSum += buckets[c][j].g;
+                            bSum += buckets[c][j].b;
+                        }
+                        const len = buckets[c].length;
+                        centers[c] = { r: Math.round(rSum / len), g: Math.round(gSum / len), b: Math.round(bSum / len) };
                     }
                 }
                 return centers;
+            }
+            function colorDistance(a, b) {
+                const dr = a.r - b.r, dg = a.g - b.g, db = a.b - b.b;
+                return Math.sqrt(dr * dr + dg * dg + db * db);
             }
             const allSamples = [...edgeSamples, ...centerSamples];
             const allClusters = kMeansCluster(allSamples, maxColors);
             const edgeClusters = kMeansCluster(edgeSamples, Math.min(3, edgeSamples.length > 0 ? 3 : 0));
             const combined = [...edgeClusters, ...allClusters];
             const unique = [];
-            const seen = new Set();
             for (const c of combined) {
                 const hex = rgbToHex(c.r, c.g, c.b);
-                const key = hex.toLowerCase();
-                if (seen.has(key)) continue;
-                seen.add(key);
+                const tooClose = unique.some(u => {
+                    const ur = parseInt(u.slice(1, 3), 16), ug = parseInt(u.slice(3, 5), 16), ub = parseInt(u.slice(5, 7), 16);
+                    return colorDistance(c, { r: ur, g: ug, b: ub }) < 20;
+                });
+                if (tooClose) continue;
                 unique.push(hex);
                 if (unique.length >= maxColors) break;
             }
