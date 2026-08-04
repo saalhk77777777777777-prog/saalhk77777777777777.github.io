@@ -2866,7 +2866,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                 ));
                 const maskCanvas = createEmptyCanvas(base.width + pad * 2, base.height + pad * 2);
                 const maskCtx = maskCanvas.getContext('2d');
-                const step = style === 'dashed' ? 28 : style === 'soft' ? 18 : 12;
+                const step = style === 'dashed' ? 36 : style === 'soft' ? 24 : 18;
                 const radius = width * (style === 'neon' ? 1.2 : 1);
 
                 for (let angle = 0, index = 0; angle < 360; angle += step, index++) {
@@ -3906,28 +3906,30 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             showLoading('이미지를 불러오는 중입니다.');
             const created = [];
             try {
-                for (const file of files) {
-                    showLoading(`이미지 처리 중...
-${file.name}`);
+                const processFile = async (file) => {
                     try {
                         const image = await fileToImage(file);
                         const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
                         const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
                         await updateImageProcessing(element);
                         if (sphericalEditMode) prepareElementForSphere(element);
-                        created.push(element);
-                        getFaceState().elements.push(element);
-                        selectedId = element.id;
+                        return element;
                     } catch (error) {
-                        alert(`이미지 추가 실패: ${file.name}
-${error.message}`);
+                        alert(`이미지 추가 실패: ${file.name}\n${error.message}`);
+                        return null;
                     }
+                };
+                const results = await Promise.all(Array.from(files).map(processFile));
+                for (const element of results) {
+                    if (!element) continue;
+                    created.push(element);
+                    getFaceState().elements.push(element);
+                    selectedId = element.id;
                 }
                 if (sphericalEditMode && created.length > 1) {
                     arrangeSphericalElements(created);
                     selectedId = created[0].id;
-                    lastBackgroundUploadReport = `[Sphere Auto Layout]
-${created.length} images arranged on the inside spherical wall.`;
+                    lastBackgroundUploadReport = `[Sphere Auto Layout]\n${created.length} images arranged on the inside spherical wall.`;
                 }
                 render();
             } finally {
@@ -4067,8 +4069,8 @@ ${created.length} images arranged on the inside spherical wall.`;
                 const allowedExtensions = new Set(['tex', 'png', 'jpg', 'jpeg', 'webp', 'webg']);
                 const assigned = [];
                 const skipped = [];
+                const validFiles = [];
                 for (const file of files) {
-                    showLoading(`배경 파일 확인 중...\n${file.name}`);
                     const ext = getFileExtension(file.name);
                     if (!allowedExtensions.has(ext)) {
                         skipped.push(`${file.name} - 지원하지 않는 확장자`);
@@ -4079,19 +4081,25 @@ ${created.length} images arranged on the inside spherical wall.`;
                         skipped.push(`${file.name} - ft/bk/lf/rt/up/dn 코드 없음`);
                         continue;
                     }
-                try {
-                        showLoading(`배경 적용 중...\n${file.name}\n-> ${faceMatch.toUpperCase()}`);
+                    validFiles.push({ file, face: faceMatch });
+                }
+                const processBg = async ({ file, face }) => {
+                    try {
                         const image = await backgroundFileToImage(file);
-                        const faceState = getFaceState(faceMatch);
+                        const faceState = getFaceState(face);
                         faceState.background = imageToCanvas(image, CANVAS_SIZE);
                         faceState.backgroundName = file.name;
-                    assigned.push(`${file.name} -> ${faceMatch.toUpperCase()}`);
-                } catch (error) {
-                    skipped.push(`${file.name} - 불러오기 실패: ${getErrorMessage(error)}`);
+                        return `${file.name} -> ${face.toUpperCase()}`;
+                    } catch (error) {
+                        return null;
+                    }
+                };
+                const results = await Promise.all(validFiles.map(processBg));
+                for (let i = 0; i < results.length; i++) {
+                    if (results[i]) assigned.push(results[i]);
+                    else skipped.push(`${validFiles[i].file.name} - 불러오기 실패`);
                 }
-            }
                 render();
-
                 const resultLines = [];
                 if (assigned.length > 0) {
                     resultLines.push('[성공]');
