@@ -1,4 +1,4 @@
-const REMOVE_BG_API_KEYS = [
+﻿const REMOVE_BG_API_KEYS = [
     'nceQCiHLvJxZTG5T8SYwgkaT',
     '6CussnKbVwuJiHHMjBWM9ZGb',
     'o5jmJJbbi36qxnboHaCTKErS',
@@ -62,13 +62,15 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         let aiLastPreview = '';
         let lastBackgroundUploadReport = '아직 업로드 기록이 없습니다.';
         let importedPresetSets = [];
-        let autoSaveTimer = null;
         let isRestoringProject = false;
         let canvasZoom = 74;
         let showEditorGrid = true;
         let snapToGrid = false;
         let layoutMode = 'pc';
         let sphericalEditMode = true;
+        const undoStack = [];
+        const redoStack = [];
+        const UNDO_MAX = 50;
         let sphereOverlayVisible = true;
         let sphereView = { yaw: 0, pitch: 0, fov: 96, zoom: 1 };
         let sphereDragState = null;
@@ -83,7 +85,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         let isSliderPreviewActive = false;
         let localBgRemovalModulePromise = null;
         const POSTER_BACKGROUND_COLOR = '#0a0f1a';
-        const POSTER_GRID_MODE = 'none';
         const DEFAULT_GLOBE_GRID_SETTINGS = {
             lineSpacingDeg: 10,
             longitudeCount: 24,
@@ -137,17 +138,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         function syncGlobeGridUI(settings = globeGridSettings) {
-            const normalized = normalizeGlobeGridSettings(settings);
-            globeGridSettings = normalized;
-            if (globeGridSpacing) globeGridSpacing.value = String(normalized.lineSpacingDeg);
-            if (globeGridSpacingValue) globeGridSpacingValue.textContent = `${Math.round(normalized.lineSpacingDeg)}°`;
-            if (globeGridCount) globeGridCount.value = String(normalized.longitudeCount);
-            if (globeGridCountValue) globeGridCountValue.textContent = String(normalized.longitudeCount);
-            if (globeGridOpacity) globeGridOpacity.value = String(Math.round(normalized.opacity * 100));
-            if (globeGridOpacityValue) globeGridOpacityValue.textContent = `${Math.round(normalized.opacity * 100)}%`;
-            if (globeGridWidth) globeGridWidth.value = String(normalized.lineWidth);
-            if (globeGridWidthValue) globeGridWidthValue.textContent = `${Number(normalized.lineWidth).toFixed(1)}px`;
-            if (globeGridColor) globeGridColor.value = normalized.color;
+            globeGridSettings = normalizeGlobeGridSettings(settings);
         }
 
         const state = Object.fromEntries(FACES.map(face => [face, {
@@ -206,17 +197,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         const mobileQuickBorderWidth = document.getElementById('mobile-quick-border-width');
         const mobileQuickBorderStrength = document.getElementById('mobile-quick-border-strength');
         const mobileQuickBorderColor = document.getElementById('mobile-quick-border-color');
-        const globeGridPanel = document.querySelector('.sphere-grid-panel');
-        const globeGridSpacing = document.getElementById('globe-grid-spacing');
-        const globeGridSpacingValue = document.getElementById('globe-grid-spacing-value');
-        const globeGridCount = document.getElementById('globe-grid-count');
-        const globeGridCountValue = document.getElementById('globe-grid-count-value');
-        const globeGridOpacity = document.getElementById('globe-grid-opacity');
-        const globeGridOpacityValue = document.getElementById('globe-grid-opacity-value');
-        const globeGridWidth = document.getElementById('globe-grid-width');
-        const globeGridWidthValue = document.getElementById('globe-grid-width-value');
-        const globeGridColor = document.getElementById('globe-grid-color');
-        const globeGridReset = document.getElementById('globe-grid-reset');
+
         const bgQuotaStatus = document.getElementById('bg-quota-status');
         const posterCountModal = document.getElementById('poster-count-modal');
         const posterCountCancel = document.getElementById('poster-count-cancel');
@@ -274,6 +255,39 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
 
         const QUICK_BACKGROUND_COLORS = ['#ffffff', '#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#94a3b8', '#0f172a'];
         let backgroundGridMode = 'none';
+        const SPHERE_GRID_SETTINGS_KEY = 'skybox-sphere-grid-bg-settings-v1';
+        const DEFAULT_SPHERE_GRID_SETTINGS = {
+            bgColor: '#0a0f1a',
+            lineColor: '#67e8f9',
+            lineWidth: 1.5,
+            linePattern: 'solid',
+            spacing: 15,
+            showEquator: true,
+            showMeridian: true
+        };
+        let sphereGridBgSettings = (() => {
+            try { return { ...DEFAULT_SPHERE_GRID_SETTINGS, ...JSON.parse(localStorage.getItem(SPHERE_GRID_SETTINGS_KEY) || '{}') }; }
+            catch { return { ...DEFAULT_SPHERE_GRID_SETTINGS }; }
+        })();
+        function saveSphereGridBgSettings() { localStorage.setItem(SPHERE_GRID_SETTINGS_KEY, JSON.stringify(sphereGridBgSettings)); }
+
+        const APP_SETTINGS_KEY = 'skybox-app-settings-v1';
+        const DEFAULT_APP_SETTINGS = {
+            projectName: '내 스카이박스 프로젝트',
+            author: '',
+            exportFlip: true,
+            exportPng: true,
+            exportTex: true,
+            canvasSize: 1024,
+            autosave: false,
+            autosaveInterval: 60,
+            fastPreview: true
+        };
+        let appSettings = (() => {
+            try { return { ...DEFAULT_APP_SETTINGS, ...JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) || '{}') }; }
+            catch { return { ...DEFAULT_APP_SETTINGS }; }
+        })();
+        function saveAppSettings() { localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(appSettings)); }
 
         const aiConfig = {
             endpoint: IS_PUBLIC_HOSTED ? '' : 'http://127.0.0.1:1234/v1/chat/completions',
@@ -297,6 +311,67 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
 
         function getFaceState(face = activeFace) { return state[face]; }
         function generateId() { return `layer-${idCounter++}`; }
+        function createUndoSnapshot() {
+            const snapshot = {
+                state: JSON.parse(JSON.stringify(state, (key, value) => {
+                    if (value instanceof HTMLCanvasElement) return { __type: 'canvas', data: value.toDataURL() };
+                    return value;
+                })),
+                selectedId,
+                activeFace
+            };
+            undoStack.push(snapshot);
+            if (undoStack.length > UNDO_MAX) undoStack.shift();
+            redoStack.length = 0;
+        }
+        function restoreSnapshot(snapshot) {
+            isRestoringProject = true;
+            const prevSelectedId = selectedId;
+            selectedId = snapshot.selectedId;
+            activeFace = snapshot.activeFace;
+            Object.keys(state).forEach(face => {
+                const snap = snapshot.state[face];
+                if (!snap) return;
+                Object.assign(state[face], {
+                    background: snap.background,
+                    backgroundName: snap.backgroundName || '',
+                    backgroundColor: snap.backgroundColor || '#0a0f1a',
+                    backgroundOpacity: snap.backgroundOpacity ?? 1,
+                    backgroundCurve: snap.backgroundCurve || 0,
+                    backgroundSeam: snap.backgroundSeam || 0,
+                    backgroundDiagonal: snap.backgroundDiagonal || 0,
+                    elements: snap.elements || []
+                });
+            });
+            isRestoringProject = false;
+            render();
+        }
+        function undo() {
+            if (undoStack.length === 0) return;
+            const current = {
+                state: JSON.parse(JSON.stringify(state, (key, value) => {
+                    if (value instanceof HTMLCanvasElement) return { __type: 'canvas', data: value.toDataURL() };
+                    return value;
+                })),
+                selectedId,
+                activeFace
+            };
+            redoStack.push(current);
+            restoreSnapshot(undoStack.pop());
+        }
+        function redo() {
+            if (redoStack.length === 0) return;
+            const current = {
+                state: JSON.parse(JSON.stringify(state, (key, value) => {
+                    if (value instanceof HTMLCanvasElement) return { __type: 'canvas', data: value.toDataURL() };
+                    return value;
+                })),
+                selectedId,
+                activeFace
+            };
+            undoStack.push(current);
+            restoreSnapshot(redoStack.pop());
+        }
         function showLoading(message) { loadingText.textContent = message; loadingOverlay.classList.add('visible'); }
         function hideLoading() { loadingOverlay.classList.remove('visible'); }
         function clamp(value, min, max) { return Math.min(Math.max(value, min), max); }
@@ -656,6 +731,86 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             return { r: pixels[0], g: pixels[1], b: pixels[2] };
         }
 
+        function extractDominantColors(source, maxColors = 6) {
+            const maxSize = 256;
+            const sw = Math.min(source.width || maxSize, maxSize);
+            const sh = Math.min(source.height || maxSize, maxSize);
+            const canvas = createEmptyCanvas(sw, sh);
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(source, 0, 0, sw, sh);
+            const pixels = ctx.getImageData(0, 0, sw, sh).data;
+            const edgeSamples = [];
+            const centerSamples = [];
+            const border = Math.max(2, Math.floor(Math.min(sw, sh) * 0.05));
+            for (let y = 0; y < sh; y++) {
+                for (let x = 0; x < sw; x++) {
+                    const i = (y * sw + x) * 4;
+                    const a = pixels[i + 3];
+                    if (a < 30) continue;
+                    const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+                    const isEdge = x < border || x >= sw - border || y < border || y >= sh - border;
+                    const sample = { r, g, b };
+                    if (isEdge) edgeSamples.push(sample);
+                    else centerSamples.push(sample);
+                }
+            }
+            function kMeansCluster(samples, k, iterations = 15) {
+                if (samples.length === 0) return [];
+                const initCount = Math.min(samples.length, k * 4);
+                const step = Math.max(1, Math.floor(samples.length / initCount));
+                let centers = [];
+                for (let i = 0; i < samples.length && centers.length < k; i += step) {
+                    centers.push({ ...samples[i] });
+                }
+                while (centers.length < k) centers.push({ ...samples[Math.floor(Math.random() * samples.length)] });
+                for (let iter = 0; iter < iterations; iter++) {
+                    const buckets = Array.from({ length: k }, () => []);
+                    for (let si = 0; si < samples.length; si++) {
+                        const s = samples[si];
+                        let minDist = Infinity, minIdx = 0;
+                        for (let c = 0; c < centers.length; c++) {
+                            const dr = s.r - centers[c].r, dg = s.g - centers[c].g, db = s.b - centers[c].b;
+                            const d = dr * dr + dg * dg + db * db;
+                            if (d < minDist) { minDist = d; minIdx = c; }
+                        }
+                        buckets[minIdx].push(s);
+                    }
+                    for (let c = 0; c < k; c++) {
+                        if (buckets[c].length === 0) continue;
+                        let rSum = 0, gSum = 0, bSum = 0;
+                        for (let j = 0; j < buckets[c].length; j++) {
+                            rSum += buckets[c][j].r;
+                            gSum += buckets[c][j].g;
+                            bSum += buckets[c][j].b;
+                        }
+                        const len = buckets[c].length;
+                        centers[c] = { r: Math.round(rSum / len), g: Math.round(gSum / len), b: Math.round(bSum / len) };
+                    }
+                }
+                return centers;
+            }
+            function colorDistance(a, b) {
+                const dr = a.r - b.r, dg = a.g - b.g, db = a.b - b.b;
+                return Math.sqrt(dr * dr + dg * dg + db * db);
+            }
+            const allSamples = [...edgeSamples, ...centerSamples];
+            const allClusters = kMeansCluster(allSamples, maxColors);
+            const edgeClusters = kMeansCluster(edgeSamples, Math.min(3, edgeSamples.length > 0 ? 3 : 0));
+            const combined = [...edgeClusters, ...allClusters];
+            const unique = [];
+            for (const c of combined) {
+                const hex = rgbToHex(c.r, c.g, c.b);
+                const tooClose = unique.some(u => {
+                    const ur = parseInt(u.slice(1, 3), 16), ug = parseInt(u.slice(3, 5), 16), ub = parseInt(u.slice(5, 7), 16);
+                    return colorDistance(c, { r: ur, g: ug, b: ub }) < 20;
+                });
+                if (tooClose) continue;
+                unique.push(hex);
+                if (unique.length >= maxColors) break;
+            }
+            return unique;
+        }
+
         function estimateRecommendedOutlineColor(element) {
             const source = element.maskCanvas || element.originalCanvas || element.processedCanvas;
             if (!source) return '#7c3aed';
@@ -812,14 +967,158 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             renderCtx.restore();
         }
 
-        function createCustomGridBackground(color, mode, size = CANVAS_SIZE) {
+        function createCustomGridBackground(color, mode, size = CANVAS_SIZE, face, overrideSettings) {
             const templateCanvas = createEmptyCanvas(size, size);
             const templateCtx = templateCanvas.getContext('2d');
+            if (mode === 'sphere') {
+                drawSphereGrid(templateCtx, size, face, overrideSettings);
+                return templateCanvas;
+            }
             templateCtx.fillStyle = color;
             templateCtx.fillRect(0, 0, size, size);
             drawStraightGrid(templateCtx, size, mode);
             return templateCanvas;
         }
+
+        function drawSphereGrid(renderCtx, size, face, overrideSettings) {
+            const s = overrideSettings || sphereGridBgSettings;
+            const bgColor = s.bgColor || '#0a0f1a';
+            const lineColor = s.lineColor || '#67e8f9';
+            const lineWidth = clamp(Number(s.lineWidth || 1.5), 0.5, 6);
+            const spacing = clamp(Number(s.spacing || 15), 5, 90);
+            const pattern = s.linePattern || 'solid';
+            renderCtx.fillStyle = bgColor;
+            renderCtx.fillRect(0, 0, size, size);
+            const range = FACE_LON_LAT_RANGES[face];
+            if (!range) return;
+            const step = 2;
+            function dirToFaceUV(dir) {
+                const result = directionToCubeFaceUV(dir);
+                if (!result || result.face !== face) return null;
+                return { u: result.u, v: result.v };
+            }
+            function applyPattern(ctx, pat, lw) {
+                if (pat === 'dashed') {
+                    ctx.setLineDash([lw * 4, lw * 3]);
+                } else if (pat === 'dotted') {
+                    ctx.setLineDash([lw * 0.8, lw * 2.5]);
+                } else {
+                    ctx.setLineDash([]);
+                }
+            }
+            function drawCurve(points, color, width, alpha) {
+                if (points.length < 2) return;
+                renderCtx.save();
+                renderCtx.strokeStyle = color;
+                renderCtx.lineWidth = width;
+                renderCtx.globalAlpha = alpha;
+                renderCtx.lineCap = 'round';
+                renderCtx.lineJoin = 'round';
+                if (pattern === 'wavy' || pattern === 'zigzag') {
+                    const amplitude = width * 3;
+                    const freq = pattern === 'wavy' ? 0.06 : 0.08;
+                    for (let i = 0; i < points.length - 1; i++) {
+                        const p0 = points[i];
+                        const p1 = points[i + 1];
+                        const dx = p1.x - p0.x;
+                        const dy = p1.y - p0.y;
+                        const len = Math.sqrt(dx * dx + dy * dy);
+                        if (len < 0.5) continue;
+                        const nx = -dy / len;
+                        const ny = dx / len;
+                        renderCtx.beginPath();
+                        renderCtx.moveTo(p0.x, p0.y);
+                        const subSteps = Math.max(1, Math.ceil(len / 4));
+                        for (let j = 1; j <= subSteps; j++) {
+                            const t = j / subSteps;
+                            const mx = p0.x + dx * t;
+                            const my = p0.y + dy * t;
+                            const dist = len * ((i + t) * freq);
+                            let offset;
+                            if (pattern === 'wavy') {
+                                offset = Math.sin(dist) * amplitude;
+                            } else {
+                                const cycle = dist % (Math.PI * 2);
+                                offset = cycle < Math.PI ? (cycle / Math.PI) * amplitude : (2 - cycle / Math.PI) * amplitude;
+                                offset -= amplitude * 0.5;
+                            }
+                            renderCtx.lineTo(mx + nx * offset, my + ny * offset);
+                        }
+                        renderCtx.stroke();
+                    }
+                } else {
+                    applyPattern(renderCtx, pattern, width);
+                    renderCtx.beginPath();
+                    renderCtx.moveTo(points[0].x, points[0].y);
+                    for (let i = 1; i < points.length; i++) {
+                        renderCtx.lineTo(points[i].x, points[i].y);
+                    }
+                    renderCtx.stroke();
+                }
+                renderCtx.restore();
+            }
+            const latLines = [];
+            for (let lat = Math.ceil(range.latMin / spacing) * spacing; lat <= range.latMax; lat += spacing) {
+                latLines.push(lat);
+            }
+            latLines.forEach(lat => {
+                const segments = [];
+                let current = [];
+                for (let lon = -180; lon <= 180; lon += step) {
+                    const uv = dirToFaceUV(directionFromGlobeLonLat(lon, lat));
+                    if (uv) {
+                        current.push({ x: uv.u * size, y: (1 - uv.v) * size });
+                    } else {
+                        if (current.length >= 2) segments.push(current);
+                        current = [];
+                    }
+                }
+                if (current.length >= 2) segments.push(current);
+                const isEq = lat === 0;
+                segments.forEach(seg => {
+                    drawCurve(seg,
+                        isEq && s.showEquator ? '#facc15' : lineColor,
+                        isEq && s.showEquator ? lineWidth * 2 : lineWidth,
+                        isEq && s.showEquator ? 0.9 : 0.45
+                    );
+                });
+            });
+            const lonLines = [];
+            for (let lon = Math.ceil(range.lonMin / spacing) * spacing; lon <= range.lonMax; lon += spacing) {
+                lonLines.push(lon);
+            }
+            lonLines.forEach(lon => {
+                const segments = [];
+                let current = [];
+                for (let lat = -90; lat <= 90; lat += step) {
+                    const uv = dirToFaceUV(directionFromGlobeLonLat(lon, lat));
+                    if (uv) {
+                        current.push({ x: uv.u * size, y: (1 - uv.v) * size });
+                    } else {
+                        if (current.length >= 2) segments.push(current);
+                        current = [];
+                    }
+                }
+                if (current.length >= 2) segments.push(current);
+                const isM = lon === 0;
+                segments.forEach(seg => {
+                    drawCurve(seg,
+                        isM && s.showMeridian ? '#f87171' : lineColor,
+                        isM && s.showMeridian ? lineWidth * 1.8 : lineWidth,
+                        isM && s.showMeridian ? 0.9 : 0.35
+                    );
+                });
+            });
+        }
+
+        const FACE_LON_LAT_RANGES = {
+            ft: { lonMin: -45, lonMax: 45,   latMin: -35.26, latMax: 35.26 },
+            bk: { lonMin: 135, lonMax: 225,  latMin: -35.26, latMax: 35.26 },
+            rt: { lonMin: 45,  lonMax: 135,  latMin: -35.26, latMax: 35.26 },
+            lf: { lonMin: -135, lonMax: -45, latMin: -35.26, latMax: 35.26 },
+            up: { lonMin: -180, lonMax: 180, latMin: 35.26,  latMax: 90 },
+            dn: { lonMin: -180, lonMax: 180, latMin: -90,    latMax: -35.26 }
+        };
 
         function createBackgroundTemplateCanvas(template, size = CANVAS_SIZE) {
             const templateCanvas = createEmptyCanvas(size, size);
@@ -837,19 +1136,29 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         function renderBackgroundTemplates() {
-            backgroundTemplateCount.textContent = backgroundGridMode === 'white' ? 'White Grid' : backgroundGridMode === 'black' ? 'Black Grid' : 'Solid';
-            const preview = createCustomGridBackground(backgroundTemplateColor.value, backgroundGridMode, backgroundTemplatePreview.width);
+            const modeLabels = { none: 'Solid', white: 'White Grid', black: 'Black Grid', sphere: 'Sphere Grid' };
+            backgroundTemplateCount.textContent = modeLabels[backgroundGridMode] || 'Solid';
+            const preview = createCustomGridBackground(backgroundGridMode === 'sphere' ? sphereGridBgSettings.bgColor : backgroundTemplateColor.value, backgroundGridMode, backgroundTemplatePreview.width);
             backgroundTemplatePreviewCtx.clearRect(0, 0, backgroundTemplatePreview.width, backgroundTemplatePreview.height);
             backgroundTemplatePreviewCtx.drawImage(preview, 0, 0, backgroundTemplatePreview.width, backgroundTemplatePreview.height);
             document.querySelectorAll('[data-grid-mode]').forEach(button => {
                 button.classList.toggle('primary', button.dataset.gridMode === backgroundGridMode);
             });
+            document.querySelectorAll('[data-sg-pattern]').forEach(button => {
+                button.classList.toggle('primary', button.dataset.sgPattern === (sphereGridBgSettings.linePattern || 'solid'));
+            });
+            const sphereControls = document.getElementById('sphere-grid-controls');
+            if (sphereControls) sphereControls.style.display = backgroundGridMode === 'sphere' ? '' : 'none';
             backgroundTemplateList.innerHTML = QUICK_BACKGROUND_COLORS.map(color => `
                 <button type="button" class="h-8 rounded-xl border border-white/10" style="background:${color}" data-quick-color="${color}" title="${color}"></button>
             `).join('');
             backgroundTemplateList.querySelectorAll('[data-quick-color]').forEach(button => {
                 button.addEventListener('click', () => {
                     backgroundTemplateColor.value = button.dataset.quickColor;
+                    if (backgroundGridMode === 'sphere') {
+                        sphereGridBgSettings.bgColor = button.dataset.quickColor;
+                        saveSphereGridBgSettings();
+                    }
                     renderBackgroundTemplates();
                     applyCustomGridBackground();
                 });
@@ -862,15 +1171,26 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         function applyCustomGridBackground() {
-            const color = backgroundTemplateColor.value;
-            const faceState = getFaceState();
-            faceState.background = createCustomGridBackground(color, backgroundGridMode);
-            faceState.backgroundName = `template_${color.replace('#', '')}_${backgroundGridMode}_grid.png`;
-            faceState.backgroundColor = color;
-            faceState.backgroundOpacity = 1;
-            const modeLabel = backgroundGridMode === 'white' ? '흰 그리드' : backgroundGridMode === 'black' ? '검은 그리드' : '그리드 없음';
-            lastBackgroundUploadReport = `[배경 템플릿]\n${activeFace.toUpperCase()} -> ${color} / ${modeLabel}`;
+            applyCustomGridBackgroundToFace(activeFace);
             render();
+        }
+
+        function applyCustomGridBackgroundToFace(face) {
+            createUndoSnapshot();
+            const faceState = state[face];
+            if (backgroundGridMode === 'sphere') {
+                faceState.background = createCustomGridBackground(sphereGridBgSettings.bgColor, 'sphere', CANVAS_SIZE, face, sphereGridBgSettings);
+                faceState.backgroundName = `sphere_grid_${face}_${Date.now()}.png`;
+                faceState.backgroundColor = sphereGridBgSettings.bgColor;
+            } else {
+                const color = backgroundTemplateColor.value;
+                faceState.background = createCustomGridBackground(color, backgroundGridMode);
+                faceState.backgroundName = `template_${color.replace('#', '')}_${backgroundGridMode}_grid.png`;
+                faceState.backgroundColor = color;
+            }
+            faceState.backgroundOpacity = 1;
+            const modeLabels = { none: '그리드 없음', white: '흰 그리드', black: '검은 그리드', sphere: '구체 그리드' };
+            lastBackgroundUploadReport = `[배경 템플릿]\n${face.toUpperCase()} -> ${modeLabels[backgroundGridMode] || 'Solid'}`;
         }
 
         function applyPosterBackgroundPreset() {
@@ -1034,9 +1354,52 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             });
         }
 
-        function requestPosterOptions() {
+        function requestPosterOptions(imageFiles = []) {
             if (!posterOptionsModal || !posterAccentColor) return Promise.resolve({ accentColor: '#ff1f2d' });
             posterAccentColor.value = posterAccentColor.value || '#ff1f2d';
+            const extractedContainer = document.getElementById('poster-extracted-colors');
+            const extractedSwatches = document.getElementById('poster-extracted-swatches');
+            if (extractedContainer && extractedSwatches && imageFiles.length > 0) {
+                extractedSwatches.innerHTML = '';
+                extractedContainer.style.display = '';
+                const allColors = [];
+                const loadPromise = imageFiles.slice(0, 5).map(file => {
+                    return new Promise(resolve => {
+                        const url = URL.createObjectURL(file);
+                        const img = new Image();
+                        img.onload = () => {
+                            try {
+                                const canvas = imageToCanvas(img, 256);
+                                const colors = extractDominantColors(canvas, 3);
+                                allColors.push(...colors);
+                            } catch (e) { /* skip */ }
+                            URL.revokeObjectURL(url);
+                            resolve();
+                        };
+                        img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+                        img.src = url;
+                    });
+                });
+                Promise.all(loadPromise).then(() => {
+                    const unique = [...new Set(allColors)].slice(0, 8);
+                    for (const hex of unique) {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'h-9 w-9 rounded-2xl border-2 border-transparent hover:border-white/60 transition-colors';
+                        btn.style.backgroundColor = hex;
+                        btn.title = hex;
+                        btn.dataset.posterColor = hex;
+                        btn.addEventListener('click', () => {
+                            posterAccentColor.value = hex;
+                            extractedSwatches.querySelectorAll('button').forEach(b => b.classList.remove('border-white'));
+                            btn.classList.add('border-white');
+                        });
+                        extractedSwatches.appendChild(btn);
+                    }
+                });
+            } else if (extractedContainer) {
+                extractedContainer.style.display = 'none';
+            }
             posterOptionsModal.classList.add('visible');
             return new Promise(resolve => {
                 const cleanup = result => {
@@ -1160,14 +1523,20 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                     const directoryHandle = await window.showDirectoryPicker({ mode: 'read' });
                     const files = await collectDirectoryFilesFromHandle(directoryHandle);
                     if (files.length) {
-                        await buildPresetLibraryFromFiles(files);
-                        if (importedPresetSets.length === 0) {
-                            alert('가져온 폴더에서 완성된 스카이박스 세트를 찾지 못했습니다.\n각 세트 폴더 안에 ft/bk/lf/rt/up/dn 6면 파일이 있어야 합니다.');
+                        try {
+                            await buildPresetLibraryFromFiles(files);
+                            if (importedPresetSets.length === 0) {
+                            alert('선택한 폴더에서 유효한 스카이박스 프리셋을 찾을 수 없습니다.\n파일명에 ft/bk/lf/rt/up/dn 6면 파일명이 포함되어야 합니다.');
                         } else {
-                            alert(`스카이박스 세트 ${importedPresetSets.length}개를 찾았습니다.\n왼쪽 Skybox Presets 목록에서 클릭해서 적용해 주세요.`);
+                            alert(`스카이박스 프리셋 ${importedPresetSets.length}개가 추가되었습니다.\n좌측 Skybox Presets 목록에서 선택해 적용하세요.`);
                         }
+                        } catch (error) {
+                            if (error?.name !== 'AbortError') {
+                                alert(`프리셋 가져오기 실패\n${getErrorMessage(error)}`);
+                            }
+                        }
+                        return;
                     }
-                    return;
                 } catch (error) {
                     if (error?.name === 'AbortError') return;
                 }
@@ -1783,7 +2152,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             try {
                 const manifestSources = ['./assets/skybox/presets.json'];
                 try {
-                    const packIndex = await fetchPresetManifest('./assets/skybox/packs/index.json');
+                    const packIndex = await fetchPresetManifest('./assets/skybox/presets.json');
                     if (Array.isArray(packIndex?.packs) && packIndex.packs.length) {
                         packIndex.packs.forEach(pack => manifestSources.push(`./assets/skybox/packs/${pack.name}`));
                     }
@@ -2478,9 +2847,12 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             syncCanvasView();
         }
 
+        let lastNudgeSnapshotTime = 0;
         function nudgeSelectedElement(dx, dy, multiplier = 1) {
             const selected = getSelectedElement();
             if (!selected || selected.locked) return;
+            const now = Date.now();
+            if (now - lastNudgeSnapshotTime > 300) { createUndoSnapshot(); lastNudgeSnapshotTime = now; }
             selected.x = clamp(snapCanvasValue(selected.x + dx * multiplier), 0, CANVAS_SIZE);
             selected.y = clamp(snapCanvasValue(selected.y + dy * multiplier), 0, CANVAS_SIZE);
             render();
@@ -2512,7 +2884,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                 ));
                 const maskCanvas = createEmptyCanvas(base.width + pad * 2, base.height + pad * 2);
                 const maskCtx = maskCanvas.getContext('2d');
-                const step = style === 'dashed' ? 28 : style === 'soft' ? 18 : 12;
+                const step = style === 'dashed' ? 36 : style === 'soft' ? 24 : 18;
                 const radius = width * (style === 'neon' ? 1.2 : 1);
 
                 for (let angle = 0, index = 0; angle < 360; angle += step, index++) {
@@ -3544,6 +3916,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         async function addImages(files) {
+            createUndoSnapshot();
             if (isFacePairMode()) {
                 await addImagesToFacePair(files);
                 return;
@@ -3551,28 +3924,30 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             showLoading('이미지를 불러오는 중입니다.');
             const created = [];
             try {
-                for (const file of files) {
-                    showLoading(`이미지 처리 중...
-${file.name}`);
+                const processFile = async (file) => {
                     try {
                         const image = await fileToImage(file);
                         const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
                         const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
                         await updateImageProcessing(element);
                         if (sphericalEditMode) prepareElementForSphere(element);
-                        created.push(element);
-                        getFaceState().elements.push(element);
-                        selectedId = element.id;
+                        return element;
                     } catch (error) {
-                        alert(`이미지 추가 실패: ${file.name}
-${error.message}`);
+                        alert(`이미지 추가 실패: ${file.name}\n${error.message}`);
+                        return null;
                     }
+                };
+                const results = await Promise.all(Array.from(files).map(processFile));
+                for (const element of results) {
+                    if (!element) continue;
+                    created.push(element);
+                    getFaceState().elements.push(element);
+                    selectedId = element.id;
                 }
                 if (sphericalEditMode && created.length > 1) {
                     arrangeSphericalElements(created);
                     selectedId = created[0].id;
-                    lastBackgroundUploadReport = `[Sphere Auto Layout]
-${created.length} images arranged on the inside spherical wall.`;
+                    lastBackgroundUploadReport = `[Sphere Auto Layout]\n${created.length} images arranged on the inside spherical wall.`;
                 }
                 render();
             } finally {
@@ -3607,7 +3982,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                 const [mainFile, ...subFiles] = fileList;
                 if (!mainFile) return;
                 hideLoading();
-                const options = await requestPosterOptions();
+                const options = await requestPosterOptions(fileList);
                 if (!options) return;
 
                 try {
@@ -3706,13 +4081,14 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         async function setBackgrounds(files) {
+            createUndoSnapshot();
             showLoading('스카이박스 배경을 불러오는 중이에요.');
             try {
                 const allowedExtensions = new Set(['tex', 'png', 'jpg', 'jpeg', 'webp', 'webg']);
                 const assigned = [];
                 const skipped = [];
+                const validFiles = [];
                 for (const file of files) {
-                    showLoading(`배경 파일 확인 중...\n${file.name}`);
                     const ext = getFileExtension(file.name);
                     if (!allowedExtensions.has(ext)) {
                         skipped.push(`${file.name} - 지원하지 않는 확장자`);
@@ -3723,19 +4099,25 @@ ${created.length} images arranged on the inside spherical wall.`;
                         skipped.push(`${file.name} - ft/bk/lf/rt/up/dn 코드 없음`);
                         continue;
                     }
-                try {
-                        showLoading(`배경 적용 중...\n${file.name}\n-> ${faceMatch.toUpperCase()}`);
+                    validFiles.push({ file, face: faceMatch });
+                }
+                const processBg = async ({ file, face }) => {
+                    try {
                         const image = await backgroundFileToImage(file);
-                        const faceState = getFaceState(faceMatch);
+                        const faceState = getFaceState(face);
                         faceState.background = imageToCanvas(image, CANVAS_SIZE);
                         faceState.backgroundName = file.name;
-                    assigned.push(`${file.name} -> ${faceMatch.toUpperCase()}`);
-                } catch (error) {
-                    skipped.push(`${file.name} - 불러오기 실패: ${getErrorMessage(error)}`);
+                        return `${file.name} -> ${face.toUpperCase()}`;
+                    } catch (error) {
+                        return null;
+                    }
+                };
+                const results = await Promise.all(validFiles.map(processBg));
+                for (let i = 0; i < results.length; i++) {
+                    if (results[i]) assigned.push(results[i]);
+                    else skipped.push(`${validFiles[i].file.name} - 불러오기 실패`);
                 }
-            }
                 render();
-
                 const resultLines = [];
                 if (assigned.length > 0) {
                     resultLines.push('[성공]');
@@ -4418,13 +4800,21 @@ ${created.length} images arranged on the inside spherical wall.`;
             targetCtx.putImageData(imageData, 0, 0);
         }
 
-        function drawSphericalElementsOnFace(faceKey, renderCtx) {
+        function drawSphericalElementsOnFace(faceKey, renderCtx, flipForExport = false) {
             if (!getAllSphericalElements().some(element => element.visible && element.spherical)) return;
             const overlay = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
             drawSphericalElementsOnDirectionCanvas(overlay, (x, y, width, height) => {
                 return directionFromCubeFaceUV(faceKey, x / Math.max(1, width - 1), y / Math.max(1, height - 1));
             });
-            renderCtx.drawImage(overlay, 0, 0);
+            if (flipForExport) {
+                renderCtx.save();
+                renderCtx.translate(CANVAS_SIZE, 0);
+                renderCtx.scale(-1, 1);
+                renderCtx.drawImage(overlay, 0, 0);
+                renderCtx.restore();
+            } else {
+                renderCtx.drawImage(overlay, 0, 0);
+            }
         }
 
         function directionFromGlobeLonLat(lonDeg, latDeg) {
@@ -4721,6 +5111,15 @@ ${created.length} images arranged on the inside spherical wall.`;
             });
         }
 
+        function flipCanvasHorizontal(source) {
+            const flipped = createEmptyCanvas(source.width, source.height);
+            const ctx = flipped.getContext('2d');
+            ctx.translate(source.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(source, 0, 0);
+            return flipped;
+        }
+
         async function createExportImageElement(element, pairWarpCache) {
             let warpedCanvas = element.originalCanvas;
             if (element.autoPairWarp && element.pairSourceCanvas && Array.isArray(element.pairFaces)) {
@@ -4730,12 +5129,13 @@ ${created.length} images arranged on the inside spherical wall.`;
                 }
                 warpedCanvas = pairWarpCache.get(cacheKey)[Number(element.pairIndex || 0)] || element.originalCanvas;
             }
+            const flippedCanvas = appSettings.exportFlip ? flipCanvasHorizontal(warpedCanvas) : warpedCanvas;
             const exportElement = {
                 ...element,
-                originalCanvas: copyCanvas(warpedCanvas),
-                maskCanvas: copyCanvas(warpedCanvas),
-                processedCanvas: copyCanvas(warpedCanvas),
-                flipX: !element.flipX,
+                originalCanvas: flippedCanvas,
+                maskCanvas: copyCanvas(flippedCanvas),
+                processedCanvas: copyCanvas(flippedCanvas),
+                flipX: false,
                 previewUrl: ''
             };
             await updateImageProcessing(exportElement);
@@ -4756,7 +5156,17 @@ ${created.length} images arranged on the inside spherical wall.`;
                         const exportElement = await createExportImageElement(element, pairWarpCache);
                         drawImageElement(exportElement, flatCtx, false);
                     }
-                    if (element.type === 'text') drawTextElement(element, flatCtx, false);
+                    if (element.type === 'text') {
+                        if (appSettings.exportFlip) {
+                            flatCtx.save();
+                            flatCtx.translate(CANVAS_SIZE, 0);
+                            flatCtx.scale(-1, 1);
+                            drawTextElement(element, flatCtx, false);
+                            flatCtx.restore();
+                        } else {
+                            drawTextElement(element, flatCtx, false);
+                        }
+                    }
                 }
                 canvases[faceKey] = flatCanvas;
             }
@@ -4845,7 +5255,7 @@ ${created.length} images arranged on the inside spherical wall.`;
 
         function drawSceneForExport(faceKey, renderCtx, flatExportFaces, flatExportFaceData) {
             drawSphereToOuterCubePrewarpedFace(faceKey, flatExportFaces, flatExportFaceData, renderCtx);
-            drawSphericalElementsOnFace(faceKey, renderCtx);
+            drawSphericalElementsOnFace(faceKey, renderCtx, appSettings.exportFlip);
         }
 
         function getActivePairFaces() {
@@ -5619,7 +6029,9 @@ ${created.length} images arranged on the inside spherical wall.`;
                     savePropertyFoldState(event.currentTarget.dataset.foldKey, event.currentTarget.open);
                 });
             });
+            let bindSnapshotTaken = false;
             propertyPanel.querySelectorAll('[data-bind]').forEach(input => {
+                input.addEventListener('pointerdown', () => { bindSnapshotTaken = false; });
                 input.addEventListener('input', async () => {
                     const selectedElement = getSelectedElement();
                     if (!selectedElement) return;
@@ -5627,6 +6039,7 @@ ${created.length} images arranged on the inside spherical wall.`;
                         syncPropertyPanelValues(selectedElement);
                         return;
                     }
+                    if (!bindSnapshotTaken) { createUndoSnapshot(); bindSnapshotTaken = true; }
                     setBoundValue(selectedElement, input.dataset.bind, input.value, input.type);
                     if (selectedElement.type === 'image' && needsImageRefresh(input.dataset.bind)) await updateImageProcessing(selectedElement);
                     render();
@@ -5646,6 +6059,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function addTextLayer() {
+            createUndoSnapshot();
             const element = createTextElement();
             if (sphericalEditMode) prepareElementForSphere(element);
             getFaceState().elements.push(element);
@@ -5654,6 +6068,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function removeElement(id) {
+            createUndoSnapshot();
             let removed = false;
             for (const faceKey of FACES) {
                 const face = getFaceState(faceKey);
@@ -5669,6 +6084,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function duplicateSelectedElement() {
+            createUndoSnapshot();
             const selected = getSelectedElement();
             if (!selected) return;
             const copy = selected.type === 'image'
@@ -5700,6 +6116,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function moveElementOrder(direction) {
+            createUndoSnapshot();
             const container = getSelectedElementContainer();
             if (!container) return;
             const { face, index } = container;
@@ -5723,6 +6140,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         }
 
         function clearCurrentFace() {
+            createUndoSnapshot();
             const face = getFaceState();
             face.background = null;
             face.backgroundName = '';
@@ -5738,7 +6156,7 @@ ${created.length} images arranged on the inside spherical wall.`;
         async function exportAll() {
             showLoading('내보내기 전 작업 기록을 자동 저장하는 중이에요.');
             try {
-                await saveCurrentProject(`전체 내보내기 자동 저장 ${new Date().toLocaleString('ko-KR')}`, { silent: true });
+                await saveCurrentProject(`${appSettings.projectName} 자동 저장 ${new Date().toLocaleString('ko-KR')}`, { silent: true });
                 showLoading('면 사이 기록을 로블록스 원근으로 자동 변환하는 중이에요.');
                 const renderedFaces = [];
                 const pairWarpCache = new Map();
@@ -5765,14 +6183,17 @@ ${created.length} images arranged on the inside spherical wall.`;
                 }
 
                 const zip = new JSZip();
+                const prefix = appSettings.projectName.replace(/[^a-zA-Z0-9가-힣_-]/g, '_').substring(0, 30);
                 renderedFaces.forEach(item => {
-                    zip.file(`sky512_${item.face}.tex`, item.base64, { base64: true });
-                    zip.file(`preview_${item.face}.png`, item.base64, { base64: true });
+                    if (appSettings.exportTex) zip.file(`sky512_${item.face}.tex`, item.base64, { base64: true });
+                    if (appSettings.exportPng) zip.file(`preview_${item.face}.png`, item.base64, { base64: true });
                 });
                 zip.file('manifest.json', JSON.stringify({
                     app: 'Skybox Studio',
                     manifestType: 'app-export',
                     version: APP_VERSION,
+                    projectName: appSettings.projectName,
+                    author: appSettings.author,
                     exportedAt: new Date().toISOString(),
                     canvasSize: CANVAS_SIZE,
                     flow: 'Cube -> Globe edit -> Cube export',
@@ -5784,12 +6205,12 @@ ${created.length} images arranged on the inside spherical wall.`;
                     },
                     faces: renderedFaces.map(item => ({
                         face: item.face,
-                        texture: `sky512_${item.face}.tex`,
-                        preview: `preview_${item.face}.png`
+                        texture: appSettings.exportTex ? `sky512_${item.face}.tex` : null,
+                        preview: appSettings.exportPng ? `preview_${item.face}.png` : null
                     }))
                 }, null, 2));
                 const blob = await zip.generateAsync({ type: 'blob' });
-                downloadBlob(blob, `skybox_studio_pack_${APP_VERSION}_${createExportFileStamp()}.zip`);
+                downloadBlob(blob, `${prefix}_${APP_VERSION}_${createExportFileStamp()}.zip`);
             } catch (error) {
                 alert(`내보내기 실패\n${getErrorMessage(error)}`);
             } finally {
@@ -6054,6 +6475,7 @@ ${created.length} images arranged on the inside spherical wall.`;
             selectedId = target.id;
             if (!target.locked) {
                 isDragging = true;
+                createUndoSnapshot();
                 if (sphericalEditMode && target.spherical) {
                     sphereDragState = { mode: 'element', elementId: target.id };
                 } else {
@@ -6221,29 +6643,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             sphereOverlayVisible = !sphereOverlayVisible;
             render();
         });
-        const updateGlobeGridFromInputs = () => {
-            globeGridSettings = normalizeGlobeGridSettings({
-                lineSpacingDeg: Number(globeGridSpacing?.value ?? DEFAULT_GLOBE_GRID_SETTINGS.lineSpacingDeg),
-                longitudeCount: Number(globeGridCount?.value ?? DEFAULT_GLOBE_GRID_SETTINGS.longitudeCount),
-                opacity: Number(globeGridOpacity?.value ?? Math.round(DEFAULT_GLOBE_GRID_SETTINGS.opacity * 100)) / 100,
-                color: globeGridColor?.value || DEFAULT_GLOBE_GRID_SETTINGS.color,
-                lineWidth: Number(globeGridWidth?.value ?? DEFAULT_GLOBE_GRID_SETTINGS.lineWidth)
-            });
-            setGlobeGridSettings(globeGridSettings);
-            syncGlobeGridUI(globeGridSettings);
-            render();
-        };
-        globeGridSpacing?.addEventListener('input', updateGlobeGridFromInputs);
-        globeGridCount?.addEventListener('input', updateGlobeGridFromInputs);
-        globeGridOpacity?.addEventListener('input', updateGlobeGridFromInputs);
-        globeGridWidth?.addEventListener('input', updateGlobeGridFromInputs);
-        globeGridColor?.addEventListener('input', updateGlobeGridFromInputs);
-        globeGridReset?.addEventListener('click', () => {
-            globeGridSettings = normalizeGlobeGridSettings();
-            setGlobeGridSettings(globeGridSettings);
-            syncGlobeGridUI(globeGridSettings);
-            render();
-        });
+
         posterQuickStart?.addEventListener('click', async () => {
             const count = await requestPosterFileCount();
             if (!count || !posterQuickInput) return;
@@ -6291,11 +6691,15 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         document.getElementById('preset-folder-input').addEventListener('change', async event => {
             const files = Array.from(event.target.files || []);
             if (files.length) {
-                await buildPresetLibraryFromFiles(files);
-                if (importedPresetSets.length === 0) {
-                    alert('가져온 폴더에서 완성된 스카이박스 세트를 찾지 못했습니다.\n각 세트 폴더 안에 ft/bk/lf/rt/up/dn 6면 파일이 있어야 합니다.');
-                } else {
-                    alert(`스카이박스 세트 ${importedPresetSets.length}개를 찾았습니다.\n왼쪽 Skybox Presets 목록에서 클릭해서 적용해 주세요.`);
+                try {
+                    await buildPresetLibraryFromFiles(files);
+                    if (importedPresetSets.length === 0) {
+                        alert('선택한 폴더에서 유효한 스카이박스 프리셋을 찾을 수 없습니다.\n파일명에 ft/bk/lf/rt/up/dn 6면 파일명이 포함되어야 합니다.');
+                    } else {
+                        alert(`스카이박스 프리셋 ${importedPresetSets.length}개가 추가되었습니다.\n좌측 Skybox Presets 목록에서 선택해 적용하세요.`);
+                    }
+                } catch (err) {
+                    alert(`프리셋 로드 중 오류 발생:\n${getErrorMessage(err)}`);
                 }
             }
             event.target.value = '';
@@ -6335,6 +6739,53 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         document.getElementById('bring-front').addEventListener('click', () => moveElementOrder('front'));
         document.getElementById('send-back').addEventListener('click', () => moveElementOrder('back'));
         document.getElementById('center-layer').addEventListener('click', centerSelectedElement);
+
+        const settingsModal = document.getElementById('settings-modal');
+        const settingsProjectName = document.getElementById('settings-project-name');
+        const settingsAuthor = document.getElementById('settings-author');
+        const settingsExportFlip = document.getElementById('settings-export-flip');
+        const settingsExportPng = document.getElementById('settings-export-png');
+        const settingsExportTex = document.getElementById('settings-export-tex');
+        const settingsCanvasSize = document.getElementById('settings-canvas-size');
+        const settingsCanvasSizeValue = document.getElementById('settings-canvas-size-value');
+        const settingsAutosave = document.getElementById('settings-autosave');
+        const settingsAutosaveInterval = document.getElementById('settings-autosave-interval');
+        const settingsAutosaveIntervalValue = document.getElementById('settings-autosave-interval-value');
+        const settingsFastPreview = document.getElementById('settings-fast-preview');
+
+        function openSettings() {
+            if (!settingsModal) return;
+            if (settingsProjectName) settingsProjectName.value = appSettings.projectName;
+            if (settingsAuthor) settingsAuthor.value = appSettings.author;
+            if (settingsExportFlip) settingsExportFlip.checked = appSettings.exportFlip;
+            if (settingsExportPng) settingsExportPng.checked = appSettings.exportPng;
+            if (settingsExportTex) settingsExportTex.checked = appSettings.exportTex;
+            if (settingsCanvasSize) { settingsCanvasSize.value = appSettings.canvasSize; if (settingsCanvasSizeValue) settingsCanvasSizeValue.textContent = appSettings.canvasSize; }
+            if (settingsAutosave) settingsAutosave.checked = appSettings.autosave;
+            if (settingsAutosaveInterval) { settingsAutosaveInterval.value = appSettings.autosaveInterval; if (settingsAutosaveIntervalValue) settingsAutosaveIntervalValue.textContent = appSettings.autosaveInterval; }
+            if (settingsFastPreview) settingsFastPreview.checked = appSettings.fastPreview;
+            settingsModal.classList.add('visible');
+        }
+        function applySettings() {
+            if (settingsProjectName) appSettings.projectName = settingsProjectName.value.trim() || DEFAULT_APP_SETTINGS.projectName;
+            if (settingsAuthor) appSettings.author = settingsAuthor.value.trim();
+            if (settingsExportFlip) appSettings.exportFlip = settingsExportFlip.checked;
+            if (settingsExportPng) appSettings.exportPng = settingsExportPng.checked;
+            if (settingsExportTex) appSettings.exportTex = settingsExportTex.checked;
+            if (settingsCanvasSize) appSettings.canvasSize = Number(settingsCanvasSize.value) || 1024;
+            if (settingsAutosave) appSettings.autosave = settingsAutosave.checked;
+            if (settingsAutosaveInterval) appSettings.autosaveInterval = Number(settingsAutosaveInterval.value) || 60;
+            if (settingsFastPreview) appSettings.fastPreview = settingsFastPreview.checked;
+            saveAppSettings();
+            spherePreviewQuality = appSettings.fastPreview ? 'fast' : 'full';
+            settingsModal.classList.remove('visible');
+            render();
+        }
+        document.getElementById('open-settings')?.addEventListener('click', openSettings);
+        document.getElementById('settings-close')?.addEventListener('click', () => settingsModal?.classList.remove('visible'));
+        document.getElementById('settings-save')?.addEventListener('click', applySettings);
+        settingsCanvasSize?.addEventListener('input', () => { if (settingsCanvasSizeValue) settingsCanvasSizeValue.textContent = settingsCanvasSize.value; });
+        settingsAutosaveInterval?.addEventListener('input', () => { if (settingsAutosaveIntervalValue) settingsAutosaveIntervalValue.textContent = settingsAutosaveInterval.value; });
         document.querySelectorAll('[data-quick-action]').forEach(button => {
             button.addEventListener('click', async event => {
                 await applyElementAction(event.currentTarget.dataset.quickAction);
@@ -6381,10 +6832,49 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         document.getElementById('canvas-bg-opacity').addEventListener('input', event => { getFaceState().backgroundOpacity = Number(event.target.value); render(); });
         backgroundTemplateColor.addEventListener('input', updateAndApplyCustomGridBackground);
         applyBackgroundTemplateButton.addEventListener('click', applyCustomGridBackground);
+        document.getElementById('apply-background-template-all')?.addEventListener('click', () => {
+            FACES.forEach(face => applyCustomGridBackgroundToFace(face));
+            render();
+        });
         document.querySelectorAll('[data-grid-mode]').forEach(button => {
             button.addEventListener('click', () => {
                 backgroundGridMode = button.dataset.gridMode;
                 updateAndApplyCustomGridBackground();
+            });
+        });
+        document.getElementById('sphere-grid-line-color')?.addEventListener('input', event => {
+            sphereGridBgSettings.lineColor = event.target.value;
+            saveSphereGridBgSettings();
+            renderBackgroundTemplates();
+        });
+        document.getElementById('sphere-grid-line-width')?.addEventListener('input', event => {
+            sphereGridBgSettings.lineWidth = Number(event.target.value);
+            document.getElementById('sphere-grid-line-width-value').textContent = Number(event.target.value).toFixed(1);
+            saveSphereGridBgSettings();
+            renderBackgroundTemplates();
+        });
+        document.getElementById('sphere-grid-spacing')?.addEventListener('input', event => {
+            sphereGridBgSettings.spacing = Number(event.target.value);
+            document.getElementById('sphere-grid-spacing-value').textContent = `${event.target.value}°`;
+            saveSphereGridBgSettings();
+            renderBackgroundTemplates();
+        });
+        document.getElementById('sphere-grid-equator')?.addEventListener('change', event => {
+            sphereGridBgSettings.showEquator = event.target.checked;
+            saveSphereGridBgSettings();
+            renderBackgroundTemplates();
+        });
+        document.getElementById('sphere-grid-meridian')?.addEventListener('change', event => {
+            sphereGridBgSettings.showMeridian = event.target.checked;
+            saveSphereGridBgSettings();
+            renderBackgroundTemplates();
+        });
+        document.querySelectorAll('[data-sg-pattern]').forEach(b => {
+            b.addEventListener('click', () => {
+                sphereGridBgSettings.linePattern = b.dataset.sgPattern;
+                document.querySelectorAll('[data-sg-pattern]').forEach(btn => btn.classList.toggle('primary', btn.dataset.sgPattern === sphereGridBgSettings.linePattern));
+                saveSphereGridBgSettings();
+                renderBackgroundTemplates();
             });
         });
         document.querySelectorAll('.face-tab').forEach(button => button.addEventListener('click', () => setActiveFace(button.dataset.face)));
@@ -6418,6 +6908,16 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             const tag = document.activeElement?.tagName;
             const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
             if (typing) return;
+            if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z') {
+                event.preventDefault();
+                undo();
+                return;
+            }
+            if ((event.ctrlKey || event.metaKey) && (event.shiftKey && event.key.toLowerCase() === 'z' || event.key.toLowerCase() === 'y')) {
+                event.preventDefault();
+                redo();
+                return;
+            }
             if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId && !getSelectedElement()?.locked) removeElement(selectedId);
             if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key) && selectedId) {
                 event.preventDefault();
@@ -6449,3 +6949,453 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             presetStatusText.textContent = '공개 배포에서는 내장 프리셋, 이미지 편집, 저장/내보내기는 사용할 수 있지만 AI 추천과 AI 배경제거는 별도 서버 설정이 필요합니다.';
         }
         loadBundledPresetManifest();
+
+        // ========== Grid Editor ==========
+        const geCanvas = document.getElementById('ge-canvas');
+        const geCtx = geCanvas?.getContext('2d');
+        const geOverlay = document.getElementById('ge-overlay');
+        const geOverlayCtx = geOverlay?.getContext('2d');
+        const geModal = document.getElementById('grid-editor-modal');
+        let geMode = 'sphere';
+        let geTool = 'pen';
+        let geBrushSize = 8;
+        let gePenColor = '#ffffff';
+        let gePenOpacity = 1;
+        let geBgColor = '#0a0f1a';
+        let geLineColor = '#67e8f9';
+        let geLineWidth = 1.5;
+        let geLinePattern = 'solid';
+        let geSpacing = 15;
+        let geEquator = true;
+        let geMeridian = true;
+        let geZoom = 1024;
+        let geDrawing = false;
+        let geLastPoint = null;
+        let geImages = [];
+        let geTileEnabled = false;
+        let geTileSize = 128;
+        let geTileGap = 0;
+        let geTileOffset = false;
+
+        function openGridEditor() {
+            if (!geModal) return;
+            geBgColor = backgroundGridMode === 'sphere' ? sphereGridBgSettings.bgColor : backgroundTemplateColor.value;
+            geLineColor = sphereGridBgSettings.lineColor;
+            geLineWidth = sphereGridBgSettings.lineWidth;
+            geLinePattern = sphereGridBgSettings.linePattern || 'solid';
+            geSpacing = sphereGridBgSettings.spacing;
+            geEquator = sphereGridBgSettings.showEquator;
+            geMeridian = sphereGridBgSettings.showMeridian;
+            syncGridEditorUI();
+            renderGridEditor();
+            geModal.classList.add('visible');
+        }
+
+        function closeGridEditor() {
+            if (geModal) geModal.classList.remove('visible');
+        }
+
+        function syncGridEditorUI() {
+            const el = id => document.getElementById(id);
+            if (el('ge-bg-color')) el('ge-bg-color').value = geBgColor;
+            if (el('ge-line-color')) el('ge-line-color').value = geLineColor;
+            if (el('ge-line-width')) el('ge-line-width').value = geLineWidth;
+            if (el('ge-line-width-value')) el('ge-line-width-value').textContent = geLineWidth.toFixed(1);
+            if (el('ge-spacing')) el('ge-spacing').value = geSpacing;
+            if (el('ge-spacing-value')) el('ge-spacing-value').textContent = `${geSpacing}°`;
+            if (el('ge-equator')) el('ge-equator').checked = geEquator;
+            if (el('ge-meridian')) el('ge-meridian').checked = geMeridian;
+            if (el('ge-brush-size')) el('ge-brush-size').value = geBrushSize;
+            if (el('ge-brush-size-value')) el('ge-brush-size-value').textContent = geBrushSize;
+            if (el('ge-pen-color')) el('ge-pen-color').value = gePenColor;
+            if (el('ge-pen-opacity')) el('ge-pen-opacity').value = gePenOpacity;
+            document.querySelectorAll('[data-ge-mode]').forEach(b => b.classList.toggle('primary', b.dataset.geMode === geMode));
+            document.querySelectorAll('[data-ge-tool]').forEach(b => b.classList.toggle('primary', b.dataset.geTool === geTool));
+            document.querySelectorAll('[data-ge-pattern]').forEach(b => b.classList.toggle('primary', b.dataset.gePattern === geLinePattern));
+            document.querySelectorAll('[data-ge-zoom]').forEach(b => b.classList.toggle('primary', Number(b.dataset.geZoom) === geZoom));
+            if (el('ge-tile-enabled')) el('ge-tile-enabled').checked = geTileEnabled;
+            if (el('ge-tile-controls')) el('ge-tile-controls').style.display = geTileEnabled ? '' : 'none';
+            if (el('ge-tile-size')) el('ge-tile-size').value = geTileSize;
+            if (el('ge-tile-size-value')) el('ge-tile-size-value').textContent = `${geTileSize}px`;
+            if (el('ge-tile-gap')) el('ge-tile-gap').value = geTileGap;
+            if (el('ge-tile-gap-value')) el('ge-tile-gap-value').textContent = `${geTileGap}px`;
+            if (el('ge-tile-offset')) el('ge-tile-offset').checked = geTileOffset;
+            renderGeImageList();
+        }
+
+        function renderGeImageList() {
+            const list = document.getElementById('ge-image-list');
+            if (!list) return;
+            list.innerHTML = geImages.map((img, i) => `
+                <div class="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/10">
+                    <img src="${img.dataURL}" class="w-10 h-10 object-cover rounded-lg">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-[11px] text-slate-300 truncate">${img.name}</div>
+                        <div class="text-[10px] text-slate-500">${img.width}x${img.height}</div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <input type="range" min="16" max="512" value="${img.size}" data-ge-img-size="${i}" class="w-16 h-1 accent-cyan-400">
+                        <button type="button" data-ge-img-del="${i}" class="text-rose-400 text-xs hover:text-rose-300">X</button>
+                    </div>
+                </div>
+            `).join('');
+            list.querySelectorAll('[data-ge-img-del]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    geImages.splice(Number(btn.dataset.geImgDel), 1);
+                    renderGeImageList();
+                    renderGridEditor();
+                });
+            });
+            list.querySelectorAll('[data-ge-img-size]').forEach(input => {
+                input.addEventListener('input', () => {
+                    geImages[Number(input.dataset.geImgSize)].size = Number(input.value);
+                    renderGridEditor();
+                });
+            });
+        }
+
+        function drawGridOnCanvas(ctx, w, h) {
+            const liveSettings = {
+                bgColor: geBgColor,
+                lineColor: geLineColor,
+                lineWidth: geLineWidth,
+                linePattern: geLinePattern,
+                spacing: geSpacing,
+                showEquator: geEquator,
+                showMeridian: geMeridian
+            };
+            if (geMode === 'sphere') {
+                drawSphereGrid(ctx, w, 'ft', liveSettings);
+                return;
+            }
+            ctx.fillStyle = geBgColor;
+            ctx.fillRect(0, 0, w, h);
+            drawStraightGrid(ctx, w, geMode);
+        }
+
+        const geTileCanvas = createEmptyCanvas(128, 128);
+        const geTileCtx = geTileCanvas.getContext('2d');
+
+        function renderGridEditor() {
+            if (!geCanvas || !geCtx) return;
+            const w = geZoom, h = geZoom;
+            geCanvas.width = w; geCanvas.height = h;
+            if (geOverlay) { geOverlay.width = w; geOverlay.height = h; }
+            geCtx.clearRect(0, 0, w, h);
+            if (geTileEnabled) {
+                drawGridOnCanvas(geCtx, w, h);
+                const tileSize = geTileSize;
+                const gap = geTileGap;
+                const step = tileSize + gap;
+                const offsetX = geTileOffset ? Math.round(step / 2) : 0;
+                geCtx.save();
+                for (let y = -step; y < h + step; y += step) {
+                    for (let x = -step; x < w + step; x += step) {
+                        const row = Math.round((y + step) / step);
+                        const ox = geTileOffset ? (row % 2 === 0 ? offsetX : 0) : 0;
+                        geCtx.drawImage(geTileCanvas, 0, 0, tileSize, tileSize, x + ox, y, tileSize, tileSize);
+                    }
+                }
+                geCtx.restore();
+            } else {
+                drawGridOnCanvas(geCtx, w, h);
+                geImages.forEach(img => {
+                    const size = img.size || 64;
+                    const ix = (img.posX || 0.5) * w - size / 2;
+                    const iy = (img.posY || 0.5) * h - size / 2;
+                    geCtx.globalAlpha = 1;
+                    geCtx.drawImage(img.img, ix, iy, size, size);
+                    geCtx.globalAlpha = 1;
+                });
+            }
+            drawGeOverlay();
+            renderGeGlobePreview();
+        }
+
+        function drawTiledContent(ctx, w, h, tileCanvas, settings) {
+            ctx.fillStyle = settings.bgColor || '#0a0f1a';
+            ctx.fillRect(0, 0, w, h);
+            if (geMode === 'sphere') {
+                drawSphereGrid(ctx, w, 'ft', settings);
+            } else {
+                drawStraightGrid(ctx, w, geMode);
+            }
+            const tileSize = geTileSize;
+            const gap = geTileGap;
+            const step = tileSize + gap;
+            const offsetX = geTileOffset ? Math.round(step / 2) : 0;
+            ctx.save();
+            for (let y = -step; y < h + step; y += step) {
+                for (let x = -step; x < w + step; x += step) {
+                    const row = Math.round((y + step) / step);
+                    const ox = geTileOffset ? (row % 2 === 0 ? offsetX : 0) : 0;
+                    ctx.drawImage(tileCanvas, 0, 0, tileSize, tileSize, x + ox, y, tileSize, tileSize);
+                }
+            }
+            ctx.restore();
+        }
+
+        function renderGeGlobePreview() {
+            const gpCanvas = document.getElementById('ge-globe-preview');
+            if (!gpCanvas) return;
+            const gpCtx = gpCanvas.getContext('2d');
+            const sz = gpCanvas.width;
+            const center = sz / 2;
+            const radius = sz * 0.42;
+            const liveSettings = {
+                bgColor: geBgColor,
+                lineColor: geLineColor,
+                lineWidth: geLineWidth,
+                linePattern: geLinePattern,
+                spacing: geSpacing,
+                showEquator: geEquator,
+                showMeridian: geMeridian
+            };
+            gpCtx.clearRect(0, 0, sz, sz);
+            gpCtx.fillStyle = '#020617';
+            gpCtx.fillRect(0, 0, sz, sz);
+            gpCtx.save();
+            gpCtx.beginPath();
+            gpCtx.arc(center, center, radius, 0, Math.PI * 2);
+            gpCtx.clip();
+            const faceSize = 256;
+            FACES.forEach(face => {
+                const fc = createEmptyCanvas(faceSize, faceSize);
+                const fCtx = fc.getContext('2d');
+                drawSphereGrid(fCtx, faceSize, face, liveSettings);
+                const mapped = CUBE_FACE_TO_GLOBE[face];
+                if (!mapped) return;
+                gpCtx.save();
+                gpCtx.translate(center + mapped.ox * radius, center + mapped.oy * radius);
+                gpCtx.scale(mapped.sx, mapped.sy);
+                gpCtx.drawImage(fc, -faceSize / 2, -faceSize / 2);
+                gpCtx.restore();
+            });
+            gpCtx.strokeStyle = 'rgba(103,232,249,0.8)';
+            gpCtx.lineWidth = 2;
+            gpCtx.beginPath();
+            gpCtx.arc(center, center, radius, 0, Math.PI * 2);
+            gpCtx.stroke();
+            gpCtx.restore();
+        }
+
+        const CUBE_FACE_TO_GLOBE = {
+            ft: { ox: 0, oy: 0, sx: 1, sy: 1 },
+            bk: { ox: 0, oy: 0, sx: -1, sy: 1 },
+            rt: { ox: 0.5, oy: 0, sx: 0.5, sy: 1 },
+            lf: { ox: -0.5, oy: 0, sx: 0.5, sy: 1 },
+            up: { ox: 0, oy: -0.45, sx: 1, sy: 0.5 },
+            dn: { ox: 0, oy: 0.45, sx: 1, sy: 0.5 }
+        };
+
+        function drawGeOverlay() {
+            if (!geOverlayCtx || !geOverlay) return;
+            geOverlayCtx.clearRect(0, 0, geOverlay.width, geOverlay.height);
+        }
+
+        function geCanvasCoords(e) {
+            const rect = geCanvas.getBoundingClientRect();
+            const scaleX = geCanvas.width / rect.width;
+            const scaleY = geCanvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        function geDrawAt(x, y) {
+            if (geTileEnabled) {
+                const tileSize = geTileSize;
+                const tx = ((x % tileSize) + tileSize) % tileSize;
+                const ty = ((y % tileSize) + tileSize) % tileSize;
+                if (geTool === 'pen') {
+                    geTileCtx.save();
+                    geTileCtx.globalAlpha = gePenOpacity;
+                    geTileCtx.fillStyle = gePenColor;
+                    geTileCtx.beginPath();
+                    geTileCtx.arc(tx, ty, geBrushSize / 2, 0, Math.PI * 2);
+                    geTileCtx.fill();
+                    geTileCtx.restore();
+                } else if (geTool === 'eraser') {
+                    geTileCtx.save();
+                    geTileCtx.globalCompositeOperation = 'destination-out';
+                    geTileCtx.beginPath();
+                    geTileCtx.arc(tx, ty, geBrushSize / 2, 0, Math.PI * 2);
+                    geTileCtx.fill();
+                    geTileCtx.restore();
+                }
+                renderGridEditor();
+                return;
+            }
+            if (geTool === 'pen') {
+                geCtx.save();
+                geCtx.globalAlpha = gePenOpacity;
+                geCtx.fillStyle = gePenColor;
+                geCtx.beginPath();
+                geCtx.arc(x, y, geBrushSize / 2, 0, Math.PI * 2);
+                geCtx.fill();
+                geCtx.restore();
+            } else if (geTool === 'eraser') {
+                geCtx.save();
+                geCtx.globalCompositeOperation = 'destination-out';
+                geCtx.beginPath();
+                geCtx.arc(x, y, geBrushSize / 2, 0, Math.PI * 2);
+                geCtx.fill();
+                geCtx.restore();
+                geCtx.save();
+                drawGridOnCanvas(geCtx, geCanvas.width, geCanvas.height);
+                geCtx.restore();
+            } else if (geTool === 'move' && geImages.length) {
+                const img = geImages[geImages.length - 1];
+                img.posX = x / geCanvas.width;
+                img.posY = y / geCanvas.height;
+                renderGridEditor();
+            }
+        }
+
+        geCanvas?.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            geDrawing = true;
+            geLastPoint = geCanvasCoords(e);
+            geDrawAt(geLastPoint.x, geLastPoint.y);
+        });
+        geCanvas?.addEventListener('pointermove', e => {
+            if (!geDrawing) return;
+            const p = geCanvasCoords(e);
+            if (geTool === 'pen' || geTool === 'eraser') {
+                if (geLastPoint) {
+                    const dx = p.x - geLastPoint.x, dy = p.y - geLastPoint.y;
+                    const dist = Math.hypot(dx, dy);
+                    const step = Math.max(1, geBrushSize / 4);
+                    for (let i = step; i < dist; i += step) {
+                        geDrawAt(geLastPoint.x + dx * i / dist, geLastPoint.y + dy * i / dist);
+                    }
+                }
+                geDrawAt(p.x, p.y);
+            }
+            geLastPoint = p;
+        });
+        geCanvas?.addEventListener('pointerup', () => { geDrawing = false; geLastPoint = null; });
+        geCanvas?.addEventListener('pointerleave', () => { geDrawing = false; geLastPoint = null; });
+
+        document.getElementById('ge-bg-color')?.addEventListener('input', e => { geBgColor = e.target.value; renderGridEditor(); });
+        document.getElementById('ge-line-color')?.addEventListener('input', e => { geLineColor = e.target.value; renderGridEditor(); });
+        document.getElementById('ge-line-width')?.addEventListener('input', e => { geLineWidth = Number(e.target.value); document.getElementById('ge-line-width-value').textContent = geLineWidth.toFixed(1); renderGridEditor(); });
+        document.getElementById('ge-spacing')?.addEventListener('input', e => { geSpacing = Number(e.target.value); document.getElementById('ge-spacing-value').textContent = `${geSpacing}°`; renderGridEditor(); });
+        document.getElementById('ge-equator')?.addEventListener('change', e => { geEquator = e.target.checked; renderGridEditor(); });
+        document.getElementById('ge-meridian')?.addEventListener('change', e => { geMeridian = e.target.checked; renderGridEditor(); });
+        document.getElementById('ge-brush-size')?.addEventListener('input', e => { geBrushSize = Number(e.target.value); document.getElementById('ge-brush-size-value').textContent = geBrushSize; });
+        document.getElementById('ge-pen-color')?.addEventListener('input', e => { gePenColor = e.target.value; });
+        document.getElementById('ge-pen-opacity')?.addEventListener('input', e => { gePenOpacity = Number(e.target.value); });
+
+        document.getElementById('ge-tile-enabled')?.addEventListener('change', e => {
+            geTileEnabled = e.target.checked;
+            document.getElementById('ge-tile-controls').style.display = geTileEnabled ? '' : 'none';
+            renderGridEditor();
+        });
+        document.getElementById('ge-tile-size')?.addEventListener('input', e => {
+            geTileSize = Number(e.target.value);
+            geTileCanvas.width = geTileSize;
+            geTileCanvas.height = geTileSize;
+            document.getElementById('ge-tile-size-value').textContent = `${geTileSize}px`;
+            renderGridEditor();
+        });
+        document.getElementById('ge-tile-gap')?.addEventListener('input', e => {
+            geTileGap = Number(e.target.value);
+            document.getElementById('ge-tile-gap-value').textContent = `${geTileGap}px`;
+            renderGridEditor();
+        });
+        document.getElementById('ge-tile-offset')?.addEventListener('change', e => {
+            geTileOffset = e.target.checked;
+            renderGridEditor();
+        });
+
+        document.querySelectorAll('[data-ge-mode]').forEach(b => {
+            b.addEventListener('click', () => { geMode = b.dataset.geMode; syncGridEditorUI(); renderGridEditor(); });
+        });
+        document.querySelectorAll('[data-ge-tool]').forEach(b => {
+            b.addEventListener('click', () => { geTool = b.dataset.geTool; syncGridEditorUI(); });
+        });
+        document.querySelectorAll('[data-ge-pattern]').forEach(b => {
+            b.addEventListener('click', () => { geLinePattern = b.dataset.gePattern; syncGridEditorUI(); renderGridEditor(); });
+        });
+        document.querySelectorAll('[data-ge-zoom]').forEach(b => {
+            b.addEventListener('click', () => { geZoom = Number(b.dataset.geZoom); syncGridEditorUI(); renderGridEditor(); });
+        });
+
+        document.getElementById('ge-image-input')?.addEventListener('change', async e => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            const img = await loadImageFromURL(url);
+            URL.revokeObjectURL(url);
+            geImages.push({ name: file.name, img, dataURL: url, width: img.width, height: img.height, size: Math.min(128, Math.max(img.width, img.height)), posX: 0.5, posY: 0.5 });
+            e.target.value = '';
+            renderGeImageList();
+            renderGridEditor();
+        });
+
+        document.getElementById('grid-editor-clear')?.addEventListener('click', () => {
+            geImages = [];
+            geTileCtx.clearRect(0, 0, geTileCanvas.width, geTileCanvas.height);
+            renderGeImageList();
+            renderGridEditor();
+        });
+
+        function saveGeSettings() {
+            sphereGridBgSettings.bgColor = geBgColor;
+            sphereGridBgSettings.lineColor = geLineColor;
+            sphereGridBgSettings.lineWidth = geLineWidth;
+            sphereGridBgSettings.linePattern = geLinePattern;
+            sphereGridBgSettings.spacing = geSpacing;
+            sphereGridBgSettings.showEquator = geEquator;
+            sphereGridBgSettings.showMeridian = geMeridian;
+            saveSphereGridBgSettings();
+            backgroundGridMode = geMode;
+        }
+
+        function applyGeTileToFace(face) {
+            const faceState = state[face];
+            const settings = { bgColor: geBgColor, lineColor: geLineColor, lineWidth: geLineWidth, linePattern: geLinePattern, spacing: geSpacing, showEquator: geEquator, showMeridian: geMeridian };
+            const fc = createEmptyCanvas(CANVAS_SIZE, CANVAS_SIZE);
+            const fCtx = fc.getContext('2d');
+            if (geTileEnabled) {
+                drawTiledContent(fCtx, CANVAS_SIZE, CANVAS_SIZE, geTileCanvas, settings);
+            } else {
+                if (geMode === 'sphere') {
+                    drawSphereGrid(fCtx, CANVAS_SIZE, face, settings);
+                } else {
+                    fCtx.fillStyle = geBgColor;
+                    fCtx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                    drawStraightGrid(fCtx, CANVAS_SIZE, geMode);
+                }
+                geImages.forEach(img => {
+                    const sz = img.size || 64;
+                    fCtx.drawImage(img.img, (img.posX || 0.5) * CANVAS_SIZE - sz / 2, (img.posY || 0.5) * CANVAS_SIZE - sz / 2, sz, sz);
+                });
+            }
+            faceState.background = fc;
+            faceState.backgroundName = `grid_editor_${face}_${Date.now()}.png`;
+            faceState.backgroundColor = geBgColor;
+            faceState.backgroundOpacity = 1;
+        }
+
+        document.getElementById('grid-editor-apply')?.addEventListener('click', () => {
+            saveGeSettings();
+            applyGeTileToFace(activeFace);
+            render();
+            renderBackgroundTemplates();
+            closeGridEditor();
+        });
+
+        document.getElementById('grid-editor-apply-all')?.addEventListener('click', () => {
+            saveGeSettings();
+            FACES.forEach(face => applyGeTileToFace(face));
+            render();
+            renderBackgroundTemplates();
+            closeGridEditor();
+        });
+
+        document.getElementById('grid-editor-close')?.addEventListener('click', closeGridEditor);
+        document.getElementById('background-template-preview')?.addEventListener('click', openGridEditor);
+
