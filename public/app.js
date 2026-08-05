@@ -7073,23 +7073,33 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         function getStoredLicense() { try { return localStorage.getItem(LICENSE_KEY_STORAGE) || ''; } catch { return ''; } }
         function storeLicense(key) { try { localStorage.setItem(LICENSE_KEY_STORAGE, key); } catch {} }
 
+        function unlockApp() {
+            document.body.removeAttribute('data-locked');
+            document.getElementById('paywall-modal')?.classList.remove('paywall-fullscreen');
+            document.getElementById('paywall-modal')?.classList.add('hidden');
+        }
+
+        function lockApp() {
+            document.body.setAttribute('data-locked', 'true');
+            const modal = document.getElementById('paywall-modal');
+            if (modal) { modal.classList.remove('hidden'); modal.classList.add('paywall-fullscreen'); }
+        }
+
         async function checkLicense() {
             const stored = getStoredLicense();
             if (stored) {
                 licensed = await verifyLicenseKey(stored);
-                if (licensed) return true;
+                if (licensed) { unlockApp(); return true; }
             }
-            showPaywall();
+            lockApp();
             return false;
         }
 
         function showPaywall() {
-            const modal = document.getElementById('paywall-modal');
-            if (!modal) return;
+            lockApp();
             document.getElementById('paywall-error')?.classList.add('hidden');
             document.getElementById('paywall-success')?.classList.add('hidden');
             document.getElementById('paywall-key-input').value = getStoredLicense();
-            modal.classList.add('visible');
         }
 
         async function handlePaywallVerify() {
@@ -7104,7 +7114,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 storeLicense(key);
                 errorEl?.classList.add('hidden');
                 successEl?.classList.remove('hidden');
-                setTimeout(() => { document.getElementById('paywall-modal')?.classList.remove('visible'); }, 800);
+                setTimeout(unlockApp, 800);
             } else {
                 licensed = false;
                 successEl?.classList.add('hidden');
@@ -7113,8 +7123,6 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         }
 
         document.getElementById('paywall-verify')?.addEventListener('click', handlePaywallVerify);
-        document.getElementById('paywall-close')?.addEventListener('click', () => document.getElementById('paywall-modal')?.classList.remove('visible'));
-        document.getElementById('paywall-modal')?.addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.classList.remove('visible'); });
         document.getElementById('paywall-key-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') handlePaywallVerify(); });
 
         checkLicense();
@@ -7345,7 +7353,6 @@ Respond ONLY with valid JSON array like:
             const files = [...(event.target.files || [])];
             event.target.value = '';
             if (files.length === 0) return;
-            if (!licensed) { showPaywall(); return; }
             await runAiAutoEdit(files);
         });
         document.getElementById('ai-auto-close')?.addEventListener('click', () => document.getElementById('ai-auto-modal')?.classList.remove('visible'));
