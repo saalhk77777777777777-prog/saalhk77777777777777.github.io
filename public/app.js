@@ -66,6 +66,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         let canvasZoom = 74;
         let showEditorGrid = true;
         let snapToGrid = false;
+        let snapGridSize = 16;
         let layoutMode = 'pc';
         let sphericalEditMode = true;
         const undoStack = [];
@@ -278,6 +279,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             exportFlip: true,
             exportPng: true,
             exportTex: true,
+            exportWebp: false,
             canvasSize: 1024,
             autosave: false,
             autosaveInterval: 60,
@@ -1204,19 +1206,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             renderBackgroundTemplates();
         }
 
-        function applyRobloxSeamPreset() {
-            FACES.forEach(face => {
-                const faceState = getFaceState(face);
-                if (faceState.background) {
-                    faceState.backgroundSeam = 72;
-                    faceState.backgroundCurve = 18;
-                    faceState.backgroundDiagonal = 36;
-                }
-            });
-            lastBackgroundUploadReport = '[로블록스 이음새 보정]\n6면 배경의 가장자리를 서로 섞고 안쪽으로 늘리는 보정을 켰습니다.';
-            render();
-        }
-
         function fitElementToBox(element, boxWidth, boxHeight) {
             const source = element.processedCanvas || element.maskCanvas || element.originalCanvas;
             if (!source) return;
@@ -2059,8 +2048,8 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             presetStatusText.textContent = '가져온 세트를 클릭하면 6면 배경이 한 번에 적용됩니다.';
             presetList.innerHTML = importedPresetSets.map((preset, index) => `
                 <button type="button" class="w-full text-left border border-white/5 rounded-2xl p-3 bg-white/5 hover:bg-white/10 transition-all" data-preset-index="${index}">
-                    <div class="text-sm font-bold text-white truncate">${preset.label}</div>
-                    <div class="text-[11px] text-slate-400 mt-1 truncate">${preset.variantLabel}</div>
+                    <div class="text-sm font-bold text-white truncate">${escapeHtml(preset.label)}</div>
+                    <div class="text-[11px] text-slate-400 mt-1 truncate">${escapeHtml(preset.variantLabel)}</div>
                 </button>
             `).join('');
 
@@ -2674,7 +2663,15 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                 { value: 'darken', label: 'Darken' },
                 { value: 'lighten', label: 'Lighten' },
                 { value: 'color-dodge', label: 'Color Dodge' },
-                { value: 'soft-light', label: 'Soft Light' }
+                { value: 'color-burn', label: 'Color Burn' },
+                { value: 'hard-light', label: 'Hard Light' },
+                { value: 'soft-light', label: 'Soft Light' },
+                { value: 'difference', label: 'Difference' },
+                { value: 'exclusion', label: 'Exclusion' },
+                { value: 'hue', label: 'Hue' },
+                { value: 'saturation', label: 'Saturation' },
+                { value: 'color', label: 'Color' },
+                { value: 'luminosity', label: 'Luminosity' }
             ];
         }
 
@@ -2788,7 +2785,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         function snapCanvasValue(value) {
-            return snapToGrid ? Math.round(value / 16) * 16 : value;
+            return snapToGrid ? Math.round(value / snapGridSize) * snapGridSize : value;
         }
 
         function syncCanvasView() {
@@ -2800,7 +2797,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             if (canvasStage) canvasStage.classList.toggle('grid-bg', showEditorGrid);
             if (toggleGridButton) toggleGridButton.textContent = showEditorGrid ? '그리드 ON' : '그리드 OFF';
             if (toggleSnapButton) {
-                toggleSnapButton.textContent = snapToGrid ? '스냅 ON' : '스냅 OFF';
+                toggleSnapButton.textContent = snapToGrid ? `스냅 ${snapGridSize}px` : '스냅 OFF';
                 toggleSnapButton.classList.toggle('success', snapToGrid);
             }
         }
@@ -5514,7 +5511,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                         <div class="flex items-center gap-3">
                             ${thumb}
                             <div class="min-w-0 flex-1">
-                                <div class="text-sm font-bold truncate">${element.locked ? '잠금 ' : ''}${element.name}</div>
+                                <div class="text-sm font-bold truncate">${element.locked ? '잠금 ' : ''}${escapeHtml(element.name)}</div>
                                 <div class="text-[11px] text-slate-400 uppercase tracking-[0.18em]">${element.spherical ? 'SPHERE' : element.type} · ${elements.length - index}</div>
                             </div>
                             <button class="text-xs font-black text-slate-400 hover:text-white transition-colors" data-toggle-id="${element.id}">${element.visible ? 'ON' : 'OFF'}</button>
@@ -5795,6 +5792,12 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             if (action === 'shadow-glow') {
                 selected.shadow = { ...selected.shadow, blur: 72, offsetX: 0, offsetY: 0, opacity: 0.82, color: selected.shadow.color || '#ffffff' };
             }
+            if (action === 'shadow-long') {
+                selected.shadow = { ...selected.shadow, blur: 4, offsetX: 32, offsetY: 32, opacity: 0.35, color: selected.shadow.color || '#000000' };
+            }
+            if (action === 'shadow-neon') {
+                selected.shadow = { ...selected.shadow, blur: 40, offsetX: 0, offsetY: 0, opacity: 1, color: '#67e8f9' };
+            }
             if (action === 'reset-effects') {
                 selected.opacity = 1;
                 selected.blendMode = 'source-over';
@@ -5997,6 +6000,8 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                         <button type="button" class="tool-button !rounded-2xl" data-action="shadow-hard">선명 그림자</button>
                         <button type="button" class="tool-button !rounded-2xl" data-action="shadow-soft">소프트 그림자</button>
                         <button type="button" class="tool-button !rounded-2xl" data-action="shadow-glow">글로우</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="shadow-long">긴 그림자</button>
+                        <button type="button" class="tool-button !rounded-2xl" data-action="shadow-neon">네온 글로우</button>
                     </div>
                     ${rangeField({ label: '그림자 블러 강도', key: 'shadow.blur', min: 0, max: 512, step: 1, value: shadow.blur, unit: 'px' })}
                     ${rangeField({ label: '그림자 X', key: 'shadow.offsetX', min: -512, max: 512, step: 1, value: shadow.offsetX, unit: 'px' })}
@@ -6140,6 +6145,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         function clearCurrentFace() {
+            if (!confirm(`${activeFace.toUpperCase()} 면의 모든 레이어와 배경을 삭제하시겠습니까?\n(되돌리기로 복구할 수 있습니다)`)) return;
             createUndoSnapshot();
             const face = getFaceState();
             face.background = null;
@@ -6187,6 +6193,10 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                 renderedFaces.forEach(item => {
                     if (appSettings.exportTex) zip.file(`sky512_${item.face}.tex`, item.base64, { base64: true });
                     if (appSettings.exportPng) zip.file(`preview_${item.face}.png`, item.base64, { base64: true });
+                    if (appSettings.exportWebp) {
+                        const webpDataUrl = item.canvas.toDataURL('image/webp', 0.9);
+                        zip.file(`preview_${item.face}.webp`, webpDataUrl.split(',')[1], { base64: true });
+                    }
                 });
                 zip.file('manifest.json', JSON.stringify({
                     app: 'Skybox Studio',
@@ -6540,6 +6550,17 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             cutoutState.lastPoint = null;
         });
 
+        if (canvasStage) {
+            canvasStage.addEventListener('dragover', event => { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; canvasStage.classList.add('drag-over'); });
+            canvasStage.addEventListener('dragleave', () => { canvasStage.classList.remove('drag-over'); });
+            canvasStage.addEventListener('drop', async event => {
+                event.preventDefault();
+                canvasStage.classList.remove('drag-over');
+                const files = [...(event.dataTransfer?.files || [])].filter(f => f.type.startsWith('image/'));
+                if (files.length > 0) await addImages(files);
+            });
+        }
+
         canvas.addEventListener('wheel', event => {
             event.preventDefault();
             if (event.ctrlKey || event.metaKey) {
@@ -6586,6 +6607,15 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             drawBrushStroke(cutoutState.lastPoint, nextPoint);
             cutoutState.lastPoint = nextPoint;
         });
+
+        cutoutCanvas.addEventListener('wheel', event => {
+            event.preventDefault();
+            const zoomSlider = document.getElementById('cutout-zoom');
+            cutoutState.zoom = clamp(cutoutState.zoom + (event.deltaY > 0 ? -0.1 : 0.1), 0.25, 3);
+            if (zoomSlider) zoomSlider.value = cutoutState.zoom;
+            syncCutoutControlLabels();
+            redrawCutoutCanvas();
+        }, { passive: false });
 
         document.getElementById('brush-erase').addEventListener('click', () => { cutoutState.mode = 'erase'; updateCutoutModeButtons(); });
         document.getElementById('brush-restore').addEventListener('click', () => { cutoutState.mode = 'restore'; updateCutoutModeButtons(); });
@@ -6746,6 +6776,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         const settingsExportFlip = document.getElementById('settings-export-flip');
         const settingsExportPng = document.getElementById('settings-export-png');
         const settingsExportTex = document.getElementById('settings-export-tex');
+        const settingsExportWebp = document.getElementById('settings-export-webp');
         const settingsCanvasSize = document.getElementById('settings-canvas-size');
         const settingsCanvasSizeValue = document.getElementById('settings-canvas-size-value');
         const settingsAutosave = document.getElementById('settings-autosave');
@@ -6760,6 +6791,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             if (settingsExportFlip) settingsExportFlip.checked = appSettings.exportFlip;
             if (settingsExportPng) settingsExportPng.checked = appSettings.exportPng;
             if (settingsExportTex) settingsExportTex.checked = appSettings.exportTex;
+            if (settingsExportWebp) settingsExportWebp.checked = appSettings.exportWebp;
             if (settingsCanvasSize) { settingsCanvasSize.value = appSettings.canvasSize; if (settingsCanvasSizeValue) settingsCanvasSizeValue.textContent = appSettings.canvasSize; }
             if (settingsAutosave) settingsAutosave.checked = appSettings.autosave;
             if (settingsAutosaveInterval) { settingsAutosaveInterval.value = appSettings.autosaveInterval; if (settingsAutosaveIntervalValue) settingsAutosaveIntervalValue.textContent = appSettings.autosaveInterval; }
@@ -6772,12 +6804,14 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             if (settingsExportFlip) appSettings.exportFlip = settingsExportFlip.checked;
             if (settingsExportPng) appSettings.exportPng = settingsExportPng.checked;
             if (settingsExportTex) appSettings.exportTex = settingsExportTex.checked;
+            if (settingsExportWebp) appSettings.exportWebp = settingsExportWebp.checked;
             if (settingsCanvasSize) appSettings.canvasSize = Number(settingsCanvasSize.value) || 1024;
             if (settingsAutosave) appSettings.autosave = settingsAutosave.checked;
             if (settingsAutosaveInterval) appSettings.autosaveInterval = Number(settingsAutosaveInterval.value) || 60;
             if (settingsFastPreview) appSettings.fastPreview = settingsFastPreview.checked;
             saveAppSettings();
             spherePreviewQuality = appSettings.fastPreview ? 'fast' : 'full';
+            startAutosaveTimer();
             settingsModal.classList.remove('visible');
             render();
         }
@@ -6786,6 +6820,22 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         document.getElementById('settings-save')?.addEventListener('click', applySettings);
         settingsCanvasSize?.addEventListener('input', () => { if (settingsCanvasSizeValue) settingsCanvasSizeValue.textContent = settingsCanvasSize.value; });
         settingsAutosaveInterval?.addEventListener('input', () => { if (settingsAutosaveIntervalValue) settingsAutosaveIntervalValue.textContent = settingsAutosaveInterval.value; });
+
+        let autosaveTimerId = null;
+        function startAutosaveTimer() {
+            stopAutosaveTimer();
+            if (appSettings.autosave && appSettings.autosaveInterval > 0) {
+                autosaveTimerId = window.setInterval(async () => {
+                    try { await saveCurrentProject(`자동 저장 ${new Date().toLocaleString('ko-KR')}`, { silent: true }); }
+                    catch (e) { console.warn('자동 저장 실패', e); }
+                }, appSettings.autosaveInterval * 1000);
+            }
+        }
+        function stopAutosaveTimer() {
+            if (autosaveTimerId !== null) { window.clearInterval(autosaveTimerId); autosaveTimerId = null; }
+        }
+        startAutosaveTimer();
+
         document.querySelectorAll('[data-quick-action]').forEach(button => {
             button.addEventListener('click', async event => {
                 await applyElementAction(event.currentTarget.dataset.quickAction);
@@ -6812,6 +6862,32 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         mobileQuickBorderWidth?.addEventListener('input', updateMobileQuickBorder);
         mobileQuickBorderStrength?.addEventListener('input', updateMobileQuickBorder);
         mobileQuickBorderColor?.addEventListener('input', updateMobileQuickBorder);
+
+        const mobileQuickScale = document.getElementById('mobile-quick-scale');
+        const mobileQuickScaleValue = document.getElementById('mobile-quick-scale-value');
+        mobileQuickScale?.addEventListener('input', event => {
+            const selected = getSelectedElement();
+            if (!selected || selected.locked) return;
+            selected.scale = clamp(Number(event.target.value) / 100, 0.05, 4);
+            if (mobileQuickScaleValue) mobileQuickScaleValue.textContent = event.target.value;
+            render();
+        });
+        const mobileQuickOpacity = document.getElementById('mobile-quick-opacity');
+        const mobileQuickOpacityValue = document.getElementById('mobile-quick-opacity-value');
+        mobileQuickOpacity?.addEventListener('input', event => {
+            const selected = getSelectedElement();
+            if (!selected || selected.locked) return;
+            selected.opacity = clamp(Number(event.target.value) / 100, 0, 1);
+            if (mobileQuickOpacityValue) mobileQuickOpacityValue.textContent = event.target.value;
+            render();
+        });
+        const mobileQuickShadowBlur = document.getElementById('mobile-quick-shadow-blur');
+        mobileQuickShadowBlur?.addEventListener('input', event => {
+            const selected = getSelectedElement();
+            if (!selected || selected.locked) return;
+            selected.shadowBlur = clamp(Number(event.target.value), 0, 60);
+            render();
+        });
         choosePcLayoutButton?.addEventListener('click', () => applyLayoutMode('pc'));
         chooseMobileLayoutButton?.addEventListener('click', () => applyLayoutMode('mobile'));
         changeLayoutModeButton?.addEventListener('click', openLayoutChoice);
@@ -6825,7 +6901,17 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             syncCanvasView();
         });
         toggleSnapButton.addEventListener('click', () => {
-            snapToGrid = !snapToGrid;
+            if (!snapToGrid) {
+                snapToGrid = true;
+                snapGridSize = 8;
+            } else if (snapGridSize === 8) {
+                snapGridSize = 16;
+            } else if (snapGridSize === 16) {
+                snapGridSize = 32;
+            } else {
+                snapToGrid = false;
+                snapGridSize = 16;
+            }
             syncCanvasView();
         });
         document.getElementById('canvas-bg-color').addEventListener('input', event => { getFaceState().backgroundColor = event.target.value; render(); });
@@ -6931,7 +7017,18 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 event.preventDefault();
                 duplicateSelectedElement();
             }
+            if (event.key === '?') {
+                event.preventDefault();
+                document.getElementById('shortcuts-modal')?.classList.toggle('visible');
+            }
         });
+
+        document.getElementById('shortcuts-close')?.addEventListener('click', () => document.getElementById('shortcuts-modal')?.classList.remove('visible'));
+        document.getElementById('shortcuts-modal')?.addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.classList.remove('visible'); });
+
+        document.getElementById('version-badge')?.addEventListener('click', () => document.getElementById('about-modal')?.classList.toggle('visible'));
+        document.getElementById('about-close')?.addEventListener('click', () => document.getElementById('about-modal')?.classList.remove('visible'));
+        document.getElementById('about-modal')?.addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.classList.remove('visible'); });
 
         loadAiConfig();
         syncAiConfigInputs();
@@ -6976,6 +7073,28 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         let geTileSize = 128;
         let geTileGap = 0;
         let geTileOffset = false;
+        let geUndoStack = [];
+        let geRedoStack = [];
+        const GE_UNDO_MAX = 30;
+
+        function geSaveUndoState() {
+            if (!geCtx || !geCanvas) return;
+            geUndoStack.push(geCtx.getImageData(0, 0, geCanvas.width, geCanvas.height));
+            if (geUndoStack.length > GE_UNDO_MAX) geUndoStack.shift();
+            geRedoStack = [];
+        }
+        function geUndo() {
+            if (geUndoStack.length === 0 || !geCtx || !geCanvas) return;
+            geRedoStack.push(geCtx.getImageData(0, 0, geCanvas.width, geCanvas.height));
+            geCtx.putImageData(geUndoStack.pop(), 0, 0);
+            renderGridEditorOverlay();
+        }
+        function geRedo() {
+            if (geRedoStack.length === 0 || !geCtx || !geCanvas) return;
+            geUndoStack.push(geCtx.getImageData(0, 0, geCanvas.width, geCanvas.height));
+            geCtx.putImageData(geRedoStack.pop(), 0, 0);
+            renderGridEditorOverlay();
+        }
 
         function openGridEditor() {
             if (!geModal) return;
@@ -7030,7 +7149,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 <div class="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/10">
                     <img src="${img.dataURL}" class="w-10 h-10 object-cover rounded-lg">
                     <div class="flex-1 min-w-0">
-                        <div class="text-[11px] text-slate-300 truncate">${img.name}</div>
+                        <div class="text-[11px] text-slate-300 truncate">${escapeHtml(img.name)}</div>
                         <div class="text-[10px] text-slate-500">${img.width}x${img.height}</div>
                     </div>
                     <div class="flex items-center gap-1">
@@ -7255,6 +7374,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
 
         geCanvas?.addEventListener('pointerdown', e => {
             e.preventDefault();
+            if (geTool === 'pen' || geTool === 'eraser') geSaveUndoState();
             geDrawing = true;
             geLastPoint = geCanvasCoords(e);
             geDrawAt(geLastPoint.x, geLastPoint.y);
@@ -7398,4 +7518,11 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
 
         document.getElementById('grid-editor-close')?.addEventListener('click', closeGridEditor);
         document.getElementById('background-template-preview')?.addEventListener('click', openGridEditor);
+
+        if (geModal) {
+            geModal.addEventListener('keydown', e => {
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); geUndo(); }
+                if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) { e.preventDefault(); geRedo(); }
+            });
+        }
 

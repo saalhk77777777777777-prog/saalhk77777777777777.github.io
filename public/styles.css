@@ -25,6 +25,7 @@
         .layout-choice-button:hover { transform: translateY(-3px); border-color: rgba(103,232,249,0.38); background-color: rgba(103,232,249,0.08); }
         .layout-choice-button.mobile { background: radial-gradient(circle at top right, rgba(52,211,153,0.22), transparent 42%), rgba(255,255,255,0.035); }
         .canvas-stage { scroll-behavior: smooth; }
+        .canvas-stage.drag-over { outline: 3px dashed rgba(103, 232, 249, 0.6); outline-offset: -6px; background-color: rgba(103, 232, 249, 0.04) !important; }
         .canvas-center { min-width: max-content; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 86px 96px; }
         .canvas-shell { width: max-content; height: max-content; }
         .editor-canvas { display: block; width: 758px; height: 758px; max-width: none; max-height: none; image-rendering: auto; touch-action: none; user-select: none; }
