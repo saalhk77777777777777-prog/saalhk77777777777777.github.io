@@ -7,6 +7,40 @@
     '7xzQ32TqqLYz12g2tk4gg7ZG'
 ];
 const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
+
+// ========== Security: Anti-Inspection ==========
+(function() {
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || (e.ctrlKey && e.key === 'u')) {
+            e.preventDefault(); return false;
+        }
+    });
+    document.addEventListener('dragstart', e => e.preventDefault());
+    let devtoolsOpen = false;
+    const devtoolsCheck = function() {
+        const threshold = 160;
+        const widthThreshold = window.outerWidth - window.innerWidth > threshold;
+        const heightThreshold = window.outerHeight - window.innerHeight > threshold;
+        if (widthThreshold || heightThreshold) {
+            if (!devtoolsOpen) { devtoolsOpen = true; document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#07111f;color:#67e8f9;font-family:sans-serif;font-size:24px;font-weight:900">개발자 도구가 감지되었습니다.</div>'; }
+        } else { devtoolsOpen = false; }
+    };
+    setInterval(devtoolsCheck, 1000);
+    const origLog = console.log;
+    const origWarn = console.warn;
+    const origError = console.error;
+    const origTable = console.table;
+    const silent = function() {};
+    console.log = silent; console.warn = silent; console.error = silent; console.table = silent;
+    window.addEventListener('error', function(e) { e.preventDefault(); return false; });
+    Object.defineProperty(document, 'createElement', { value: function(tag) {
+        const el = document.createElement(tag);
+        if (tag === 'canvas') { const origToDataURL = el.toDataURL; el.toDataURL = function() { return origToDataURL.apply(this, arguments); }; }
+        return el;
+    }});
+})();
+
         const APP_VERSION = 'v2026.07.31.01';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
         const CANVAS_SIZE = 1024;
