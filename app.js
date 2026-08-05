@@ -40,6 +40,11 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         return el;
     }});
 })();
+if (document.body && document.body.getAttribute('data-locked') === 'true') {
+    ['header', 'main', '.adfit-wrap', '.version-badge', '#mobile-slider-preview'].forEach(function(sel) {
+        document.querySelectorAll(sel).forEach(function(el) { el.style.display = 'none'; });
+    });
+}
 
         const APP_VERSION = 'v2026.07.31.01';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
@@ -7111,12 +7116,18 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             document.body.removeAttribute('data-locked');
             document.getElementById('paywall-modal')?.classList.remove('paywall-fullscreen');
             document.getElementById('paywall-modal')?.classList.add('hidden');
+            ['header', 'main', '.adfit-wrap', '.version-badge', '#mobile-slider-preview'].forEach(sel => {
+                document.querySelectorAll(sel).forEach(el => { el.style.display = ''; });
+            });
         }
 
         function lockApp() {
             document.body.setAttribute('data-locked', 'true');
             const modal = document.getElementById('paywall-modal');
             if (modal) { modal.classList.remove('hidden'); modal.classList.add('paywall-fullscreen'); }
+            ['header', 'main', '.adfit-wrap', '.version-badge', '#mobile-slider-preview'].forEach(sel => {
+                document.querySelectorAll(sel).forEach(el => { el.style.display = 'none'; });
+            });
         }
 
         async function checkLicense() {
