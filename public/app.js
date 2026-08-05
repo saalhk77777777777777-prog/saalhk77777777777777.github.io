@@ -7209,7 +7209,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 let key = getAvailableKey();
                 if (!key) {
                     const waitMs = getCooldownMs();
-                    if (waitMs > 0) { await sleep(Math.min(waitMs, 10000)); continue; }
+                    if (waitMs > 0) { await sleep(waitMs + 1000); continue; }
                     throw new Error('Gemini API 키가 없습니다. 설정에서 키를 입력해주세요.');
                 }
                 try {
@@ -7227,7 +7227,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                         const cooldown = retryAfter > 0 ? Math.min(retryAfter + 2000, 90000) : 65000;
                         setKeyCooldown(key, cooldown);
                         lastError = new Error(`rate limit (키 쿨다운 ${Math.ceil(cooldown / 1000)}초)`);
-                        await sleep(Math.min(cooldown, 10000));
+                        await sleep(3000);
                         continue;
                     }
                     if (res.status === 403) {
