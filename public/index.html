@@ -787,6 +787,60 @@
         </div>
     </div>
 
+    <div id="paywall-modal" class="modal-backdrop" role="dialog" aria-label="AI 기능 잠금">
+        <div class="panel-strong rounded-3xl p-8 max-w-md w-full">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-3xl">AI</div>
+                <h3 class="text-xl font-black">AI 자동 편집</h3>
+                <p class="text-sm text-slate-400 mt-2">이미지를 분석하고 자동으로 편집·배치하는 고급 기능입니다</p>
+            </div>
+
+            <div class="space-y-3 mb-6">
+                <div class="p-4 rounded-2xl bg-white/5 border border-cyan-400/20">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="font-bold text-sm">월 정기 이용</div>
+                            <div class="text-xs text-slate-400 mt-1">무제한 AI 자동 편집</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-lg font-black text-cyan-300">₩9,900</div>
+                            <div class="text-[10px] text-slate-500">/월</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4 rounded-2xl bg-white/5 border border-white/10">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="font-bold text-sm">평생 이용권</div>
+                            <div class="text-xs text-slate-400 mt-1">한 번 결제로 영구 사용</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-lg font-black text-amber-300">₩29,000</div>
+                            <div class="text-[10px] text-slate-500">/일회</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-[11px] font-bold text-slate-400 mb-2">라이선스 키 입력</label>
+                <input id="paywall-key-input" type="text" class="text-input w-full text-center font-mono tracking-wider" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX">
+            </div>
+
+            <div id="paywall-error" class="text-xs text-rose-400 text-center mb-3 hidden">유효하지 않은 키입니다</div>
+            <div id="paywall-success" class="text-xs text-emerald-400 text-center mb-3 hidden">인증 완료!</div>
+
+            <div class="space-y-2">
+                <button id="paywall-verify" class="tool-button primary w-full">키 인증하기</button>
+                <button id="paywall-close" class="tool-button w-full">나중에 하기</button>
+            </div>
+
+            <div class="mt-4 text-center">
+                <a id="paywall-buy-link" href="#" target="_blank" class="text-xs text-cyan-400 hover:text-cyan-300 underline">라이선스 키 구매하기 →</a>
+            </div>
+        </div>
+    </div>
+
     <div id="ai-auto-modal" class="modal-backdrop" role="dialog" aria-label="AI 자동 편집">
         <div class="panel-strong rounded-3xl p-8 max-w-lg w-full">
             <div class="flex items-center justify-between mb-6">
