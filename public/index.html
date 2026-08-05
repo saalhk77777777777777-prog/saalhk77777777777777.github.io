@@ -482,7 +482,7 @@
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <label class="tool-button cursor-pointer" title="6면 배경 이미지 일괄 업로드">배경 업로드<input type="file" id="sky-bulk" class="hidden" accept=".tex,.png,.jpg,.jpeg,.webp,.webg" multiple></label>
+                <label class="tool-button cursor-pointer" title="6면 배경 이미지 일괄 업로드">배경 업로드<input type="file" id="sky-bulk" class="hidden" accept=".tex,.png,.jpg,.jpeg,.webp" multiple></label>
                 <button id="preset-bundled-button" class="tool-button success" title="내장 프리셋 스카이박스 적용">프로그램 폴더 스카이박스</button>
                 <button id="preset-folder-button" class="tool-button" title="외부 폴더에서 6면 배경 가져오기">외부 폴더 가져오기</button>
                 <input type="file" id="preset-folder-input" class="hidden" webkitdirectory directory multiple>
@@ -770,18 +770,18 @@
             </div>
             <div class="space-y-4 text-sm text-slate-300 leading-relaxed">
                 <p>로블록스 스카이박스를 편집할 수 있는 브라우저 기반 에디터입니다.</p>
-                <div class="property-fold rounded-xl">
+                <details class="property-fold rounded-xl" open>
                     <summary>주요 기능</summary>
                     <ul class="mt-3 space-y-1 text-xs text-slate-400">
                         <li>6면 큐브맵 편집 (FT/BK/LF/RT/UP/DN)</li>
                         <li>구형(Sphere) 요소 배치</li>
                         <li>AI 배경제거 & 디자인 추천</li>
-                        <li>커스텀 그리드 배경 (위经/경도 곡선)</li>
+                        <li>커스텀 그리드 배경 (위도/경도 곡선)</li>
                         <li>텍스트 레이어 & 네온 효과</li>
                         <li>이미지 조정 (밝기, 대비, 채도, 색조, 블러)</li>
                         <li>ZIP 내보내기 (.tex + .png + manifest.json)</li>
                     </ul>
-                </div>
+                </details>
                 <p class="text-xs text-slate-500">키보드 <kbd class="px-1.5 py-0.5 rounded bg-white/10 font-mono text-[10px]">?</kbd> 를 눌러 단축키 목록을 볼 수 있습니다.</p>
             </div>
         </div>
@@ -863,6 +863,6 @@
         </div>
     </div>
 
-    <script src="./app.js?v=2026.07.06.01"></script>
+    <script src="./app.js?v=2026.07.31.01"></script>
 </body>
 </html>

@@ -33,18 +33,14 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
     const origTable = console.table;
     const silent = function() {};
     console.log = silent; console.warn = silent; console.error = silent; console.table = silent;
-    window.addEventListener('error', function(e) { e.preventDefault(); return false; });
+    window.addEventListener('error', function(e) { if (window.__skyboxDevMode) console.error('[Skybox]', e); });
+    const _origCreateElement = Document.prototype.createElement;
     Object.defineProperty(document, 'createElement', { value: function(tag) {
-        const el = document.createElement(tag);
+        const el = _origCreateElement.call(document, tag);
         if (tag === 'canvas') { const origToDataURL = el.toDataURL; el.toDataURL = function() { return origToDataURL.apply(this, arguments); }; }
         return el;
     }});
 })();
-if (document.body && document.body.getAttribute('data-locked') === 'true') {
-    ['header', 'main', '.adfit-wrap', '.version-badge', '#mobile-slider-preview'].forEach(function(sel) {
-        document.querySelectorAll(sel).forEach(function(el) { el.style.display = 'none'; });
-    });
-}
 
         const APP_VERSION = 'v2026.07.31.01';
         const FACES = ['ft', 'bk', 'lf', 'rt', 'up', 'dn'];
@@ -1179,7 +1175,9 @@ if (document.body && document.body.getAttribute('data-locked') === 'true') {
         function renderBackgroundTemplates() {
             const modeLabels = { none: 'Solid', white: 'White Grid', black: 'Black Grid', sphere: 'Sphere Grid' };
             backgroundTemplateCount.textContent = modeLabels[backgroundGridMode] || 'Solid';
-            const preview = createCustomGridBackground(backgroundGridMode === 'sphere' ? sphereGridBgSettings.bgColor : backgroundTemplateColor.value, backgroundGridMode, backgroundTemplatePreview.width);
+            const preview = backgroundGridMode === 'sphere'
+                ? createCustomGridBackground(sphereGridBgSettings.bgColor, 'sphere', backgroundTemplatePreview.width, 'ft', sphereGridBgSettings)
+                : createCustomGridBackground(backgroundTemplateColor.value, backgroundGridMode, backgroundTemplatePreview.width);
             backgroundTemplatePreviewCtx.clearRect(0, 0, backgroundTemplatePreview.width, backgroundTemplatePreview.height);
             backgroundTemplatePreviewCtx.drawImage(preview, 0, 0, backgroundTemplatePreview.width, backgroundTemplatePreview.height);
             document.querySelectorAll('[data-grid-mode]').forEach(button => {
@@ -7114,20 +7112,14 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
 
         function unlockApp() {
             document.body.removeAttribute('data-locked');
-            document.getElementById('paywall-modal')?.classList.remove('paywall-fullscreen');
-            document.getElementById('paywall-modal')?.classList.add('hidden');
-            ['header', 'main', '.adfit-wrap', '.version-badge', '#mobile-slider-preview'].forEach(sel => {
-                document.querySelectorAll(sel).forEach(el => { el.style.display = ''; });
-            });
+            const modal = document.getElementById('paywall-modal');
+            if (modal) { modal.classList.remove('paywall-fullscreen'); modal.classList.add('hidden'); }
         }
 
         function lockApp() {
             document.body.setAttribute('data-locked', 'true');
             const modal = document.getElementById('paywall-modal');
             if (modal) { modal.classList.remove('hidden'); modal.classList.add('paywall-fullscreen'); }
-            ['header', 'main', '.adfit-wrap', '.version-badge', '#mobile-slider-preview'].forEach(sel => {
-                document.querySelectorAll(sel).forEach(el => { el.style.display = 'none'; });
-            });
         }
 
         async function checkLicense() {
@@ -7144,7 +7136,8 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             lockApp();
             document.getElementById('paywall-error')?.classList.add('hidden');
             document.getElementById('paywall-success')?.classList.add('hidden');
-            document.getElementById('paywall-key-input').value = getStoredLicense();
+            const keyInput = document.getElementById('paywall-key-input');
+            if (keyInput) keyInput.value = getStoredLicense();
         }
 
         async function handlePaywallVerify() {
