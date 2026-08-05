@@ -6797,7 +6797,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             if (settingsAutosaveInterval) { settingsAutosaveInterval.value = appSettings.autosaveInterval; if (settingsAutosaveIntervalValue) settingsAutosaveIntervalValue.textContent = appSettings.autosaveInterval; }
             if (settingsFastPreview) settingsFastPreview.checked = appSettings.fastPreview;
             const settingsGeminiKeyInput = document.getElementById('settings-gemini-key');
-            if (settingsGeminiKeyInput) settingsGeminiKeyInput.value = geminiApiKey;
+            if (settingsGeminiKeyInput) settingsGeminiKeyInput.value = geminiApiKeys.join(', ');
             settingsModal.classList.add('visible');
         }
         function applySettings() {
@@ -6813,7 +6813,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             if (settingsFastPreview) appSettings.fastPreview = settingsFastPreview.checked;
             saveAppSettings();
             const settingsGeminiKeyInput = document.getElementById('settings-gemini-key');
-            if (settingsGeminiKeyInput) saveGeminiKey(settingsGeminiKeyInput.value.trim());
+            if (settingsGeminiKeyInput) saveGeminiKeys(settingsGeminiKeyInput.value.split(',').map(k => k.trim()).filter(Boolean));
             spherePreviewQuality = appSettings.fastPreview ? 'fast' : 'full';
             startAutosaveTimer();
             settingsModal.classList.remove('visible');
@@ -7036,23 +7036,39 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
 
         // ========== AI Auto-Edit Pipeline ==========
         const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-        let geminiApiKey = (() => { try { return localStorage.getItem('skybox-gemini-key') || ''; } catch { return ''; } })();
+        let geminiApiKeys = (() => { try { return JSON.parse(localStorage.getItem('skybox-gemini-keys') || '[]'); } catch { return []; } })();
+        let geminiKeyIndex = 0;
 
-        function saveGeminiKey(key) { geminiApiKey = key; try { localStorage.setItem('skybox-gemini-key', key); } catch {} }
+        function saveGeminiKeys(keys) { geminiApiKeys = keys.filter(k => k.trim()); try { localStorage.setItem('skybox-gemini-keys', JSON.stringify(geminiApiKeys)); } catch {} }
+        function getNextGeminiKey() {
+            if (geminiApiKeys.length === 0) throw new Error('Gemini API 키가 없습니다. 설정에서 키를 입력해주세요.');
+            const key = geminiApiKeys[geminiKeyIndex % geminiApiKeys.length];
+            geminiKeyIndex = (geminiKeyIndex + 1) % geminiApiKeys.length;
+            return key;
+        }
 
         async function callGeminiVision(prompt, imageBase64List) {
             const parts = [{ text: prompt }];
             for (const b64 of imageBase64List) {
                 parts.push({ inline_data: { mime_type: 'image/jpeg', data: b64 } });
             }
-            const res = await fetch(`${GEMINI_API_URL}?key=${geminiApiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.3, maxOutputTokens: 4096 } })
-            });
-            if (!res.ok) throw new Error(`Gemini API 오류: ${res.status} ${await res.text()}`);
-            const data = await res.json();
-            return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            let lastError = null;
+            const attempts = geminiApiKeys.length || 1;
+            for (let i = 0; i < attempts; i++) {
+                const key = getNextGeminiKey();
+                const res = await fetch(`${GEMINI_API_URL}?key=${key}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.3, maxOutputTokens: 4096 } })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                }
+                lastError = new Error(`Gemini API 오류: ${res.status}`);
+                console.warn(`Gemini 키 ${i + 1}/${attempts} 실패, 다음 키 시도...`);
+            }
+            throw lastError || new Error('모든 Gemini API 키가 실패했습니다.');
         }
 
         function createThumbnail(sourceCanvas, maxSize = 256) {
@@ -7106,7 +7122,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         }
 
         async function runAiAutoEdit(files) {
-            if (!geminiApiKey) { alert('설정에서 Gemini API 키를 입력해주세요.\n(무료: aistudio.google.com에서 발급 가능)'); return; }
+            if (!geminiApiKeys.length) { alert('설정에서 Gemini API 키를 입력해주세요.\n(무료: aistudio.google.com에서 발급 가능)\n여러 키를 쉼표(,)로 구분하여 입력하면 더 많이 사용할 수 있습니다.'); return; }
             if (!files || files.length === 0) return;
 
             const modal = document.getElementById('ai-auto-modal');
