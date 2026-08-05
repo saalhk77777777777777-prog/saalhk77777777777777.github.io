@@ -1,6 +1,6 @@
 ﻿@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;700;800;900&display=swap');
         :root { --bg: #07111f; --panel: rgba(8, 16, 29, 0.88); --panel-strong: rgba(6, 12, 23, 0.96); --line: rgba(255, 255, 255, 0.08); --text: #eef4ff; --muted: #8da0bf; --accent: #67e8f9; }
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
         html, body { margin: 0; height: 100%; }
         body { font-family: 'Pretendard', sans-serif; color: var(--text); background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.15), transparent 30%), radial-gradient(circle at top right, rgba(103, 232, 249, 0.08), transparent 25%), linear-gradient(180deg, #07101b 0%, #05070d 100%); overflow: hidden; }
         body[data-locked="true"] > *:not(.paywall-fullscreen) { display: none !important; }
