@@ -271,6 +271,24 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         })();
         function saveSphereGridBgSettings() { localStorage.setItem(SPHERE_GRID_SETTINGS_KEY, JSON.stringify(sphereGridBgSettings)); }
 
+        const APP_SETTINGS_KEY = 'skybox-app-settings-v1';
+        const DEFAULT_APP_SETTINGS = {
+            projectName: '내 스카이박스 프로젝트',
+            author: '',
+            exportFlip: true,
+            exportPng: true,
+            exportTex: true,
+            canvasSize: 1024,
+            autosave: false,
+            autosaveInterval: 60,
+            fastPreview: true
+        };
+        let appSettings = (() => {
+            try { return { ...DEFAULT_APP_SETTINGS, ...JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) || '{}') }; }
+            catch { return { ...DEFAULT_APP_SETTINGS }; }
+        })();
+        function saveAppSettings() { localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(appSettings)); }
+
         const aiConfig = {
             endpoint: IS_PUBLIC_HOSTED ? '' : 'http://127.0.0.1:1234/v1/chat/completions',
             model: 'qwen2.5-vl-7b-instruct',
@@ -5111,7 +5129,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                 }
                 warpedCanvas = pairWarpCache.get(cacheKey)[Number(element.pairIndex || 0)] || element.originalCanvas;
             }
-            const flippedCanvas = flipCanvasHorizontal(warpedCanvas);
+            const flippedCanvas = appSettings.exportFlip ? flipCanvasHorizontal(warpedCanvas) : warpedCanvas;
             const exportElement = {
                 ...element,
                 originalCanvas: flippedCanvas,
@@ -5139,11 +5157,15 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                         drawImageElement(exportElement, flatCtx, false);
                     }
                     if (element.type === 'text') {
-                        flatCtx.save();
-                        flatCtx.translate(CANVAS_SIZE, 0);
-                        flatCtx.scale(-1, 1);
-                        drawTextElement(element, flatCtx, false);
-                        flatCtx.restore();
+                        if (appSettings.exportFlip) {
+                            flatCtx.save();
+                            flatCtx.translate(CANVAS_SIZE, 0);
+                            flatCtx.scale(-1, 1);
+                            drawTextElement(element, flatCtx, false);
+                            flatCtx.restore();
+                        } else {
+                            drawTextElement(element, flatCtx, false);
+                        }
                     }
                 }
                 canvases[faceKey] = flatCanvas;
@@ -5233,7 +5255,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
 
         function drawSceneForExport(faceKey, renderCtx, flatExportFaces, flatExportFaceData) {
             drawSphereToOuterCubePrewarpedFace(faceKey, flatExportFaces, flatExportFaceData, renderCtx);
-            drawSphericalElementsOnFace(faceKey, renderCtx, true);
+            drawSphericalElementsOnFace(faceKey, renderCtx, appSettings.exportFlip);
         }
 
         function getActivePairFaces() {
@@ -6134,7 +6156,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         async function exportAll() {
             showLoading('내보내기 전 작업 기록을 자동 저장하는 중이에요.');
             try {
-                await saveCurrentProject(`전체 내보내기 자동 저장 ${new Date().toLocaleString('ko-KR')}`, { silent: true });
+                await saveCurrentProject(`${appSettings.projectName} 자동 저장 ${new Date().toLocaleString('ko-KR')}`, { silent: true });
                 showLoading('면 사이 기록을 로블록스 원근으로 자동 변환하는 중이에요.');
                 const renderedFaces = [];
                 const pairWarpCache = new Map();
@@ -6161,14 +6183,17 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                 }
 
                 const zip = new JSZip();
+                const prefix = appSettings.projectName.replace(/[^a-zA-Z0-9가-힣_-]/g, '_').substring(0, 30);
                 renderedFaces.forEach(item => {
-                    zip.file(`sky512_${item.face}.tex`, item.base64, { base64: true });
-                    zip.file(`preview_${item.face}.png`, item.base64, { base64: true });
+                    if (appSettings.exportTex) zip.file(`sky512_${item.face}.tex`, item.base64, { base64: true });
+                    if (appSettings.exportPng) zip.file(`preview_${item.face}.png`, item.base64, { base64: true });
                 });
                 zip.file('manifest.json', JSON.stringify({
                     app: 'Skybox Studio',
                     manifestType: 'app-export',
                     version: APP_VERSION,
+                    projectName: appSettings.projectName,
+                    author: appSettings.author,
                     exportedAt: new Date().toISOString(),
                     canvasSize: CANVAS_SIZE,
                     flow: 'Cube -> Globe edit -> Cube export',
@@ -6180,12 +6205,12 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                     },
                     faces: renderedFaces.map(item => ({
                         face: item.face,
-                        texture: `sky512_${item.face}.tex`,
-                        preview: `preview_${item.face}.png`
+                        texture: appSettings.exportTex ? `sky512_${item.face}.tex` : null,
+                        preview: appSettings.exportPng ? `preview_${item.face}.png` : null
                     }))
                 }, null, 2));
                 const blob = await zip.generateAsync({ type: 'blob' });
-                downloadBlob(blob, `skybox_studio_pack_${APP_VERSION}_${createExportFileStamp()}.zip`);
+                downloadBlob(blob, `${prefix}_${APP_VERSION}_${createExportFileStamp()}.zip`);
             } catch (error) {
                 alert(`내보내기 실패\n${getErrorMessage(error)}`);
             } finally {
@@ -6714,6 +6739,53 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         document.getElementById('bring-front').addEventListener('click', () => moveElementOrder('front'));
         document.getElementById('send-back').addEventListener('click', () => moveElementOrder('back'));
         document.getElementById('center-layer').addEventListener('click', centerSelectedElement);
+
+        const settingsModal = document.getElementById('settings-modal');
+        const settingsProjectName = document.getElementById('settings-project-name');
+        const settingsAuthor = document.getElementById('settings-author');
+        const settingsExportFlip = document.getElementById('settings-export-flip');
+        const settingsExportPng = document.getElementById('settings-export-png');
+        const settingsExportTex = document.getElementById('settings-export-tex');
+        const settingsCanvasSize = document.getElementById('settings-canvas-size');
+        const settingsCanvasSizeValue = document.getElementById('settings-canvas-size-value');
+        const settingsAutosave = document.getElementById('settings-autosave');
+        const settingsAutosaveInterval = document.getElementById('settings-autosave-interval');
+        const settingsAutosaveIntervalValue = document.getElementById('settings-autosave-interval-value');
+        const settingsFastPreview = document.getElementById('settings-fast-preview');
+
+        function openSettings() {
+            if (!settingsModal) return;
+            if (settingsProjectName) settingsProjectName.value = appSettings.projectName;
+            if (settingsAuthor) settingsAuthor.value = appSettings.author;
+            if (settingsExportFlip) settingsExportFlip.checked = appSettings.exportFlip;
+            if (settingsExportPng) settingsExportPng.checked = appSettings.exportPng;
+            if (settingsExportTex) settingsExportTex.checked = appSettings.exportTex;
+            if (settingsCanvasSize) { settingsCanvasSize.value = appSettings.canvasSize; if (settingsCanvasSizeValue) settingsCanvasSizeValue.textContent = appSettings.canvasSize; }
+            if (settingsAutosave) settingsAutosave.checked = appSettings.autosave;
+            if (settingsAutosaveInterval) { settingsAutosaveInterval.value = appSettings.autosaveInterval; if (settingsAutosaveIntervalValue) settingsAutosaveIntervalValue.textContent = appSettings.autosaveInterval; }
+            if (settingsFastPreview) settingsFastPreview.checked = appSettings.fastPreview;
+            settingsModal.classList.add('visible');
+        }
+        function applySettings() {
+            if (settingsProjectName) appSettings.projectName = settingsProjectName.value.trim() || DEFAULT_APP_SETTINGS.projectName;
+            if (settingsAuthor) appSettings.author = settingsAuthor.value.trim();
+            if (settingsExportFlip) appSettings.exportFlip = settingsExportFlip.checked;
+            if (settingsExportPng) appSettings.exportPng = settingsExportPng.checked;
+            if (settingsExportTex) appSettings.exportTex = settingsExportTex.checked;
+            if (settingsCanvasSize) appSettings.canvasSize = Number(settingsCanvasSize.value) || 1024;
+            if (settingsAutosave) appSettings.autosave = settingsAutosave.checked;
+            if (settingsAutosaveInterval) appSettings.autosaveInterval = Number(settingsAutosaveInterval.value) || 60;
+            if (settingsFastPreview) appSettings.fastPreview = settingsFastPreview.checked;
+            saveAppSettings();
+            spherePreviewQuality = appSettings.fastPreview ? 'fast' : 'full';
+            settingsModal.classList.remove('visible');
+            render();
+        }
+        document.getElementById('open-settings')?.addEventListener('click', openSettings);
+        document.getElementById('settings-close')?.addEventListener('click', () => settingsModal?.classList.remove('visible'));
+        document.getElementById('settings-save')?.addEventListener('click', applySettings);
+        settingsCanvasSize?.addEventListener('input', () => { if (settingsCanvasSizeValue) settingsCanvasSizeValue.textContent = settingsCanvasSize.value; });
+        settingsAutosaveInterval?.addEventListener('input', () => { if (settingsAutosaveIntervalValue) settingsAutosaveIntervalValue.textContent = settingsAutosaveInterval.value; });
         document.querySelectorAll('[data-quick-action]').forEach(button => {
             button.addEventListener('click', async event => {
                 await applyElementAction(event.currentTarget.dataset.quickAction);
