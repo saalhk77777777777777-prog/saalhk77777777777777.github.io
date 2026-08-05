@@ -401,6 +401,69 @@
         </div>
     </div>
 
+    <div id="settings-modal" class="modal-backdrop">
+        <div class="panel-strong rounded-[30px] w-full max-w-lg overflow-hidden">
+            <div class="p-6 border-b border-white/10 flex items-center justify-between">
+                <div>
+                    <div class="property-label">Settings</div>
+                    <h2 class="text-xl font-black mt-2">설정</h2>
+                </div>
+                <button id="settings-close" class="tool-button">닫기</button>
+            </div>
+            <div class="p-6 space-y-5 max-h-[70vh] overflow-y-auto scrollbar">
+                <div class="property-group space-y-3">
+                    <div class="property-label">프로젝트</div>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="mb-1 block">저장 이름</span>
+                        <input id="settings-project-name" type="text" class="text-input w-full" placeholder="내 스카이박스 프로젝트" maxlength="60">
+                    </label>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="mb-1 block">작성자</span>
+                        <input id="settings-author" type="text" class="text-input w-full" placeholder="작성자 이름" maxlength="40">
+                    </label>
+                </div>
+                <div class="property-group space-y-3">
+                    <div class="property-label">내보내기</div>
+                    <label class="flex items-center gap-2 text-[11px] text-slate-400 cursor-pointer">
+                        <input id="settings-export-flip" type="checkbox" checked class="accent-cyan-400"> 내보내기 시 요소 좌우반전
+                    </label>
+                    <label class="flex items-center gap-2 text-[11px] text-slate-400 cursor-pointer">
+                        <input id="settings-export-png" type="checkbox" checked class="accent-cyan-400"> .png 파일 포함
+                    </label>
+                    <label class="flex items-center gap-2 text-[11px] text-slate-400 cursor-pointer">
+                        <input id="settings-export-tex" type="checkbox" checked class="accent-cyan-400"> .tex 파일 포함
+                    </label>
+                    <label class="flex items-center gap-2 text-[11px] text-slate-400 cursor-pointer">
+                        <input id="settings-export-webp" type="checkbox" class="accent-cyan-400"> .webp 파일 포함
+                    </label>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="flex items-center justify-between mb-1">캔버스 해상도 <b id="settings-canvas-size-value" class="text-cyan-200">1024</b></span>
+                        <input id="settings-canvas-size" type="range" min="256" max="2048" step="256" value="1024" class="w-full">
+                    </label>
+                </div>
+                <div class="property-group space-y-3">
+                    <div class="property-label">자동 저장</div>
+                    <label class="flex items-center gap-2 text-[11px] text-slate-400 cursor-pointer">
+                        <input id="settings-autosave" type="checkbox" class="accent-cyan-400"> 자동 저장 켜기
+                    </label>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="flex items-center justify-between mb-1">간격 (초) <b id="settings-autosave-interval-value" class="text-cyan-200">60</b></span>
+                        <input id="settings-autosave-interval" type="range" min="10" max="300" step="10" value="60" class="w-full">
+                    </label>
+                </div>
+                <div class="property-group space-y-3">
+                    <div class="property-label">성능</div>
+                    <label class="flex items-center gap-2 text-[11px] text-slate-400 cursor-pointer">
+                        <input id="settings-fast-preview" type="checkbox" checked class="accent-cyan-400"> 글로브 미리보기 빠른 품질 (드래그 중)
+                    </label>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button id="settings-save" type="button" class="tool-button primary">저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <header class="shrink-0 border-b border-white/10 px-5 py-4 bg-black/40 backdrop-blur-xl">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-4">
@@ -411,28 +474,29 @@
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <label class="tool-button cursor-pointer">배경 업로드<input type="file" id="sky-bulk" class="hidden" accept=".tex,.png,.jpg,.jpeg,.webp,.webg" multiple></label>
-                <button id="preset-bundled-button" class="tool-button success">프로그램 폴더 스카이박스</button>
-                <button id="preset-folder-button" class="tool-button">외부 폴더 가져오기</button>
+                <label class="tool-button cursor-pointer" title="6면 배경 이미지 일괄 업로드">배경 업로드<input type="file" id="sky-bulk" class="hidden" accept=".tex,.png,.jpg,.jpeg,.webp,.webg" multiple></label>
+                <button id="preset-bundled-button" class="tool-button success" title="내장 프리셋 스카이박스 적용">프로그램 폴더 스카이박스</button>
+                <button id="preset-folder-button" class="tool-button" title="외부 폴더에서 6면 배경 가져오기">외부 폴더 가져오기</button>
                 <input type="file" id="preset-folder-input" class="hidden" webkitdirectory directory multiple>
-                <label class="tool-button cursor-pointer">이미지 추가<input type="file" id="asset-bulk" class="hidden" accept="image/*" multiple></label>
-                <button id="sphere-edit-toggle" class="tool-button success" type="button">Globe Edit ON</button>
-                <button type="button" id="poster-quick-start" class="tool-button">포스터 빠른 추가</button>
+                <label class="tool-button cursor-pointer" title="레이어로 이미지 추가">이미지 추가<input type="file" id="asset-bulk" class="hidden" accept="image/*" multiple></label>
+                <button id="sphere-edit-toggle" class="tool-button success" type="button" title="구형 편집 모드 켜기/끄기">Globe Edit ON</button>
+                <button type="button" id="poster-quick-start" class="tool-button" title="포스터 빠른 시작 마법사">포스터 빠른 추가</button>
                 <input type="file" id="poster-quick-input" class="hidden" accept="image/*" multiple>
-                <label class="tool-button cursor-pointer">AI 배경제거 추가<input type="file" id="asset-bulk-ai" class="hidden" accept="image/*" multiple></label>
+                <label class="tool-button cursor-pointer" title="AI로 배경을 제거한 후 추가">AI 배경제거 추가<input type="file" id="asset-bulk-ai" class="hidden" accept="image/*" multiple></label>
                 <div id="bg-quota-status" class="tool-button success">remove.bg 13개</div>
-                <button id="open-canva-helper" class="tool-button success">배경제거(캔바)</button>
-                <label class="tool-button cursor-pointer">단색배경 제거 추가<input type="file" id="asset-bulk-solid" class="hidden" accept="image/*" multiple></label>
-                <button id="add-text" class="tool-button">텍스트 추가</button>
-                <button id="open-ai" class="tool-button primary">AI 추천</button>
-                <button id="duplicate-layer" class="tool-button">레이어 복제</button>
-                <button id="open-cutout" class="tool-button success">수동 배경제거</button>
-                <button id="delete-layer" class="tool-button danger">삭제</button>
-                <button id="save-project" class="tool-button success">작업 저장</button>
-                <button id="load-project" class="tool-button">기록 불러오기</button>
-                <button id="open-cloud-sync" class="tool-button success">사이트 저장소</button>
-                <button id="change-layout-mode" class="tool-button">화면 모드</button>
-                <button id="export-all" class="tool-button primary">Sphere -> 6 Faces ZIP</button>
+                <button id="open-canva-helper" class="tool-button success" title="Canva 배경제거 도우미 열기">배경제거(캔바)</button>
+                <label class="tool-button cursor-pointer" title="단색 배경 이미지만 자동 제거하여 추가">단색배경 제거 추가<input type="file" id="asset-bulk-solid" class="hidden" accept="image/*" multiple></label>
+                <button id="add-text" class="tool-button" title="텍스트 레이어 추가">텍스트 추가</button>
+                <button id="open-ai" class="tool-button primary" title="AI 디자인 추천 받기">AI 추천</button>
+                <button id="duplicate-layer" class="tool-button" title="선택한 레이어 복제 (Ctrl+D)">레이어 복제</button>
+                <button id="open-cutout" class="tool-button success" title="수동 배경제거 에디터 열기">수동 배경제거</button>
+                <button id="delete-layer" class="tool-button danger" title="선택한 레이어 삭제 (Delete)">삭제</button>
+                <button id="save-project" class="tool-button success" title="현재 작업 IndexedDB에 저장">작업 저장</button>
+                <button id="load-project" class="tool-button" title="저장된 작업 기록 불러오기">기록 불러오기</button>
+                <button id="open-cloud-sync" class="tool-button success" title="Supabase 클라우드 동기화">사이트 저장소</button>
+                <button id="change-layout-mode" class="tool-button" title="PC/모바일 화면 모드 전환">화면 모드</button>
+                <button id="export-all" class="tool-button primary" title="구형 요소를 6면으로 변환하여 ZIP 내보내기">Sphere -> 6 Faces ZIP</button>
+                <button id="open-settings" class="tool-button" title="프로젝트 설정 열기">설정</button>
             </div>
         </div>
     </header>
@@ -615,6 +679,14 @@
                             <input id="mobile-quick-rotation" type="range" min="-90" max="90" step="1" value="0">
                         </label>
                         <label class="mobile-quick-field">
+                            <span>크기 <b id="mobile-quick-scale-value">100</b>%</span>
+                            <input id="mobile-quick-scale" type="range" min="5" max="400" step="1" value="100">
+                        </label>
+                        <label class="mobile-quick-field">
+                            <span>불투명도 <b id="mobile-quick-opacity-value">100</b>%</span>
+                            <input id="mobile-quick-opacity" type="range" min="0" max="100" step="1" value="100">
+                        </label>
+                        <label class="mobile-quick-field">
                             <span>테두리 두께</span>
                             <input id="mobile-quick-border-width" type="range" min="0" max="50" step="1" value="0">
                         </label>
@@ -625,6 +697,10 @@
                         <label class="mobile-quick-color">
                             <span>색깔</span>
                             <input id="mobile-quick-border-color" type="color" value="#7c3aed">
+                        </label>
+                        <label class="mobile-quick-field">
+                            <span>그림자 흐림</span>
+                            <input id="mobile-quick-shadow-blur" type="range" min="0" max="60" step="1" value="0">
                         </label>
                         <button type="button" class="tool-button mobile-quick-recommend-button !px-4 !py-2" data-quick-action="recommend-outline-color">추천색</button>
                         <button type="button" class="tool-button mobile-quick-shadow-button !px-4 !py-2" data-quick-action="mobile-quick-shadow">선명 그림자</button>
@@ -654,7 +730,54 @@
         <canvas id="mobile-slider-preview-canvas" width="1024" height="1024"></canvas>
         <div class="mobile-slider-preview-label">미리보기</div>
     </div>
-    <div class="version-badge" aria-label="app version">Version <span id="app-version">v2026.07.31.01</span></div>
+    <div class="version-badge" id="version-badge" role="button" tabindex="0" style="cursor:pointer" title="정보 보기">Version <span id="app-version">v2026.07.31.01</span></div>
+
+    <div id="shortcuts-modal" class="modal-backdrop" role="dialog" aria-label="단축키 목록">
+        <div class="panel-strong rounded-3xl p-8 max-w-lg w-full max-h-[80vh] overflow-y-auto scrollbar">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-black">키보드 단축키</h3>
+                <button id="shortcuts-close" class="tool-button text-xs">닫기</button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="flex justify-between"><span class="text-slate-300">되돌리기</span><kbd class="px-2 py-0.5 rounded bg-white/10 font-mono text-xs">Ctrl+Z</kbd></div>
+                <div class="flex justify-between"><span class="text-slate-300">다시하기</span><kbd class="px-2 py-0.5 rounded bg-white/10 font-mono text-xs">Ctrl+Shift+Z</kbd></div>
+                <div class="flex justify-between"><span class="text-slate-300">요소 복제</span><kbd class="px-2 py-0.5 rounded bg-white/10 font-mono text-xs">Ctrl+D</kbd></div>
+                <div class="flex justify-between"><span class="text-slate-300">요소 삭제</span><kbd class="px-2 py-0.5 rounded bg-white/10 font-mono text-xs">Delete / Backspace</kbd></div>
+                <div class="flex justify-between"><span class="text-slate-300">위치 이동</span><kbd class="px-2 py-0.5 rounded bg-white/10 font-mono text-xs">방향키 (1px)</kbd></div>
+                <div class="flex justify-between"><span class="text-slate-300">위치 이동 (큰 폭)</span><kbd class="px-2 py-0.5 rounded bg-white/10 font-mono text-xs">Shift + 방향키 (10px)</kbd></div>
+                <div class="flex justify-between"><span class="text-slate-300">캔버스 확대/축소</span><kbd class="px-2 py-0.5 rounded bg-white/10 font-mono text-xs">Ctrl + 스크롤</kbd></div>
+                <div class="flex justify-between"><span class="text-slate-300">슬라이더 세밀 조절</span><kbd class="px-2 py-0.5 rounded bg-white/10 font-mono text-xs">Ctrl + 방향키</kbd></div>
+                <div class="flex justify-between"><span class="text-slate-300">슬라이더 빠르게 조절</span><kbd class="px-2 py-0.5 rounded bg-white/10 font-mono text-xs">Shift + 방향키</kbd></div>
+                <div class="flex justify-between"><span class="text-slate-300">스냅 ON/OFF (크기 순환)</span><span class="text-slate-500 text-xs">스냅 버튼 클릭</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="about-modal" class="modal-backdrop" role="dialog" aria-label="앱 정보">
+        <div class="panel-strong rounded-3xl p-8 max-w-md w-full">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-black">Skybox Studio Pro</h3>
+                <button id="about-close" class="tool-button text-xs">닫기</button>
+            </div>
+            <div class="space-y-4 text-sm text-slate-300 leading-relaxed">
+                <p>로블록스 스카이박스를 편집할 수 있는 브라우저 기반 에디터입니다.</p>
+                <div class="property-fold rounded-xl">
+                    <summary>주요 기능</summary>
+                    <ul class="mt-3 space-y-1 text-xs text-slate-400">
+                        <li>6면 큐브맵 편집 (FT/BK/LF/RT/UP/DN)</li>
+                        <li>구형(Sphere) 요소 배치</li>
+                        <li>AI 배경제거 & 디자인 추천</li>
+                        <li>커스텀 그리드 배경 (위经/경도 곡선)</li>
+                        <li>텍스트 레이어 & 네온 효과</li>
+                        <li>이미지 조정 (밝기, 대비, 채도, 색조, 블러)</li>
+                        <li>ZIP 내보내기 (.tex + .png + manifest.json)</li>
+                    </ul>
+                </div>
+                <p class="text-xs text-slate-500">키보드 <kbd class="px-1.5 py-0.5 rounded bg-white/10 font-mono text-[10px]">?</kbd> 를 눌러 단축키 목록을 볼 수 있습니다.</p>
+            </div>
+        </div>
+    </div>
+
     <script src="./app.js?v=2026.07.06.01"></script>
 </body>
 </html>
