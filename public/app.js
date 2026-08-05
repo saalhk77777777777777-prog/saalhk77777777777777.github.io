@@ -93,8 +93,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         let pinchState = null;
         let sliderPreviewTimer = null;
         let isSliderPreviewActive = false;
-        let localBgRemovalModulePromise = null;
-        const POSTER_BACKGROUND_COLOR = '#0a0f1a';
 
         function getRemoveBgApiKeyIndex() {
             const rawValue = Number(localStorage.getItem(REMOVE_BG_API_KEY_INDEX_STORAGE_KEY) || '0');
