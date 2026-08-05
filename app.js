@@ -6796,6 +6796,8 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             if (settingsAutosave) settingsAutosave.checked = appSettings.autosave;
             if (settingsAutosaveInterval) { settingsAutosaveInterval.value = appSettings.autosaveInterval; if (settingsAutosaveIntervalValue) settingsAutosaveIntervalValue.textContent = appSettings.autosaveInterval; }
             if (settingsFastPreview) settingsFastPreview.checked = appSettings.fastPreview;
+            const settingsGeminiKeyInput = document.getElementById('settings-gemini-key');
+            if (settingsGeminiKeyInput) settingsGeminiKeyInput.value = geminiApiKey;
             settingsModal.classList.add('visible');
         }
         function applySettings() {
@@ -6810,6 +6812,8 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             if (settingsAutosaveInterval) appSettings.autosaveInterval = Number(settingsAutosaveInterval.value) || 60;
             if (settingsFastPreview) appSettings.fastPreview = settingsFastPreview.checked;
             saveAppSettings();
+            const settingsGeminiKeyInput = document.getElementById('settings-gemini-key');
+            if (settingsGeminiKeyInput) saveGeminiKey(settingsGeminiKeyInput.value.trim());
             spherePreviewQuality = appSettings.fastPreview ? 'fast' : 'full';
             startAutosaveTimer();
             settingsModal.classList.remove('visible');
@@ -7029,6 +7033,220 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         document.getElementById('version-badge')?.addEventListener('click', () => document.getElementById('about-modal')?.classList.toggle('visible'));
         document.getElementById('about-close')?.addEventListener('click', () => document.getElementById('about-modal')?.classList.remove('visible'));
         document.getElementById('about-modal')?.addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.classList.remove('visible'); });
+
+        // ========== AI Auto-Edit Pipeline ==========
+        const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+        let geminiApiKey = (() => { try { return localStorage.getItem('skybox-gemini-key') || ''; } catch { return ''; } })();
+
+        function saveGeminiKey(key) { geminiApiKey = key; try { localStorage.setItem('skybox-gemini-key', key); } catch {} }
+
+        async function callGeminiVision(prompt, imageBase64List) {
+            const parts = [{ text: prompt }];
+            for (const b64 of imageBase64List) {
+                parts.push({ inline_data: { mime_type: 'image/jpeg', data: b64 } });
+            }
+            const res = await fetch(`${GEMINI_API_URL}?key=${geminiApiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.3, maxOutputTokens: 4096 } })
+            });
+            if (!res.ok) throw new Error(`Gemini API 오류: ${res.status} ${await res.text()}`);
+            const data = await res.json();
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        }
+
+        function createThumbnail(sourceCanvas, maxSize = 256) {
+            const thumb = createEmptyCanvas(maxSize, maxSize);
+            const tCtx = thumb.getContext('2d');
+            const scale = Math.min(maxSize / sourceCanvas.width, maxSize / sourceCanvas.height);
+            const w = sourceCanvas.width * scale, h = sourceCanvas.height * scale;
+            tCtx.drawImage(sourceCanvas, (maxSize - w) / 2, (maxSize - h) / 2, w, h);
+            return thumb.toDataURL('image/jpeg', 0.7).split(',')[1];
+        }
+
+        function autoEditStepUI(step, status, color) {
+            const stepEl = document.getElementById(`ai-auto-step${step}`);
+            const statusEl = document.getElementById(`ai-auto-step${step}-status`);
+            if (stepEl) { stepEl.style.borderColor = color; stepEl.style.color = color; stepEl.style.background = color + '18'; }
+            if (statusEl) statusEl.textContent = status;
+        }
+
+        function unifyImageColors(elements) {
+            if (elements.length < 2) return;
+            let totalBrightness = 0, totalSaturation = 0, count = 0;
+            elements.forEach(el => {
+                const src = el.originalCanvas || el.processedCanvas;
+                if (!src) return;
+                const ctx = src.getContext('2d', { willReadFrequently: true });
+                const data = ctx.getImageData(0, 0, Math.min(src.width, 64), Math.min(src.height, 64)).data;
+                let bSum = 0, sSum = 0;
+                for (let i = 0; i < data.length; i += 16) {
+                    const r = data[i] / 255, g = data[i + 1] / 255, b = data[i + 2] / 255;
+                    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+                    bSum += (max + min) / 2;
+                    sSum += max === 0 ? 0 : (max - min) / max;
+                }
+                const pixels = data.length / 16;
+                el._avgBrightness = bSum / pixels;
+                el._avgSaturation = sSum / pixels;
+                totalBrightness += el._avgBrightness;
+                totalSaturation += el._avgSaturation;
+                count++;
+            });
+            if (count === 0) return;
+            const avgB = totalBrightness / count, avgS = totalSaturation / count;
+            elements.forEach(el => {
+                if (!el._avgBrightness) return;
+                const bDiff = avgB - el._avgBrightness;
+                const sDiff = avgS - el._avgSaturation;
+                el.brightness = clamp(Math.round(100 + bDiff * 80), 50, 150);
+                el.saturation = clamp(Math.round(100 + sDiff * 60), 40, 160);
+                el.contrast = clamp(Math.round(100 + Math.abs(bDiff) * 30), 80, 120);
+            });
+        }
+
+        async function runAiAutoEdit(files) {
+            if (!geminiApiKey) { alert('설정에서 Gemini API 키를 입력해주세요.\n(무료: aistudio.google.com에서 발급 가능)'); return; }
+            if (!files || files.length === 0) return;
+
+            const modal = document.getElementById('ai-auto-modal');
+            const resultDiv = document.getElementById('ai-auto-result');
+            if (resultDiv) resultDiv.classList.add('hidden');
+            for (let i = 1; i <= 4; i++) { autoEditStepUI(i, '대기 중...', '#334155'); }
+            modal?.classList.add('visible');
+
+            try {
+                createUndoSnapshot();
+                const allElements = [];
+                const thumbnails = [];
+
+                autoEditStepUI(1, `${files.length}개 이미지 분석 중...`, '#38bdf8');
+                for (const file of files) {
+                    try {
+                        const image = await fileToImage(file);
+                        const baseCanvas = imageToCanvas(image, MAX_IMAGE_IMPORT_SIZE);
+                        const element = createImageElement(file.name.replace(/\.[^.]+$/, ''), baseCanvas);
+                        await updateImageProcessing(element);
+                        allElements.push(element);
+                        thumbnails.push(createThumbnail(baseCanvas));
+                    } catch (e) { console.warn('이미지 로드 실패:', file.name, e); }
+                }
+                if (allElements.length === 0) { alert('유효한 이미지가 없습니다.'); modal?.classList.remove('visible'); return; }
+
+                autoEditStepUI(1, `${allElements.length}개 이미지 분석 완료. AI에게 전송 중...`, '#22c55e');
+
+                autoEditStepUI(2, 'AI가 레이아웃을 설계하고 있습니다...', '#38bdf8');
+                const layoutPrompt = `You are a professional cubemap skybox designer for Roblox.
+I have ${allElements.length} images. I need you to design a layout for a 6-face cubemap skybox.
+
+For each image, decide:
+1. Which cube face it belongs to (ft=business, bk=back, lf=left, rt=right, up=sky/top, dn=ground/bottom)
+2. Position on the face (0-1 normalized x,y coordinates, where 0.5,0.5 is center)
+3. Scale (0.1 to 1.0, relative to face size)
+4. Whether it needs background removal (true for characters/objects, false for landscapes/sky)
+5. Rotation in degrees (-45 to 45)
+
+Rules:
+- UP face should have sky/ceiling images
+- DN face should have ground/floor images
+- FT/BK/LF/RT should have environment/architecture/character images
+- Distribute images evenly, don't overcrowd one face
+- Overlapping is OK for layered compositions
+- Consider visual continuity between adjacent faces
+
+Respond ONLY with valid JSON array like:
+[
+  {"index": 0, "face": "ft", "x": 0.5, "y": 0.5, "scale": 0.4, "removeBg": false, "rotation": 0, "reason": "sky background fits front view"},
+  ...
+]`;
+
+                const layoutResult = await callGeminiVision(layoutPrompt, thumbnails);
+                let layout;
+                try {
+                    const jsonMatch = layoutResult.match(/\[[\s\S]*\]/);
+                    layout = JSON.parse(jsonMatch ? jsonMatch[0] : layoutResult);
+                } catch (e) {
+                    console.warn('JSON 파싱 실패, 기본 레이아웃 사용', e);
+                    layout = allElements.map((_, i) => ({
+                        index: i,
+                        face: FACES[i % FACES.length],
+                        x: 0.5, y: 0.5, scale: 0.35,
+                        removeBg: false, rotation: 0,
+                        reason: 'auto-assigned'
+                    }));
+                }
+
+                autoEditStepUI(2, `레이아웃 결정 완료 (${layout.length}개 요소)`, '#22c55e');
+
+                autoEditStepUI(3, '이미지 색보정 및 편집 중...', '#38bdf8');
+                unifyImageColors(allElements);
+
+                autoEditStepUI(3, '배경 제거 필요한 이미지 처리 중...', '#f59e0b');
+                for (let i = 0; i < allElements.length; i++) {
+                    const item = layout.find(l => l.index === i);
+                    if (item?.removeBg && allElements[i]) {
+                        try {
+                            const el = allElements[i];
+                            const blob = await new Promise(resolve => el.originalCanvas.toBlob(resolve, 'image/png'));
+                            const fakeFile = new File([blob], el.name + '.png', { type: 'image/png' });
+                            const { blob: resultBlob } = await removeBackgroundWithBestEngine(fakeFile);
+                            const resultImage = await blobToImage(resultBlob);
+                            el.maskCanvas = resizeCanvasTo(imageToCanvas(resultImage, MAX_IMAGE_IMPORT_SIZE), el.originalCanvas.width, el.originalCanvas.height);
+                            await updateImageProcessing(el);
+                        } catch (e) { console.warn('배경 제거 실패:', e); }
+                    }
+                }
+
+                autoEditStepUI(3, '편집 완료', '#22c55e');
+                autoEditStepUI(4, '구체 캔버스에 배치 중...', '#38bdf8');
+
+                sphericalEditMode = true;
+                if (sphereEditToggle) { sphereEditToggle.textContent = 'Globe Edit ON'; sphereEditToggle.classList.add('success'); sphereEditToggle.classList.remove('danger'); }
+
+                for (let i = 0; i < allElements.length; i++) {
+                    const element = allElements[i];
+                    const item = layout.find(l => l.index === i) || layout[i % layout.length];
+                    if (!item) continue;
+
+                    element.spherical = true;
+                    element.sphereYaw = ((item.x || 0.5) * 360) - 180;
+                    element.spherePitch = ((item.y || 0.5) * 180) - 90;
+
+                    const aspect = element.processedCanvas.height / Math.max(1, element.processedCanvas.width);
+                    const baseSize = clamp((item.scale || 0.35) * 80, 12, 80);
+                    element.sphereWidth = baseSize;
+                    element.sphereHeight = clamp(baseSize * aspect, 8, 80);
+                    element.rotation = clamp(item.rotation || 0, -45, 45);
+                    element.x = CANVAS_SIZE / 2;
+                    element.y = CANVAS_SIZE / 2;
+
+                    const faceKey = FACES.includes(item.face) ? item.face : 'ft';
+                    getFaceState(faceKey).elements.push(element);
+                }
+
+                autoEditStepUI(4, `${allElements.length}개 요소 배치 완료!`, '#22c55e');
+                render();
+
+                if (resultDiv) {
+                    resultDiv.classList.remove('hidden');
+                    resultDiv.innerHTML = `<div class="text-green-400 font-bold mb-2">완료!</div>
+                        <div>${allElements.length}개 이미지가 AI에 의해 자동 편집되어 구체 캔버스에 배치되었습니다.</div>
+                        <div class="mt-2 text-xs text-slate-400">Globe Edit 모드에서 결과를 확인하고 미세 조정할 수 있습니다.</div>`;
+                }
+            } catch (error) {
+                autoEditStepUI(3, `오류: ${error.message}`, '#ef4444');
+                if (resultDiv) { resultDiv.classList.remove('hidden'); resultDiv.innerHTML = `<div class="text-red-400">오류 발생: ${escapeHtml(error.message)}</div>`; }
+                console.error('AI 자동 편집 실패:', error);
+            }
+        }
+
+        document.getElementById('ai-auto-input')?.addEventListener('change', async event => {
+            const files = [...(event.target.files || [])];
+            event.target.value = '';
+            if (files.length > 0) await runAiAutoEdit(files);
+        });
+        document.getElementById('ai-auto-close')?.addEventListener('click', () => document.getElementById('ai-auto-modal')?.classList.remove('visible'));
+        document.getElementById('ai-auto-modal')?.addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.classList.remove('visible'); });
 
         loadAiConfig();
         syncAiConfigInputs();

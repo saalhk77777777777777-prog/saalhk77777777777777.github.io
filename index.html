@@ -457,6 +457,14 @@
                         <input id="settings-fast-preview" type="checkbox" checked class="accent-cyan-400"> 글로브 미리보기 빠른 품질 (드래그 중)
                     </label>
                 </div>
+                <div class="property-group space-y-3">
+                    <div class="property-label">AI 자동 편집</div>
+                    <label class="block text-[11px] font-bold text-slate-400">
+                        <span class="mb-1 block">Google Gemini API 키 <span class="text-slate-500 font-normal">(무료: aistudio.google.com)</span></span>
+                        <input id="settings-gemini-key" type="password" class="text-input w-full" placeholder="AIza...">
+                    </label>
+                    <p class="text-[10px] text-slate-500 leading-relaxed">무료 Gemini 2.0 Flash API를 사용합니다. 이미지 분석과 레이아웃 결정에 활용됩니다.</p>
+                </div>
                 <div class="flex justify-end gap-2 pt-2">
                     <button id="settings-save" type="button" class="tool-button primary">저장</button>
                 </div>
@@ -488,6 +496,7 @@
                 <label class="tool-button cursor-pointer" title="단색 배경 이미지만 자동 제거하여 추가">단색배경 제거 추가<input type="file" id="asset-bulk-solid" class="hidden" accept="image/*" multiple></label>
                 <button id="add-text" class="tool-button" title="텍스트 레이어 추가">텍스트 추가</button>
                 <button id="open-ai" class="tool-button primary" title="AI 디자인 추천 받기">AI 추천</button>
+                <label class="tool-button primary cursor-pointer" title="이미지를 선택하면 AI가 자동으로 분석, 편집, 배치합니다">AI 자동 편집<input type="file" id="ai-auto-input" class="hidden" accept="image/*" multiple></label>
                 <button id="duplicate-layer" class="tool-button" title="선택한 레이어 복제 (Ctrl+D)">레이어 복제</button>
                 <button id="open-cutout" class="tool-button success" title="수동 배경제거 에디터 열기">수동 배경제거</button>
                 <button id="delete-layer" class="tool-button danger" title="선택한 레이어 삭제 (Delete)">삭제</button>
@@ -775,6 +784,46 @@
                 </div>
                 <p class="text-xs text-slate-500">키보드 <kbd class="px-1.5 py-0.5 rounded bg-white/10 font-mono text-[10px]">?</kbd> 를 눌러 단축키 목록을 볼 수 있습니다.</p>
             </div>
+        </div>
+    </div>
+
+    <div id="ai-auto-modal" class="modal-backdrop" role="dialog" aria-label="AI 자동 편집">
+        <div class="panel-strong rounded-3xl p-8 max-w-lg w-full">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-black">AI 자동 편집</h3>
+                <button id="ai-auto-close" class="tool-button text-xs">닫기</button>
+            </div>
+            <div id="ai-auto-progress" class="space-y-4">
+                <div class="flex items-center gap-3 text-sm">
+                    <div id="ai-auto-step1" class="w-8 h-8 rounded-full border-2 border-white/20 flex items-center justify-center text-xs font-bold">1</div>
+                    <div>
+                        <div class="font-bold">이미지 분석</div>
+                        <div class="text-xs text-slate-400" id="ai-auto-step1-status">대기 중...</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                    <div id="ai-auto-step2" class="w-8 h-8 rounded-full border-2 border-white/20 flex items-center justify-center text-xs font-bold">2</div>
+                    <div>
+                        <div class="font-bold">레이아웃 설계</div>
+                        <div class="text-xs text-slate-400" id="ai-auto-step2-status">대기 중...</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                    <div id="ai-auto-step3" class="w-8 h-8 rounded-full border-2 border-white/20 flex items-center justify-center text-xs font-bold">3</div>
+                    <div>
+                        <div class="font-bold">이미지 편집</div>
+                        <div class="text-xs text-slate-400" id="ai-auto-step3-status">대기 중...</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                    <div id="ai-auto-step4" class="w-8 h-8 rounded-full border-2 border-white/20 flex items-center justify-center text-xs font-bold">4</div>
+                    <div>
+                        <div class="font-bold">구체 캔버스 배치</div>
+                        <div class="text-xs text-slate-400" id="ai-auto-step4-status">대기 중...</div>
+                    </div>
+                </div>
+            </div>
+            <div id="ai-auto-result" class="hidden mt-4 p-4 rounded-xl bg-white/5 text-sm text-slate-300 max-h-48 overflow-y-auto scrollbar"></div>
         </div>
     </div>
 
