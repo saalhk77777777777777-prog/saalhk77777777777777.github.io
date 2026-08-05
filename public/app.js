@@ -7169,13 +7169,23 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
         let geminiApiKeys = (() => { try { return JSON.parse(localStorage.getItem('skybox-gemini-keys') || '[]'); } catch { return []; } })();
         let geminiKeyIndex = 0;
+        const geminiKeyCooldowns = {};
 
         function saveGeminiKeys(keys) { geminiApiKeys = keys.filter(k => k.trim()); try { localStorage.setItem('skybox-gemini-keys', JSON.stringify(geminiApiKeys)); } catch {} }
         function getNextGeminiKey() {
             if (geminiApiKeys.length === 0) throw new Error('Gemini API 키가 없습니다. 설정에서 키를 입력해주세요.');
-            const key = geminiApiKeys[geminiKeyIndex % geminiApiKeys.length];
-            geminiKeyIndex = (geminiKeyIndex + 1) % geminiApiKeys.length;
-            return key;
+            const now = Date.now();
+            for (let tries = 0; tries < geminiApiKeys.length; tries++) {
+                const key = geminiApiKeys[geminiKeyIndex % geminiApiKeys.length];
+                geminiKeyIndex = (geminiKeyIndex + 1) % geminiApiKeys.length;
+                if (!geminiKeyCooldowns[key] || now >= geminiKeyCooldowns[key]) return key;
+            }
+            const waitMs = Math.max(...geminiApiKeys.map(k => (geminiKeyCooldowns[k] || 0) - now));
+            throw new Error(`모든 키가 쿨다운 중입니다. ${Math.ceil(waitMs / 1000)}초 후 다시 시도해주세요.`);
+        }
+
+        function setKeyCooldown(key, retryAfterMs) {
+            geminiKeyCooldowns[key] = Date.now() + (retryAfterMs || 62000);
         }
 
         async function callGeminiVision(prompt, imageBase64List) {
@@ -7184,20 +7194,33 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 parts.push({ inline_data: { mime_type: 'image/jpeg', data: b64 } });
             }
             let lastError = null;
-            const attempts = geminiApiKeys.length || 1;
-            for (let i = 0; i < attempts; i++) {
-                const key = getNextGeminiKey();
-                const res = await fetch(`${GEMINI_API_URL}?key=${key}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.3, maxOutputTokens: 4096 } })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const maxRetries = (geminiApiKeys.length || 1) * 2;
+            for (let i = 0; i < maxRetries; i++) {
+                let key;
+                try { key = getNextGeminiKey(); } catch (e) { throw e; }
+                try {
+                    const res = await fetch(`${GEMINI_API_URL}?key=${key}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.3, maxOutputTokens: 4096 } })
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                    }
+                    if (res.status === 429) {
+                        const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10) * 1000 || 62000;
+                        setKeyCooldown(key, retryAfter);
+                        const waitSec = Math.ceil(retryAfter / 1000);
+                        lastError = new Error(`429 Too Many Requests (${waitSec}초 대기 중)`);
+                        await new Promise(r => setTimeout(r, Math.min(retryAfter, 5000)));
+                        continue;
+                    }
+                    lastError = new Error(`Gemini API 오류: ${res.status}`);
+                } catch (e) {
+                    lastError = e;
+                    await new Promise(r => setTimeout(r, 1000));
                 }
-                lastError = new Error(`Gemini API 오류: ${res.status}`);
-                console.warn(`Gemini 키 ${i + 1}/${attempts} 실패, 다음 키 시도...`);
             }
             throw lastError || new Error('모든 Gemini API 키가 실패했습니다.');
         }
