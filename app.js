@@ -7079,6 +7079,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 licensed = await verifyLicenseKey(stored);
                 if (licensed) return true;
             }
+            showPaywall();
             return false;
         }
 
