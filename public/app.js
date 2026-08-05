@@ -1151,8 +1151,8 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         const FACE_LON_LAT_RANGES = {
             ft: { lonMin: -45, lonMax: 45,   latMin: -35.26, latMax: 35.26 },
             bk: { lonMin: 135, lonMax: 225,  latMin: -35.26, latMax: 35.26 },
-            rt: { lonMin: 45,  lonMax: 135,  latMin: -35.26, latMax: 35.26 },
-            lf: { lonMin: -135, lonMax: -45, latMin: -35.26, latMax: 35.26 },
+            lf: { lonMin: 45,  lonMax: 135,  latMin: -35.26, latMax: 35.26 },
+            rt: { lonMin: -135, lonMax: -45, latMin: -35.26, latMax: 35.26 },
             up: { lonMin: -180, lonMax: 180, latMin: 35.26,  latMax: 90 },
             dn: { lonMin: -180, lonMax: 180, latMin: -90,    latMax: -35.26 }
         };
