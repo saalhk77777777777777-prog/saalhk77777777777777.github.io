@@ -7172,57 +7172,76 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         const geminiKeyCooldowns = {};
 
         function saveGeminiKeys(keys) { geminiApiKeys = keys.filter(k => k.trim()); try { localStorage.setItem('skybox-gemini-keys', JSON.stringify(geminiApiKeys)); } catch {} }
-        function getNextGeminiKey() {
-            if (geminiApiKeys.length === 0) throw new Error('Gemini API 키가 없습니다. 설정에서 키를 입력해주세요.');
+
+        function getAvailableKey() {
+            if (geminiApiKeys.length === 0) return null;
             const now = Date.now();
             for (let tries = 0; tries < geminiApiKeys.length; tries++) {
                 const key = geminiApiKeys[geminiKeyIndex % geminiApiKeys.length];
                 geminiKeyIndex = (geminiKeyIndex + 1) % geminiApiKeys.length;
                 if (!geminiKeyCooldowns[key] || now >= geminiKeyCooldowns[key]) return key;
             }
-            const waitMs = Math.max(...geminiApiKeys.map(k => (geminiKeyCooldowns[k] || 0) - now));
-            throw new Error(`모든 키가 쿨다운 중입니다. ${Math.ceil(waitMs / 1000)}초 후 다시 시도해주세요.`);
+            return null;
         }
 
-        function setKeyCooldown(key, retryAfterMs) {
-            geminiKeyCooldowns[key] = Date.now() + (retryAfterMs || 62000);
+        function getCooldownMs() {
+            if (geminiApiKeys.length === 0) return 0;
+            const now = Date.now();
+            return Math.max(0, ...geminiApiKeys.map(k => (geminiKeyCooldowns[k] || 0) - now));
         }
+
+        function setKeyCooldown(key, ms) {
+            geminiKeyCooldowns[key] = Date.now() + (ms || 62000);
+        }
+
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
         async function callGeminiVision(prompt, imageBase64List) {
             const parts = [{ text: prompt }];
             for (const b64 of imageBase64List) {
                 parts.push({ inline_data: { mime_type: 'image/jpeg', data: b64 } });
             }
+            const body = JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.3, maxOutputTokens: 4096 } });
+            const maxTotalAttempts = Math.max(geminiApiKeys.length * 3, 6);
             let lastError = null;
-            const maxRetries = (geminiApiKeys.length || 1) * 2;
-            for (let i = 0; i < maxRetries; i++) {
-                let key;
-                try { key = getNextGeminiKey(); } catch (e) { throw e; }
+
+            for (let attempt = 0; attempt < maxTotalAttempts; attempt++) {
+                let key = getAvailableKey();
+                if (!key) {
+                    const waitMs = getCooldownMs();
+                    if (waitMs > 0) { await sleep(Math.min(waitMs, 10000)); continue; }
+                    throw new Error('Gemini API 키가 없습니다. 설정에서 키를 입력해주세요.');
+                }
                 try {
                     const res = await fetch(`${GEMINI_API_URL}?key=${key}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.3, maxOutputTokens: 4096 } })
+                        body
                     });
                     if (res.ok) {
                         const data = await res.json();
                         return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
                     }
                     if (res.status === 429) {
-                        const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10) * 1000 || 62000;
-                        setKeyCooldown(key, retryAfter);
-                        const waitSec = Math.ceil(retryAfter / 1000);
-                        lastError = new Error(`429 Too Many Requests (${waitSec}초 대기 중)`);
-                        await new Promise(r => setTimeout(r, Math.min(retryAfter, 5000)));
+                        const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10) * 1000;
+                        const cooldown = retryAfter > 0 ? Math.min(retryAfter + 2000, 90000) : 65000;
+                        setKeyCooldown(key, cooldown);
+                        lastError = new Error(`rate limit (키 쿨다운 ${Math.ceil(cooldown / 1000)}초)`);
+                        await sleep(Math.min(cooldown, 10000));
                         continue;
                     }
+                    if (res.status === 403) {
+                        lastError = new Error(`API 키 권한 오류 (403). 키를 확인해주세요.`);
+                        break;
+                    }
                     lastError = new Error(`Gemini API 오류: ${res.status}`);
+                    await sleep(2000);
                 } catch (e) {
                     lastError = e;
-                    await new Promise(r => setTimeout(r, 1000));
+                    await sleep(2000);
                 }
             }
-            throw lastError || new Error('모든 Gemini API 키가 실패했습니다.');
+            throw lastError || new Error('Gemini API 호출 실패');
         }
 
         function createThumbnail(sourceCanvas, maxSize = 256) {
