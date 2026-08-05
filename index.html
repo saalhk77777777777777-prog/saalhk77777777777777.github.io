@@ -9,7 +9,7 @@
     <script src="./vendor/jszip.min.js"></script>
     <link rel="stylesheet" href="./styles.css">
 </head>
-<body class="h-screen flex flex-col">
+<body class="h-screen flex flex-col" data-locked="true">
     <div id="loading-overlay" class="modal-backdrop">
         <div class="panel-strong rounded-[28px] px-10 py-9 text-center max-w-sm w-full">
             <div class="loader mx-auto mb-5"></div>
@@ -787,19 +787,19 @@
         </div>
     </div>
 
-    <div id="paywall-modal" class="modal-backdrop" role="dialog" aria-label="AI 기능 잠금">
-        <div class="panel-strong rounded-3xl p-8 max-w-md w-full">
-            <div class="text-center mb-6">
-                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-3xl">AI</div>
-                <h3 class="text-xl font-black">AI 자동 편집</h3>
-                <p class="text-sm text-slate-400 mt-2">이미지를 분석하고 자동으로 편집·배치하는 고급 기능입니다</p>
+    <div id="paywall-modal" class="paywall-fullscreen" role="dialog" aria-label="서비스 잠금">
+        <div class="panel-strong rounded-3xl p-10 max-w-lg w-full mx-4">
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 mx-auto mb-5 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-4xl font-black shadow-[0_0_60px_rgba(103,232,249,0.3)]">S</div>
+                <h2 class="text-2xl font-black tracking-tight">Skybox Studio Pro</h2>
+                <p class="text-sm text-slate-400 mt-3 leading-relaxed">로블록스 스카이박스를 편집할 수 있는 브라우저 기반 에디터입니다.<br>서비스를 이용하려면 라이선스 키가 필요합니다.</p>
             </div>
 
             <div class="p-5 rounded-2xl bg-gradient-to-br from-cyan-400/10 to-blue-500/10 border border-cyan-400/30 mb-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <div class="font-black text-base">평생 이용권</div>
-                        <div class="text-xs text-slate-400 mt-1">한 번 결제로 영구 사용 · 무제한 AI 자동 편집</div>
+                        <div class="text-xs text-slate-400 mt-1">한 번 결제로 영구 사용</div>
                     </div>
                     <div class="text-right">
                         <div class="text-2xl font-black text-cyan-300">₩15,000</div>
@@ -809,16 +809,13 @@
 
             <div class="mb-4">
                 <label class="block text-[11px] font-bold text-slate-400 mb-2">라이선스 키 입력</label>
-                <input id="paywall-key-input" type="text" class="text-input w-full text-center font-mono tracking-wider" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX">
+                <input id="paywall-key-input" type="text" class="text-input w-full text-center font-mono tracking-wider text-base" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" autofocus>
             </div>
 
             <div id="paywall-error" class="text-xs text-rose-400 text-center mb-3 hidden">유효하지 않은 키입니다</div>
             <div id="paywall-success" class="text-xs text-emerald-400 text-center mb-3 hidden">인증 완료!</div>
 
-            <div class="space-y-2">
-                <button id="paywall-verify" class="tool-button primary w-full">키 인증하기</button>
-                <button id="paywall-close" class="tool-button w-full">나중에 하기</button>
-            </div>
+            <button id="paywall-verify" class="tool-button primary w-full text-base py-3">이용 시작하기</button>
 
             <div class="mt-4 text-center">
                 <a id="paywall-buy-link" href="#" target="_blank" class="text-xs text-cyan-400 hover:text-cyan-300 underline">라이선스 키 구매하기 →</a>

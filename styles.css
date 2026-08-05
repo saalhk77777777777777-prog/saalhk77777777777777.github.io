@@ -3,6 +3,9 @@
         * { box-sizing: border-box; }
         html, body { margin: 0; height: 100%; }
         body { font-family: 'Pretendard', sans-serif; color: var(--text); background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.15), transparent 30%), radial-gradient(circle at top right, rgba(103, 232, 249, 0.08), transparent 25%), linear-gradient(180deg, #07101b 0%, #05070d 100%); overflow: hidden; }
+        body[data-locked="true"] > *:not(.paywall-fullscreen) { display: none !important; }
+        body[data-locked="true"] .paywall-fullscreen { display: flex !important; }
+        .paywall-fullscreen { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.15), transparent 30%), radial-gradient(circle at top right, rgba(103, 232, 249, 0.08), transparent 25%), linear-gradient(180deg, #07101b 0%, #05070d 100%); }
         .grid-bg { background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px); background-size: 28px 28px; background-position: center center; }
         .panel { background: var(--panel); backdrop-filter: blur(18px); border: 1px solid var(--line); box-shadow: 0 20px 80px rgba(0, 0, 0, 0.32); }
         .panel-strong { background: var(--panel-strong); backdrop-filter: blur(22px); border: 1px solid var(--line); }
