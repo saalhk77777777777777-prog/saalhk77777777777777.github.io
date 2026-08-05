@@ -7034,6 +7034,90 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         document.getElementById('about-close')?.addEventListener('click', () => document.getElementById('about-modal')?.classList.remove('visible'));
         document.getElementById('about-modal')?.addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.classList.remove('visible'); });
 
+        // ========== License Key System ==========
+        const LICENSE_KEY_STORAGE = 'skybox-license-key-v1';
+        let licensed = false;
+
+        async function sha256(text) {
+            const buffer = new TextEncoder().encode(text);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+            const hex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+            let num = BigInt('0x' + hex.substring(0, 12));
+            const chars = '0123456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+            let result = '';
+            for (let i = 0; i < 5; i++) {
+                result += chars[Number(num % 35n)];
+                num /= 35n;
+            }
+            return result.toUpperCase();
+        }
+
+        async function verifyLicenseKey(key) {
+            const clean = key.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            if (clean.length !== 25) return false;
+            const parts = [];
+            for (let i = 0; i < 5; i++) parts.push(clean.substring(i * 5, (i + 1) * 5));
+            const payload = parts.slice(0, 4).join('');
+            const expectedHash = (await sha256('skybox-studio-' + payload)).substring(0, 5).toUpperCase();
+            if (parts[4] !== expectedHash) return false;
+            const plan = parts[0][0];
+            if (plan === 'L') return true;
+            if (plan === 'M') {
+                const expiryStr = parts[0].substring(1) + parts[1];
+                const expiry = parseInt(expiryStr, 36);
+                return Date.now() < expiry;
+            }
+            return false;
+        }
+
+        function getStoredLicense() { try { return localStorage.getItem(LICENSE_KEY_STORAGE) || ''; } catch { return ''; } }
+        function storeLicense(key) { try { localStorage.setItem(LICENSE_KEY_STORAGE, key); } catch {} }
+
+        async function checkLicense() {
+            const stored = getStoredLicense();
+            if (stored) {
+                licensed = await verifyLicenseKey(stored);
+                if (licensed) return true;
+            }
+            return false;
+        }
+
+        function showPaywall() {
+            const modal = document.getElementById('paywall-modal');
+            if (!modal) return;
+            document.getElementById('paywall-error')?.classList.add('hidden');
+            document.getElementById('paywall-success')?.classList.add('hidden');
+            document.getElementById('paywall-key-input').value = getStoredLicense();
+            modal.classList.add('visible');
+        }
+
+        async function handlePaywallVerify() {
+            const input = document.getElementById('paywall-key-input');
+            const errorEl = document.getElementById('paywall-error');
+            const successEl = document.getElementById('paywall-success');
+            const key = input?.value?.trim();
+            if (!key) return;
+            const valid = await verifyLicenseKey(key);
+            if (valid) {
+                licensed = true;
+                storeLicense(key);
+                errorEl?.classList.add('hidden');
+                successEl?.classList.remove('hidden');
+                setTimeout(() => { document.getElementById('paywall-modal')?.classList.remove('visible'); }, 800);
+            } else {
+                licensed = false;
+                successEl?.classList.add('hidden');
+                errorEl?.classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('paywall-verify')?.addEventListener('click', handlePaywallVerify);
+        document.getElementById('paywall-close')?.addEventListener('click', () => document.getElementById('paywall-modal')?.classList.remove('visible'));
+        document.getElementById('paywall-modal')?.addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.classList.remove('visible'); });
+        document.getElementById('paywall-key-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') handlePaywallVerify(); });
+
+        checkLicense();
+
         // ========== AI Auto-Edit Pipeline ==========
         const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
         let geminiApiKeys = (() => { try { return JSON.parse(localStorage.getItem('skybox-gemini-keys') || '[]'); } catch { return []; } })();
@@ -7259,7 +7343,9 @@ Respond ONLY with valid JSON array like:
         document.getElementById('ai-auto-input')?.addEventListener('change', async event => {
             const files = [...(event.target.files || [])];
             event.target.value = '';
-            if (files.length > 0) await runAiAutoEdit(files);
+            if (files.length === 0) return;
+            if (!licensed) { showPaywall(); return; }
+            await runAiAutoEdit(files);
         });
         document.getElementById('ai-auto-close')?.addEventListener('click', () => document.getElementById('ai-auto-modal')?.classList.remove('visible'));
         document.getElementById('ai-auto-modal')?.addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.classList.remove('visible'); });
