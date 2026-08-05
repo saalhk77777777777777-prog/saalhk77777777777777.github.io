@@ -79,11 +79,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         let pendingSphereInteractionFrame = false;
         let sphereInteractionRefreshTimer = null;
         let spherePreviewFaceCache = null;
-        let globeGridSettings = getGlobeGridSettings();
-        const canvasPointers = new Map();
-        let pinchState = null;
-        let sliderPreviewTimer = null;
-        let isSliderPreviewActive = false;
         let localBgRemovalModulePromise = null;
         const POSTER_BACKGROUND_COLOR = '#0a0f1a';
         const DEFAULT_GLOBE_GRID_SETTINGS = {
@@ -93,6 +88,13 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             color: '#67e8f9',
             lineWidth: 1.2
         };
+        let globeGridSettings = getGlobeGridSettings();
+        const canvasPointers = new Map();
+        let pinchState = null;
+        let sliderPreviewTimer = null;
+        let isSliderPreviewActive = false;
+        let localBgRemovalModulePromise = null;
+        const POSTER_BACKGROUND_COLOR = '#0a0f1a';
 
         function getRemoveBgApiKeyIndex() {
             const rawValue = Number(localStorage.getItem(REMOVE_BG_API_KEY_INDEX_STORAGE_KEY) || '0');
