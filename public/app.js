@@ -7201,8 +7201,8 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             for (const b64 of imageBase64List) {
                 parts.push({ inline_data: { mime_type: 'image/jpeg', data: b64 } });
             }
-            const body = JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.3, maxOutputTokens: 4096 } });
-            const maxTotalAttempts = Math.max(geminiApiKeys.length * 3, 6);
+            const body = JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.3, maxOutputTokens: 8192 } });
+            const maxTotalAttempts = Math.max(geminiApiKeys.length * 2, 4);
             let lastError = null;
 
             for (let attempt = 0; attempt < maxTotalAttempts; attempt++) {
@@ -7213,11 +7213,15 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                     throw new Error('Gemini API 키가 없습니다. 설정에서 키를 입력해주세요.');
                 }
                 try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 90000);
                     const res = await fetch(`${GEMINI_API_URL}?key=${key}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body
+                        body,
+                        signal: controller.signal
                     });
+                    clearTimeout(timeoutId);
                     if (res.ok) {
                         const data = await res.json();
                         return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -7237,8 +7241,13 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                     lastError = new Error(`Gemini API 오류: ${res.status}`);
                     await sleep(2000);
                 } catch (e) {
-                    lastError = e;
-                    await sleep(2000);
+                    if (e.name === 'AbortError') {
+                        lastError = new Error('Gemini API 응답 시간 초과 (90초). 이미지가 많거나 네트워크가 느립니다.');
+                        await sleep(5000);
+                    } else {
+                        lastError = e;
+                        await sleep(2000);
+                    }
                 }
             }
             throw lastError || new Error('Gemini API 호출 실패');
