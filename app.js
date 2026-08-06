@@ -7329,12 +7329,12 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 const neonColorList = neonColors.join(', ');
                 const fullLayoutPrompt = (indices, batchStart) => `You are a professional cubemap skybox designer for Roblox.
 I have images indexed ${indices.join(', ')} (${batchStart} to ${batchStart + indices.length - 1}).
-Design a 6-face cubemap skybox layout WITH full visual styling.
+Design a 5-face cubemap skybox layout (ft, rt, lf, bk, up ONLY — DN is NOT used).
 
 For each image, provide ALL of these properties:
 
 ### Position & Transform
-- face: one of "ft", "bk", "lf", "rt", "up", "dn"
+- face: one of "ft", "bk", "lf", "rt", "up" (NEVER use "dn")
 - x: 0-1 (horizontal position on face, 0.5=center)
 - y: 0-1 (vertical position on face, 0.5=center)
 - scale: 0.1-1.0 (relative size)
@@ -7371,8 +7371,8 @@ For each image, provide ALL of these properties:
 
 ### Style Rules
 - UP = sky/ceiling images
-- DN = ground/floor images
 - FT/BK/LF/RT = environment/architecture/characters
+- DN is NOT used (ground is auto-generated from environment)
 - Characters on adjacent faces should have matching neon colors
 - Dark/moody scenes: use neon glow (blue, purple, cyan)
 - Bright/cheerful scenes: use subtle borders (white, yellow)
@@ -7411,9 +7411,10 @@ Respond ONLY with valid JSON array:
                         }
                     } catch (e) {
                         console.warn(`배치 ${b + 1} Gemini 실패, 기본값 사용:`, e);
+                        const allowedFaces = ['ft', 'rt', 'lf', 'bk', 'up'];
                         batch.indices.forEach(i => {
                             allLayout.push({
-                                index: i, face: FACES[i % FACES.length],
+                                index: i, face: allowedFaces[i % allowedFaces.length],
                                 x: 0.5, y: 0.5, scale: 0.35, rotation: 0, opacity: 1,
                                 removeBg: false, neonEnabled: false, shadowEnabled: false,
                                 brightness: 100, contrast: 100, saturation: 100, hue: 0
@@ -7507,7 +7508,8 @@ Respond ONLY with valid JSON array:
                     element.x = CANVAS_SIZE / 2;
                     element.y = CANVAS_SIZE / 2;
 
-                    const faceKey = FACES.includes(item.face) ? item.face : 'ft';
+                    const allowedFaces = ['ft', 'rt', 'lf', 'bk', 'up'];
+                    const faceKey = allowedFaces.includes(item.face) ? item.face : 'ft';
                     getFaceState(faceKey).elements.push(element);
                 }
 
