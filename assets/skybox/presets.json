@@ -796,7 +796,7 @@
                                         }
                     },
                     {
-                        "label":  "Red - 복사본",
+                        "label":  "Red - Copy",
                         "variantLabel":  "sky512",
                         "filesByFace":  {
                                             "ft":  {
@@ -3604,7 +3604,7 @@
                                         }
                     },
                     {
-                        "label":  "Blue - 복사본",
+                        "label":  "Blue - Copy",
                         "variantLabel":  "sky512",
                         "filesByFace":  {
                                             "ft":  {
