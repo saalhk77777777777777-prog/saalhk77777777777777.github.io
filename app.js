@@ -7244,13 +7244,13 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             throw lastError || new Error('Gemini API 호출 실패');
         }
 
-        function createThumbnail(sourceCanvas, maxSize = 256) {
+        function createThumbnail(sourceCanvas, maxSize = 192) {
             const thumb = createEmptyCanvas(maxSize, maxSize);
             const tCtx = thumb.getContext('2d');
             const scale = Math.min(maxSize / sourceCanvas.width, maxSize / sourceCanvas.height);
             const w = sourceCanvas.width * scale, h = sourceCanvas.height * scale;
             tCtx.drawImage(sourceCanvas, (maxSize - w) / 2, (maxSize - h) / 2, w, h);
-            return thumb.toDataURL('image/jpeg', 0.7).split(',')[1];
+            return thumb.toDataURL('image/jpeg', 0.5).split(',')[1];
         }
 
         function autoEditStepUI(step, status, color) {
@@ -7325,31 +7325,30 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 autoEditStepUI(1, `${allElements.length}개 이미지 분석 완료. AI에게 전송 중...`, '#22c55e');
 
                 autoEditStepUI(2, 'AI가 레이아웃을 설계하고 있습니다...', '#38bdf8');
+                const maxThumbnails = 12;
+                const thumbSubset = thumbnails.slice(0, maxThumbnails);
                 const layoutPrompt = `You are a professional cubemap skybox designer for Roblox.
-I have ${allElements.length} images. I need you to design a layout for a 6-face cubemap skybox.
+I have ${allElements.length} images (showing ${thumbSubset.length} thumbnails). Design a layout for a 6-face cubemap skybox.
 
-For each image, decide:
-1. Which cube face it belongs to (ft=business, bk=back, lf=left, rt=right, up=sky/top, dn=ground/bottom)
-2. Position on the face (0-1 normalized x,y coordinates, where 0.5,0.5 is center)
-3. Scale (0.1 to 1.0, relative to face size)
-4. Whether it needs background removal (true for characters/objects, false for landscapes/sky)
-5. Rotation in degrees (-45 to 45)
+For each image (index 0 to ${allElements.length - 1}), decide:
+1. Which cube face (ft, bk, lf, rt, up, dn)
+2. Position on face (0-1 x,y, 0.5=center)
+3. Scale (0.1 to 1.0)
+4. Background removal needed (true for characters/objects, false for landscapes)
+5. Rotation (-45 to 45 degrees)
 
 Rules:
-- UP face should have sky/ceiling images
-- DN face should have ground/floor images
-- FT/BK/LF/RT should have environment/architecture/character images
-- Distribute images evenly, don't overcrowd one face
-- Overlapping is OK for layered compositions
-- Consider visual continuity between adjacent faces
+- UP = sky/ceiling, DN = ground/floor
+- FT/BK/LF/RT = environment/architecture/character
+- Distribute evenly, visual continuity between adjacent faces
 
-Respond ONLY with valid JSON array like:
+Respond ONLY with valid JSON array:
 [
-  {"index": 0, "face": "ft", "x": 0.5, "y": 0.5, "scale": 0.4, "removeBg": false, "rotation": 0, "reason": "sky background fits front view"},
+  {"index": 0, "face": "ft", "x": 0.5, "y": 0.5, "scale": 0.4, "removeBg": false, "rotation": 0},
   ...
 ]`;
 
-                const layoutResult = await callGeminiVision(layoutPrompt, thumbnails);
+                const layoutResult = await callGeminiVision(layoutPrompt, thumbSubset);
                 let layout;
                 try {
                     const jsonMatch = layoutResult.match(/\[[\s\S]*\]/);
