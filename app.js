@@ -7075,6 +7075,56 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         const LICENSE_KEY_STORAGE = 'skybox-license-key-v1';
         let licensed = false;
 
+        // Firebase IP Tracking
+        const firebaseConfig = {
+            apiKey: "AIzaSyDFIH6ZQkKtBWsCk33cwzFOriGiwOw7hq_TE",
+            authDomain: "iptrack-1077d.firebaseapp.com",
+            projectId: "iptrack-1077d",
+            storageBucket: "iptrack-1077d.firebasestorage.app",
+            messagingSenderId: "170980618512",
+            appId: "1:170980618512:web:3a3e66ed1ccfa3d5d8f595"
+        };
+        let firebaseDb = null;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            firebaseDb = firebase.firestore();
+        } catch (e) { console.warn('Firebase init failed:', e); }
+
+        async function getMyIP() {
+            try {
+                const r = await fetch('https://api.ipify.org?format=json');
+                const d = await r.json();
+                return d.ip || '';
+            } catch { return ''; }
+        }
+
+        async function isIPBlocked(ip) {
+            if (!firebaseDb || !ip) return false;
+            try {
+                const doc = await firebaseDb.collection('blocked').doc(ip).get();
+                return doc.exists;
+            } catch { return false; }
+        }
+
+        async function bindKeyToIP(key, ip) {
+            if (!firebaseDb || !key || !ip) return;
+            try {
+                const clean = key.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                const ref = firebaseDb.collection('licenses').doc(clean);
+                const doc = await ref.get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    if (data.ip !== ip) {
+                        await firebaseDb.collection('blocked').doc(data.ip).set({ blocked: true, reason: 'key-shared', ts: Date.now() });
+                        await firebaseDb.collection('blocked').doc(ip).set({ blocked: true, reason: 'key-shared', ts: Date.now() });
+                        return false;
+                    }
+                } else {
+                    await ref.set({ ip: ip, ts: Date.now(), plan: clean[0] });
+                }
+            } catch (e) { console.warn('bindKeyToIP failed:', e); }
+        }
+
         async function sha256(text) {
             const buffer = new TextEncoder().encode(text);
             const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -7123,10 +7173,25 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         }
 
         async function checkLicense() {
+            const ip = await getMyIP();
+            if (ip && await isIPBlocked(ip)) {
+                alert('이 IP는 라이선스 남용으로 차단되었습니다.\n고객센터로 문의해주세요.');
+                lockApp();
+                return false;
+            }
             const stored = getStoredLicense();
             if (stored) {
                 licensed = await verifyLicenseKey(stored);
-                if (licensed) { unlockApp(); return true; }
+                if (licensed) {
+                    const bound = await bindKeyToIP(stored, ip);
+                    if (bound === false) {
+                        alert('이 라이선스 키가 다른 기기에서 사용 중입니다.\n둘 다 차단됩니다.');
+                        lockApp();
+                        return false;
+                    }
+                    unlockApp();
+                    return true;
+                }
             }
             lockApp();
             return false;
@@ -7146,8 +7211,23 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             const successEl = document.getElementById('paywall-success');
             const key = input?.value?.trim();
             if (!key) return;
+
+            const ip = await getMyIP();
+            if (ip && await isIPBlocked(ip)) {
+                errorEl?.classList.remove('hidden');
+                errorEl.textContent = '이 IP는 라이선스 남용으로 차단되었습니다.';
+                return;
+            }
+
             const valid = await verifyLicenseKey(key);
             if (valid) {
+                const bound = await bindKeyToIP(key, ip);
+                if (bound === false) {
+                    errorEl?.classList.remove('hidden');
+                    errorEl.textContent = '이 라이선스 키가 다른 기기에서 사용 중입니다.';
+                    storeLicense('');
+                    return;
+                }
                 licensed = true;
                 storeLicense(key);
                 errorEl?.classList.add('hidden');
