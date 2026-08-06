@@ -7308,6 +7308,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 createUndoSnapshot();
                 const allElements = [];
                 const thumbnails = [];
+                const BATCH_SIZE = 5;
 
                 autoEditStepUI(1, `${files.length}개 이미지 분석 중...`, '#38bdf8');
                 for (const file of files) {
@@ -7322,59 +7323,118 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
                 }
                 if (allElements.length === 0) { alert('유효한 이미지가 없습니다.'); modal?.classList.remove('visible'); return; }
 
-                autoEditStepUI(1, `${allElements.length}개 이미지 분석 완료. AI에게 전송 중...`, '#22c55e');
+                autoEditStepUI(1, `${allElements.length}개 이미지 분석 완료. AI에게 배치 전송 중...`, '#22c55e');
 
-                autoEditStepUI(2, 'AI가 레이아웃을 설계하고 있습니다...', '#38bdf8');
-                const maxThumbnails = 12;
-                const thumbSubset = thumbnails.slice(0, maxThumbnails);
-                const layoutPrompt = `You are a professional cubemap skybox designer for Roblox.
-I have ${allElements.length} images (showing ${thumbSubset.length} thumbnails). Design a layout for a 6-face cubemap skybox.
+                const neonColors = NEON_PRESETS.map(p => p.color);
+                const neonColorList = neonColors.join(', ');
+                const fullLayoutPrompt = (indices, batchStart) => `You are a professional cubemap skybox designer for Roblox.
+I have images indexed ${indices.join(', ')} (${batchStart} to ${batchStart + indices.length - 1}).
+Design a 6-face cubemap skybox layout WITH full visual styling.
 
-For each image (index 0 to ${allElements.length - 1}), decide:
-1. Which cube face (ft, bk, lf, rt, up, dn)
-2. Position on face (0-1 x,y, 0.5=center)
-3. Scale (0.1 to 1.0)
-4. Background removal needed (true for characters/objects, false for landscapes)
-5. Rotation (-45 to 45 degrees)
+For each image, provide ALL of these properties:
 
-Rules:
-- UP = sky/ceiling, DN = ground/floor
-- FT/BK/LF/RT = environment/architecture/character
-- Distribute evenly, visual continuity between adjacent faces
+### Position & Transform
+- face: one of "ft", "bk", "lf", "rt", "up", "dn"
+- x: 0-1 (horizontal position on face, 0.5=center)
+- y: 0-1 (vertical position on face, 0.5=center)
+- scale: 0.1-1.0 (relative size)
+- rotation: -45 to 45 degrees
+- opacity: 0.0-1.0
+
+### Background Removal
+- removeBg: true for characters/isolated objects, false for landscapes/sky
+
+### Neon Effect (glow outline)
+- neonEnabled: true/false
+- neonColor: hex color (one of: ${neonColorList})
+- neonIntensity: 0-100 (strength of glow)
+
+### Border / Outline
+- borderWidth: 0-40 pixels
+- borderColor: hex color
+- borderStyle: "solid", "dashed", "soft", "blur"
+- borderBlur: 0-80 pixels
+
+### Shadow
+- shadowEnabled: true/false
+- shadowColor: hex color
+- shadowBlur: 0-100 pixels
+- shadowOffsetX: -30 to 30 pixels
+- shadowOffsetY: -30 to 30 pixels
+- shadowOpacity: 0.0-1.0
+
+### Color Adjustments
+- brightness: 0-200 (100=normal)
+- contrast: 0-200 (100=normal)
+- saturation: 0-300 (100=normal)
+- hue: -180 to 180 degrees
+
+### Style Rules
+- UP = sky/ceiling images
+- DN = ground/floor images
+- FT/BK/LF/RT = environment/architecture/characters
+- Characters on adjacent faces should have matching neon colors
+- Dark/moody scenes: use neon glow (blue, purple, cyan)
+- Bright/cheerful scenes: use subtle borders (white, yellow)
+- Add shadows to characters that are NOT background-removed
+- For background-removed characters: neon + shadow
+- For landscapes: slight brightness/saturation boost
 
 Respond ONLY with valid JSON array:
-[
-  {"index": 0, "face": "ft", "x": 0.5, "y": 0.5, "scale": 0.4, "removeBg": false, "rotation": 0},
-  ...
-]`;
+[{"index":0,"face":"ft","x":0.5,"y":0.5,"scale":0.4,"rotation":0,"opacity":1,"removeBg":true,"neonEnabled":true,"neonColor":"#ff2bd6","neonIntensity":60,"borderWidth":0,"borderColor":"#ffffff","borderStyle":"neon","borderBlur":0,"shadowEnabled":true,"shadowColor":"#ff2bd6","shadowBlur":40,"shadowOffsetX":0,"shadowOffsetY":0,"shadowOpacity":0.7,"brightness":100,"contrast":100,"saturation":110,"hue":0},...]`;
 
-                const layoutResult = await callGeminiVision(layoutPrompt, thumbSubset);
-                let layout;
-                try {
-                    const jsonMatch = layoutResult.match(/\[[\s\S]*\]/);
-                    layout = JSON.parse(jsonMatch ? jsonMatch[0] : layoutResult);
-                } catch (e) {
-                    console.warn('JSON 파싱 실패, 기본 레이아웃 사용', e);
-                    layout = allElements.map((_, i) => ({
-                        index: i,
-                        face: FACES[i % FACES.length],
-                        x: 0.5, y: 0.5, scale: 0.35,
-                        removeBg: false, rotation: 0,
-                        reason: 'auto-assigned'
-                    }));
+                autoEditStepUI(2, 'AI가 배치 및 스타일을 설계하고 있습니다...', '#38bdf8');
+
+                const allLayout = [];
+                const batches = [];
+                for (let i = 0; i < allElements.length; i += BATCH_SIZE) {
+                    batches.push({ indices: [], batchStart: i });
+                    for (let j = i; j < Math.min(i + BATCH_SIZE, allElements.length); j++) {
+                        batches[batches.length - 1].indices.push(j);
+                    }
                 }
 
-                autoEditStepUI(2, `레이아웃 결정 완료 (${layout.length}개 요소)`, '#22c55e');
+                for (let b = 0; b < batches.length; b++) {
+                    const batch = batches[b];
+                    const batchThumbs = thumbnails.slice(batch.batchStart, batch.batchStart + batch.indices.length);
+                    autoEditStepUI(2, `AI 배치 ${b + 1}/${batches.length} 전송 중... (${batch.indices.length}개)`, '#38bdf8');
+
+                    try {
+                        const prompt = fullLayoutPrompt(batch.indices, batch.batchStart);
+                        const result = await callGeminiVision(prompt, batchThumbs);
+                        const jsonMatch = result.match(/\[[\s\S]*\]/);
+                        const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : result);
+                        if (Array.isArray(parsed)) {
+                            parsed.forEach(item => {
+                                if (typeof item.index === 'number') allLayout.push(item);
+                            });
+                        }
+                    } catch (e) {
+                        console.warn(`배치 ${b + 1} Gemini 실패, 기본값 사용:`, e);
+                        batch.indices.forEach(i => {
+                            allLayout.push({
+                                index: i, face: FACES[i % FACES.length],
+                                x: 0.5, y: 0.5, scale: 0.35, rotation: 0, opacity: 1,
+                                removeBg: false, neonEnabled: false, shadowEnabled: false,
+                                brightness: 100, contrast: 100, saturation: 100, hue: 0
+                            });
+                        });
+                    }
+                }
+
+                autoEditStepUI(2, `레이아웃 + 스타일 결정 완료 (${allLayout.length}개)`, '#22c55e');
 
                 autoEditStepUI(3, '이미지 색보정 및 편집 중...', '#38bdf8');
                 unifyImageColors(allElements);
 
-                autoEditStepUI(3, '배경 제거 필요한 이미지 처리 중...', '#f59e0b');
+                autoEditStepUI(3, '배경 제거 + 효과 적용 중...', '#f59e0b');
                 for (let i = 0; i < allElements.length; i++) {
-                    const item = layout.find(l => l.index === i);
-                    if (item?.removeBg && allElements[i]) {
+                    const item = allLayout.find(l => l.index === i);
+                    const el = allElements[i];
+                    if (!item || !el) continue;
+
+                    if (item.removeBg) {
                         try {
-                            const el = allElements[i];
                             const blob = await new Promise(resolve => el.originalCanvas.toBlob(resolve, 'image/png'));
                             const fakeFile = new File([blob], el.name + '.png', { type: 'image/png' });
                             const { blob: resultBlob } = await removeBackgroundWithBestEngine(fakeFile);
@@ -7383,9 +7443,48 @@ Respond ONLY with valid JSON array:
                             await updateImageProcessing(el);
                         } catch (e) { console.warn('배경 제거 실패:', e); }
                     }
+
+                    if (typeof item.brightness === 'number') el.brightness = clamp(item.brightness, 0, 200);
+                    if (typeof item.contrast === 'number') el.contrast = clamp(item.contrast, 0, 200);
+                    if (typeof item.saturation === 'number') el.saturation = clamp(item.saturation, 0, 300);
+                    if (typeof item.hue === 'number') el.hue = clamp(item.hue, -180, 180);
+                    if (typeof item.opacity === 'number') el.opacity = clamp(item.opacity, 0, 1);
+
+                    if (item.neonEnabled && item.neonColor) {
+                        const c = item.neonColor;
+                        el.outlineStyle = 'neon';
+                        el.outlineColor = '#ffffff';
+                        el.outlineWidth = 8;
+                        el.outlineBlur = 12;
+                        el.doubleOutlineColor = c;
+                        el.doubleOutlineWidth = Math.max(6, Math.round((item.neonIntensity || 50) / 8));
+                        el.doubleOutlineBlur = Math.max(14, Math.round((item.neonIntensity || 50) / 3));
+                        el.shadow.color = c;
+                        el.shadow.blur = Math.max(40, Math.round((item.neonIntensity || 50) / 1.4));
+                        el.shadow.offsetX = 0;
+                        el.shadow.offsetY = 0;
+                        el.shadow.opacity = Math.max(0.5, Math.round((item.neonIntensity || 50) / 60));
+                    }
+
+                    if (item.borderWidth > 0) {
+                        el.outlineWidth = clamp(item.borderWidth, 0, 40);
+                        el.outlineColor = item.borderColor || '#ffffff';
+                        el.outlineStyle = item.borderStyle || 'solid';
+                        if (item.borderBlur > 0) el.outlineBlur = clamp(item.borderBlur, 0, 80);
+                    }
+
+                    if (item.shadowEnabled) {
+                        el.shadow.color = item.shadowColor || '#000000';
+                        el.shadow.blur = clamp(item.shadowBlur || 20, 0, 100);
+                        el.shadow.offsetX = clamp(item.shadowOffsetX || 0, -30, 30);
+                        el.shadow.offsetY = clamp(item.shadowOffsetY || 0, -30, 30);
+                        el.shadow.opacity = clamp(item.shadowOpacity || 0.5, 0, 1);
+                    }
+
+                    await updateImageProcessing(el);
                 }
 
-                autoEditStepUI(3, '편집 완료', '#22c55e');
+                autoEditStepUI(3, '효과 적용 완료', '#22c55e');
                 autoEditStepUI(4, '구체 캔버스에 배치 중...', '#38bdf8');
 
                 sphericalEditMode = true;
@@ -7393,7 +7492,7 @@ Respond ONLY with valid JSON array:
 
                 for (let i = 0; i < allElements.length; i++) {
                     const element = allElements[i];
-                    const item = layout.find(l => l.index === i) || layout[i % layout.length];
+                    const item = allLayout.find(l => l.index === i) || allLayout[i % allLayout.length];
                     if (!item) continue;
 
                     element.spherical = true;
@@ -7412,14 +7511,15 @@ Respond ONLY with valid JSON array:
                     getFaceState(faceKey).elements.push(element);
                 }
 
-                autoEditStepUI(4, `${allElements.length}개 요소 배치 완료!`, '#22c55e');
+                autoEditStepUI(4, `${allElements.length}개 요소 배치 + 효과 적용 완료!`, '#22c55e');
                 render();
 
                 if (resultDiv) {
                     resultDiv.classList.remove('hidden');
                     resultDiv.innerHTML = `<div class="text-green-400 font-bold mb-2">완료!</div>
-                        <div>${allElements.length}개 이미지가 AI에 의해 자동 편집되어 구체 캔버스에 배치되었습니다.</div>
-                        <div class="mt-2 text-xs text-slate-400">Globe Edit 모드에서 결과를 확인하고 미세 조정할 수 있습니다.</div>`;
+                        <div>${allElements.length}개 이미지가 AI에 의해 자동 편집되었습니다.</div>
+                        <div class="mt-1 text-xs text-slate-400">적용: 배경제거, 네온, 테두리, 그림자, 색보정</div>
+                        <div class="mt-1 text-xs text-slate-400">Globe Edit 모드에서 미세 조정할 수 있습니다.</div>`;
                 }
             } catch (error) {
                 autoEditStepUI(3, `오류: ${error.message}`, '#ef4444');
