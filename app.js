@@ -7246,7 +7246,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
         checkLicense();
 
         // ========== AI Auto-Edit Pipeline ==========
-        const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+        const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
         let geminiApiKeys = (() => { try { return JSON.parse(localStorage.getItem('skybox-gemini-keys') || '[]'); } catch { return []; } })();
         let geminiKeyIndex = 0;
         const geminiKeyCooldowns = {};
