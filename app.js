@@ -7383,6 +7383,69 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
             });
         }
 
+        function drawFaceBackground(ctx, w, h, bg) {
+            if (!bg || bg.type === 'none') return;
+            if (bg.type === 'solid') {
+                ctx.fillStyle = bg.color1 || '#000000';
+                ctx.fillRect(0, 0, w, h);
+            } else if (bg.type === 'gradient') {
+                const g = ctx.createLinearGradient(0, 0, w, h);
+                g.addColorStop(0, bg.color1 || '#000000');
+                g.addColorStop(1, bg.color2 || '#333333');
+                ctx.fillStyle = g;
+                ctx.fillRect(0, 0, w, h);
+            } else if (bg.type === 'radial') {
+                const g = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w,h)/2);
+                g.addColorStop(0, bg.color1 || '#ffffff');
+                g.addColorStop(1, bg.color2 || '#000000');
+                ctx.fillStyle = g;
+                ctx.fillRect(0, 0, w, h);
+            } else if (bg.type === 'checker') {
+                const size = bg.size || 64;
+                const c1 = bg.color1 || '#ffffff';
+                const c2 = bg.color2 || '#000000';
+                for (let y = 0; y < h; y += size) {
+                    for (let x = 0; x < w; x += size) {
+                        ctx.fillStyle = ((x/size + y/size) % 2 === 0) ? c1 : c2;
+                        ctx.fillRect(x, y, size, size);
+                    }
+                }
+            } else if (bg.type === 'stripes') {
+                const size = bg.size || 32;
+                const c1 = bg.color1 || '#ffffff';
+                const c2 = bg.color2 || '#000000';
+                for (let y = 0; y < h; y += size) {
+                    ctx.fillStyle = (Math.floor(y/size) % 2 === 0) ? c1 : c2;
+                    ctx.fillRect(0, y, w, size);
+                }
+            }
+        }
+
+        function drawFaceText(ctx, w, h, txt) {
+            if (!txt || !txt.text) return;
+            const fontSize = txt.fontSize || Math.round(w * 0.08);
+            const color = txt.color || '#ffffff';
+            const strokeColor = txt.strokeColor || '#000000';
+            const glowColor = txt.glowColor || null;
+            ctx.save();
+            ctx.font = `900 ${fontSize}px Pretendard, Arial, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const x = w * (txt.x || 0.5);
+            const y = h * (txt.y || 0.85);
+            if (glowColor) {
+                ctx.shadowColor = glowColor;
+                ctx.shadowBlur = 30;
+            }
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = Math.max(4, fontSize / 15);
+            ctx.lineJoin = 'round';
+            ctx.strokeText(txt.text, x, y);
+            ctx.fillStyle = color;
+            ctx.fillText(txt.text, x, y);
+            ctx.restore();
+        }
+
         async function runAiAutoEdit(files) {
             if (!geminiApiKeys.length) { alert('설정에서 Gemini API 키를 입력해주세요.\n(무료: aistudio.google.com에서 발급 가능)\n여러 키를 쉼표(,)로 구분하여 입력하면 더 많이 사용할 수 있습니다.'); return; }
             if (!files || files.length === 0) return;
@@ -7469,12 +7532,28 @@ For each image, provide ALL of these properties:
 - For background-removed characters: neon + shadow
 - For landscapes: slight brightness/saturation boost
 
-Respond ONLY with valid JSON array:
-[{"index":0,"face":"ft","x":0.5,"y":0.5,"scale":0.4,"rotation":0,"opacity":1,"removeBg":true,"neonEnabled":true,"neonColor":"#ff2bd6","neonIntensity":60,"borderWidth":0,"borderColor":"#ffffff","borderStyle":"neon","borderBlur":0,"shadowEnabled":true,"shadowColor":"#ff2bd6","shadowBlur":40,"shadowOffsetX":0,"shadowOffsetY":0,"shadowOpacity":0.7,"brightness":100,"contrast":100,"saturation":110,"hue":0},...]`;
+After the image array, also provide a "faceSettings" object with per-face background and text.
+Background types: "checker", "gradient", "radial", "stripes", "solid", "none"
+Each face can have its own background and character name text.
+
+Respond ONLY with valid JSON:
+{
+  "images": [
+    {"index":0,"face":"ft","x":0.5,"y":0.5,"scale":0.4,"rotation":0,"opacity":1,"removeBg":true,"neonEnabled":true,"neonColor":"#ff2bd6","neonIntensity":60,"borderWidth":0,"borderColor":"#ffffff","borderStyle":"neon","borderBlur":0,"shadowEnabled":true,"shadowColor":"#ff2bd6","shadowBlur":40,"shadowOffsetX":0,"shadowOffsetY":0,"shadowOpacity":0.7,"brightness":100,"contrast":100,"saturation":110,"hue":0}
+  ],
+  "faceSettings": {
+    "ft": {"bg":{"type":"checker","color1":"#ffffff","color2":"#ff0000","size":64},"text":{"text":"Character Name","color":"#ffffff","glowColor":"#ff0000","fontSize":80}},
+    "bk": {"bg":{"type":"none"},"text":{"text":""}},
+    "lf": {"bg":{"type":"gradient","color1":"#ff0000","color2":"#000000"},"text":{"text":""}},
+    "rt": {"bg":{"type":"none"},"text":{"text":""}},
+    "up": {"bg":{"type":"gradient","color1":"#1a0033","color2":"#ff0066"},"text":{"text":""}}
+  }
+}`;
 
                 autoEditStepUI(2, 'AI가 배치 및 스타일을 설계하고 있습니다...', '#38bdf8');
 
                 const allLayout = [];
+                const allFaceSettings = {};
                 const batches = [];
                 for (let i = 0; i < allElements.length; i += BATCH_SIZE) {
                     batches.push({ indices: [], batchStart: i });
@@ -7491,12 +7570,21 @@ Respond ONLY with valid JSON array:
                     try {
                         const prompt = fullLayoutPrompt(batch.indices, batch.batchStart);
                         const result = await callGeminiVision(prompt, batchThumbs);
-                        const jsonMatch = result.match(/\[[\s\S]*\]/);
-                        const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : result);
-                        if (Array.isArray(parsed)) {
-                            parsed.forEach(item => {
+                        let parsed;
+                        try { parsed = JSON.parse(result); } catch {
+                            const jsonMatch = result.match(/\{[\s\S]*\}/);
+                            parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+                        }
+                        if (parsed) {
+                            const images = Array.isArray(parsed) ? parsed : (parsed.images || []);
+                            images.forEach(item => {
                                 if (typeof item.index === 'number') allLayout.push(item);
                             });
+                            if (parsed.faceSettings && typeof parsed.faceSettings === 'object') {
+                                Object.keys(parsed.faceSettings).forEach(face => {
+                                    if (!allFaceSettings[face]) allFaceSettings[face] = parsed.faceSettings[face];
+                                });
+                            }
                         }
                     } catch (e) {
                         console.warn(`배치 ${b + 1} Gemini 실패, 기본값 사용:`, e);
@@ -7602,6 +7690,24 @@ Respond ONLY with valid JSON array:
                     getFaceState(faceKey).elements.push(element);
                 }
 
+                autoEditStepUI(4, '배경 패턴 + 텍스트 적용 중...', '#38bdf8');
+                const allowedFacesList = ['ft', 'rt', 'lf', 'bk', 'up'];
+                for (const faceKey of allowedFacesList) {
+                    const settings = allFaceSettings[faceKey];
+                    if (!settings) continue;
+                    const faceState = getFaceState(faceKey);
+                    const bgCanvas = faceState.backgroundCanvas || faceState.canvas;
+                    if (bgCanvas) {
+                        const bgCtx = bgCanvas.getContext('2d');
+                        if (settings.bg && settings.bg.type && settings.bg.type !== 'none') {
+                            drawFaceBackground(bgCtx, bgCanvas.width, bgCanvas.height, settings.bg);
+                        }
+                        if (settings.text && settings.text.text) {
+                            drawFaceText(bgCtx, bgCanvas.width, bgCanvas.height, settings.text);
+                        }
+                    }
+                }
+
                 autoEditStepUI(4, `${allElements.length}개 요소 배치 + 효과 적용 완료!`, '#22c55e');
                 render();
 
@@ -7609,7 +7715,7 @@ Respond ONLY with valid JSON array:
                     resultDiv.classList.remove('hidden');
                     resultDiv.innerHTML = `<div class="text-green-400 font-bold mb-2">완료!</div>
                         <div>${allElements.length}개 이미지가 AI에 의해 자동 편집되었습니다.</div>
-                        <div class="mt-1 text-xs text-slate-400">적용: 배경제거, 네온, 테두리, 그림자, 색보정</div>
+                        <div class="mt-1 text-xs text-slate-400">적용: 배경패턴, 텍스트, 배경제거, 네온, 테두리, 그림자, 색보정</div>
                         <div class="mt-1 text-xs text-slate-400">Globe Edit 모드에서 미세 조정할 수 있습니다.</div>`;
                 }
             } catch (error) {
