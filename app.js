@@ -7578,7 +7578,7 @@ Respond ONLY with valid JSON array:
                 autoEditStepUI(4, '구체 캔버스에 배치 중...', '#38bdf8');
 
                 sphericalEditMode = true;
-                if (sphereEditToggle) { sphereEditToggle.textContent = 'Globe Edit ON'; sphereEditToggle.classList.add('success'); sphereEditToggle.classList.remove('danger'); }
+                if (sphereEditToggleButton) { sphereEditToggleButton.textContent = 'Globe Edit ON'; sphereEditToggleButton.classList.add('success'); sphereEditToggleButton.classList.remove('danger'); }
 
                 for (let i = 0; i < allElements.length; i++) {
                     const element = allElements[i];
