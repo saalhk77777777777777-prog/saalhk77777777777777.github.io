@@ -7452,6 +7452,7 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
 
             const modal = document.getElementById('ai-auto-modal');
             const resultDiv = document.getElementById('ai-auto-result');
+            const nameSearchEnabled = document.getElementById('ai-auto-name-search')?.checked ?? true;
             if (resultDiv) resultDiv.classList.add('hidden');
             for (let i = 1; i <= 4; i++) { autoEditStepUI(i, '대기 중...', '#334155'); }
             modal?.classList.add('visible');
@@ -7479,9 +7480,10 @@ Direct 6-face editing helper mode. Click Globe Edit to return.`;
 
                 const neonColors = NEON_PRESETS.map(p => p.color);
                 const neonColorList = neonColors.join(', ');
-                const fullLayoutPrompt = (indices, batchStart) => `You are a professional cubemap skybox designer for Roblox.
+                const fullLayoutPrompt = (indices, batchStart, nameSearch) => `You are a professional cubemap skybox designer for Roblox.
 I have images indexed ${indices.join(', ')} (${batchStart} to ${batchStart + indices.length - 1}).
 Design a 5-face cubemap skybox layout (ft, rt, lf, bk, up ONLY — DN is NOT used).
+${nameSearch ? 'IMPORTANT: Analyze each image carefully. If you recognize the character, use their ACTUAL name (e.g. "Gawr Gura", "Nekomata Okayu", "Akane Lize"). If unsure, use a descriptive name based on appearance (e.g. "White Cat Girl", "Red Angel"). For Japanese characters, use their romanized or original name.' : 'Use generic descriptive names based on appearance (e.g. "Character 1", "Sky View").'}
 
 For each image, provide ALL of these properties:
 
@@ -7568,7 +7570,7 @@ Respond ONLY with valid JSON:
                     autoEditStepUI(2, `AI 배치 ${b + 1}/${batches.length} 전송 중... (${batch.indices.length}개)`, '#38bdf8');
 
                     try {
-                        const prompt = fullLayoutPrompt(batch.indices, batch.batchStart);
+                        const prompt = fullLayoutPrompt(batch.indices, batch.batchStart, nameSearchEnabled);
                         const result = await callGeminiVision(prompt, batchThumbs);
                         let parsed;
                         try { parsed = JSON.parse(result); } catch {
