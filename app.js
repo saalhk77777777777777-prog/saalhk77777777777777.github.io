@@ -33,7 +33,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
     const origTable = console.table;
     const silent = function() {};
     console.log = silent; console.warn = silent; console.error = silent; console.table = silent;
-    window.addEventListener('error', function(e) { if (window.__skyboxDevMode) console.error('[Skybox]', e); });
+    window.addEventListener('error', function(e) { /* error handler disabled */ });
     const _origCreateElement = Document.prototype.createElement;
     Object.defineProperty(document, 'createElement', { value: function(tag) {
         const el = _origCreateElement.call(document, tag);
@@ -1258,8 +1258,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             const recommended = accentColor || estimateRecommendedOutlineColor(element);
             element.opacity = 1;
             element.blendMode = 'source-over';
-            element.tintStrength = 0;
-            element.cornerRadius = role === 'main' ? 0 : 10;
             element.outlineColor = role === 'main' ? '#ffffff' : recommended;
             element.outlineStyle = role === 'main' ? 'neon' : 'solid';
             element.outlineWidth = role === 'main' ? 9 : 8;
@@ -1297,8 +1295,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         function applyPosterImageStyle(element, role = 'sub', index = 0) {
             element.opacity = 1;
             element.blendMode = 'source-over';
-            element.cornerRadius = 0;
-            element.tintStrength = 0;
             if (role === 'main') {
                 element.outlineWidth = 12;
                 element.outlineColor = '#7c3aed';
@@ -1723,10 +1719,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             if (!element.originalCanvas || !element.maskCanvas) {
                 throw new Error(`${serialized.name || '이미지'} 레이어 복원 실패`);
             }
-            element.perspectiveX = Number(element.perspectiveX ?? 0);
-            element.perspectiveY = Number(element.perspectiveY ?? 0);
-            element.perspectiveBend = Number(element.perspectiveBend ?? 0);
-            element.perspectiveCurve = Number(element.perspectiveCurve ?? 0);
             element.spherical = Boolean(element.spherical);
             element.sphereYaw = Number(element.sphereYaw ?? 0);
             element.spherePitch = Number(element.spherePitch ?? 0);
@@ -2507,10 +2499,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                 flipX: false,
                 flipY: false,
                 rotation: 0,
-                perspectiveX: 0,
-                perspectiveY: 0,
-                perspectiveBend: 0,
-                perspectiveCurve: 0,
                 spherical: false,
                 sphereYaw: 0,
                 spherePitch: 0,
@@ -2525,9 +2513,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                 saturation: 100,
                 hue: 0,
                 blur: 0,
-                tintColor: '#ffffff',
-                tintStrength: 0,
-                cornerRadius: 0,
                 outlineWidth: 0,
                 outlineColor: '#ffffff',
                 outlineStyle: 'solid',
@@ -2899,15 +2884,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             outputCtx.filter = `brightness(${element.brightness}%) contrast(${element.contrast}%) saturate(${element.saturation}%) hue-rotate(${element.hue}deg) blur(${element.blur || 0}px)`;
             outputCtx.drawImage(source, 0, 0);
             outputCtx.filter = 'none';
-
-            if (element.tintStrength > 0) {
-                outputCtx.save();
-                outputCtx.globalCompositeOperation = 'source-atop';
-                outputCtx.globalAlpha = element.tintStrength / 100;
-                outputCtx.fillStyle = element.tintColor;
-                outputCtx.fillRect(0, 0, output.width, output.height);
-                outputCtx.restore();
-            }
 
             const makeOutlineLayer = (base, width, color, style = 'solid', blur = 0) => {
                 if (width <= 0) return null;
@@ -4416,12 +4392,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
 
             if (element.backgroundOpacity > 0) {
                 renderCtx.fillStyle = rgbaWithOpacity(element.backgroundColor, element.backgroundOpacity);
-                if ((element.cornerRadius || 0) > 0) {
-                    drawRoundedRectPath(renderCtx, -width / 2, -height / 2, width, height, element.cornerRadius || 0);
-                    renderCtx.fill();
-                } else {
-                    renderCtx.fillRect(-width / 2, -height / 2, width, height);
-                }
+                renderCtx.fillRect(-width / 2, -height / 2, width, height);
             }
 
             renderCtx.font = `${element.fontWeight} ${element.fontSize}px ${element.fontFamily}`;
@@ -4462,134 +4433,8 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             renderCtx.restore();
         }
 
-        function imageHasPerspectiveWarp(element) {
-            return Math.abs(Number(element.perspectiveX || 0)) > 0.01
-                || Math.abs(Number(element.perspectiveY || 0)) > 0.01
-                || Math.abs(Number(element.perspectiveBend || 0)) > 0.01
-                || Math.abs(Number(element.perspectiveCurve || 0)) > 0.01;
-        }
-
-        function getWarpedImagePoint(u, v, width, height, element) {
-            const px = clamp(Number(element.perspectiveX || 0), -100, 100) / 100;
-            const py = clamp(Number(element.perspectiveY || 0), -100, 100) / 100;
-            const bend = clamp(Number(element.perspectiveBend || 0), -100, 100) / 100;
-            const curve = clamp(Number(element.perspectiveCurve || 0), -100, 100) / 100;
-            const sideInset = Math.abs(px) * height * 0.34;
-            const verticalInset = Math.abs(py) * width * 0.34;
-
-            const tl = { x: -width / 2, y: -height / 2 };
-            const tr = { x: width / 2, y: -height / 2 };
-            const br = { x: width / 2, y: height / 2 };
-            const bl = { x: -width / 2, y: height / 2 };
-
-            if (px > 0) {
-                tr.y += sideInset;
-                br.y -= sideInset;
-            } else if (px < 0) {
-                tl.y += sideInset;
-                bl.y -= sideInset;
-            }
-
-            if (py > 0) {
-                tl.x += verticalInset;
-                tr.x -= verticalInset;
-            } else if (py < 0) {
-                bl.x += verticalInset;
-                br.x -= verticalInset;
-            }
-
-            const top = {
-                x: tl.x + (tr.x - tl.x) * u,
-                y: tl.y + (tr.y - tl.y) * u
-            };
-            const bottom = {
-                x: bl.x + (br.x - bl.x) * u,
-                y: bl.y + (br.y - bl.y) * u
-            };
-            const nx = u * 2 - 1;
-            const ny = v * 2 - 1;
-            const radius = nx * nx + ny * ny;
-            const surfaceCurveX = nx * radius * curve * width * 0.16;
-            const surfaceCurveY = ny * radius * curve * height * 0.16;
-            const horizontalBend = Math.sin(Math.PI * u) * bend * width * 0.18;
-            return {
-                x: top.x + (bottom.x - top.x) * v + horizontalBend + surfaceCurveX,
-                y: top.y + (bottom.y - top.y) * v + surfaceCurveY
-            };
-        }
-
-        function drawWarpedImagePath(renderCtx, width, height, element, segments = 32) {
-            renderCtx.beginPath();
-            for (let i = 0; i <= segments; i++) {
-                const point = getWarpedImagePoint(i / segments, 0, width, height, element);
-                if (i === 0) renderCtx.moveTo(point.x, point.y);
-                else renderCtx.lineTo(point.x, point.y);
-            }
-            for (let i = segments; i >= 0; i--) {
-                const point = getWarpedImagePoint(i / segments, 1, width, height, element);
-                renderCtx.lineTo(point.x, point.y);
-            }
-            renderCtx.closePath();
-        }
-
         function getDrawableImageCanvas(element, sourceCanvas) {
-            if (!sourceCanvas || !(element.cornerRadius || 0)) return sourceCanvas;
-            const radius = Math.max(0, Number(element.cornerRadius || 0) / Math.max(0.001, Number(element.scale || 1)));
-            const rounded = createEmptyCanvas(sourceCanvas.width, sourceCanvas.height);
-            const roundedCtx = rounded.getContext('2d');
-            drawRoundedRectPath(roundedCtx, 0, 0, sourceCanvas.width, sourceCanvas.height, radius);
-            roundedCtx.clip();
-            roundedCtx.drawImage(sourceCanvas, 0, 0);
-            return rounded;
-        }
-
-        function drawPerspectiveImage(renderCtx, sourceCanvas, width, height, element) {
-            if (hasVisibleShadow(element.shadow)) {
-                renderCtx.save();
-                applyShadow(renderCtx, element.shadow);
-                renderCtx.fillStyle = 'rgba(0,0,0,0.01)';
-                drawWarpedImagePath(renderCtx, width, height, element);
-                renderCtx.fill();
-                renderCtx.restore();
-            }
-
-            renderCtx.save();
-            drawWarpedImagePath(renderCtx, width, height, element);
-            renderCtx.clip();
-            const hasSurfaceCurve = Math.abs(Number(element.perspectiveCurve || 0)) > 0.01;
-            const columns = hasSurfaceCurve ? 42 : 96;
-            const rows = hasSurfaceCurve ? 42 : 1;
-            const sourceWidth = sourceCanvas.width;
-            const sourceHeight = sourceCanvas.height;
-            for (let row = 0; row < rows; row++) {
-                const v0 = row / rows;
-                const v1 = (row + 1) / rows;
-                const sy = Math.floor(sourceHeight * v0);
-                const nextSy = Math.ceil(sourceHeight * v1);
-                const sliceHeight = Math.max(1, nextSy - sy);
-                for (let col = 0; col < columns; col++) {
-                    const u0 = col / columns;
-                    const u1 = (col + 1) / columns;
-                    const sx = Math.floor(sourceWidth * u0);
-                    const nextSx = Math.ceil(sourceWidth * u1);
-                    const sliceWidth = Math.max(1, nextSx - sx);
-                    const p0 = getWarpedImagePoint(u0, v0, width, height, element);
-                    const p1 = getWarpedImagePoint(u1, v0, width, height, element);
-                    const p3 = getWarpedImagePoint(u0, v1, width, height, element);
-                    renderCtx.save();
-                    renderCtx.transform(
-                        (p1.x - p0.x) / sliceWidth,
-                        (p1.y - p0.y) / sliceWidth,
-                        (p3.x - p0.x) / sliceHeight,
-                        (p3.y - p0.y) / sliceHeight,
-                        p0.x,
-                        p0.y
-                    );
-                    renderCtx.drawImage(sourceCanvas, sx, sy, sliceWidth, sliceHeight, 0, 0, sliceWidth + 1, sliceHeight + 1);
-                    renderCtx.restore();
-                }
-            }
-            renderCtx.restore();
+            return sourceCanvas;
         }
 
         function drawImageElement(element, renderCtx, includeSelection = false) {
@@ -4597,43 +4442,20 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
             const drawCanvas = getDrawableImageCanvas(element, sourceCanvas);
             const width = drawCanvas.width * element.scale;
             const height = drawCanvas.height * element.scale;
-            const hasWarp = imageHasPerspectiveWarp(element);
             renderCtx.save();
             renderCtx.translate(element.x, element.y);
             renderCtx.rotate(degToRad(element.rotation));
             renderCtx.scale(element.flipX ? -1 : 1, element.flipY ? -1 : 1);
             renderCtx.globalAlpha = element.opacity;
             renderCtx.globalCompositeOperation = element.blendMode || 'source-over';
-            if (hasWarp) {
-                drawPerspectiveImage(renderCtx, drawCanvas, width, height, element);
-            } else if ((element.cornerRadius || 0) > 0) {
-                if (hasVisibleShadow(element.shadow)) {
-                    applyShadow(renderCtx, element.shadow);
-                    renderCtx.fillStyle = 'rgba(0,0,0,0.01)';
-                    drawRoundedRectPath(renderCtx, -width / 2, -height / 2, width, height, element.cornerRadius || 0);
-                    renderCtx.fill();
-                    renderCtx.shadowColor = 'transparent';
-                    renderCtx.shadowBlur = 0;
-                    renderCtx.shadowOffsetX = 0;
-                    renderCtx.shadowOffsetY = 0;
-                }
-                drawRoundedRectPath(renderCtx, -width / 2, -height / 2, width, height, element.cornerRadius || 0);
-                renderCtx.clip();
-            } else {
-                applyShadow(renderCtx, element.shadow);
-            }
-            if (!hasWarp) renderCtx.drawImage(drawCanvas, -width / 2, -height / 2, width, height);
+            applyShadow(renderCtx, element.shadow);
+            renderCtx.drawImage(drawCanvas, -width / 2, -height / 2, width, height);
             if (includeSelection) {
                 renderCtx.shadowColor = 'transparent';
                 renderCtx.strokeStyle = '#67e8f9';
                 renderCtx.lineWidth = 2;
                 renderCtx.setLineDash([12, 8]);
-                if (hasWarp) {
-                    drawWarpedImagePath(renderCtx, width, height, element);
-                    renderCtx.stroke();
-                } else {
-                    renderCtx.strokeRect(-width / 2 - 8, -height / 2 - 8, width + 16, height + 16);
-                }
+                renderCtx.strokeRect(-width / 2 - 8, -height / 2 - 8, width + 16, height + 16);
                 renderCtx.setLineDash([]);
             }
             renderCtx.restore();
@@ -5710,7 +5532,7 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
         }
 
         function needsImageRefresh(key) {
-            return ['brightness', 'contrast', 'saturation', 'hue', 'blur', 'outlineWidth', 'outlineColor', 'outlineStyle', 'outlineBlur', 'doubleOutlineWidth', 'doubleOutlineColor', 'doubleOutlineBlur', 'tintStrength', 'tintColor'].includes(key);
+            return ['brightness', 'contrast', 'saturation', 'hue', 'blur', 'outlineWidth', 'outlineColor', 'outlineStyle', 'outlineBlur', 'doubleOutlineWidth', 'doubleOutlineColor', 'doubleOutlineBlur'].includes(key);
         }
 
         function setBoundValue(target, keyPath, rawValue, inputType) {
@@ -5747,9 +5569,9 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                 const unit = input?.type === 'range' && input.max === '1' && input.step === '0.01' && !key.includes('blur') && !key.includes('offset') ? '' : '';
                 const raw = getBoundValue(selected, key);
                 const suffix =
-                    key === 'brightness' || key === 'contrast' || key === 'saturation' || key === 'tintStrength' ? '%' :
+                    key === 'brightness' || key === 'contrast' || key === 'saturation' ? '%' :
                     key === 'hue' ? 'deg' :
-                    key === 'outlineWidth' || key === 'outlineBlur' || key === 'doubleOutlineWidth' || key === 'doubleOutlineBlur' || key === 'strokeWidth' || key === 'strokeBlur' || key === 'paddingX' || key === 'paddingY' || key === 'letterSpacing' || key === 'shadow.blur' || key === 'shadow.offsetX' || key === 'shadow.offsetY' || key === 'blur' || key === 'cornerRadius' ? 'px' :
+                    key === 'outlineWidth' || key === 'outlineBlur' || key === 'doubleOutlineWidth' || key === 'doubleOutlineBlur' || key === 'strokeWidth' || key === 'strokeBlur' || key === 'paddingX' || key === 'paddingY' || key === 'letterSpacing' || key === 'shadow.blur' || key === 'shadow.offsetX' || key === 'shadow.offsetY' || key === 'blur' ? 'px' :
                     '';
                 label.textContent = `${formatBoundValue(key, raw)}${suffix}`;
             });
@@ -5845,12 +5667,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                     selected.saturation = 100;
                     selected.hue = 0;
                     selected.blur = 0;
-                    selected.perspectiveX = 0;
-                    selected.perspectiveY = 0;
-                    selected.perspectiveBend = 0;
-                    selected.perspectiveCurve = 0;
-                    selected.tintStrength = 0;
-                    selected.cornerRadius = 0;
                     selected.outlineWidth = 0;
                     selected.outlineBlur = 8;
                     selected.outlineStyle = 'solid';
@@ -5859,27 +5675,8 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                     selected.strokeWidth = 0;
                     selected.strokeBlur = 8;
                     selected.backgroundOpacity = 0;
-                    selected.cornerRadius = 0;
                     selected.strokeStyle = 'solid';
                 }
-            }
-            if (action === 'perspective-wall-left' && selected.type === 'image') {
-                selected.perspectiveX = -42;
-                selected.perspectiveY = 0;
-                selected.perspectiveBend = -10;
-                selected.perspectiveCurve = 32;
-            }
-            if (action === 'perspective-wall-right' && selected.type === 'image') {
-                selected.perspectiveX = 42;
-                selected.perspectiveY = 0;
-                selected.perspectiveBend = 10;
-                selected.perspectiveCurve = 32;
-            }
-            if (action === 'perspective-skybox-curve' && selected.type === 'image') {
-                selected.perspectiveX = 0;
-                selected.perspectiveY = 0;
-                selected.perspectiveBend = 0;
-                selected.perspectiveCurve = 46;
             }
             render();
         }
@@ -5948,19 +5745,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                     ${rangeField({ label: '채도', key: 'saturation', min: 0, max: 300, step: 1, value: selected.saturation, unit: '%' })}
                     ${rangeField({ label: '색조 회전', key: 'hue', min: -180, max: 180, step: 1, value: selected.hue, unit: 'deg' })}
                     ${rangeField({ label: '블러', key: 'blur', min: 0, max: 30, step: 0.5, value: selected.blur || 0, unit: 'px' })}
-                    ${rangeField({ label: '모서리 둥글기', key: 'cornerRadius', min: 0, max: 240, step: 1, value: selected.cornerRadius || 0, unit: 'px' })}
-                </div>
-                <div class="property-group space-y-4">
-                    <div class="property-label">사진 원근/휘기</div>
-                    ${rangeField({ label: '좌우 원근', key: 'perspectiveX', min: -100, max: 100, step: 1, value: selected.perspectiveX ?? 0 })}
-                    ${rangeField({ label: '상하 원근', key: 'perspectiveY', min: -100, max: 100, step: 1, value: selected.perspectiveY ?? 0 })}
-                    ${rangeField({ label: '사진 휘기', key: 'perspectiveBend', min: -100, max: 100, step: 1, value: selected.perspectiveBend ?? 0 })}
-                    ${rangeField({ label: '스카이박스 곡면', key: 'perspectiveCurve', min: -100, max: 100, step: 1, value: selected.perspectiveCurve ?? 0 })}
-                    <div class="grid grid-cols-2 gap-2">
-                        <button type="button" class="tool-button !rounded-2xl" data-action="perspective-wall-left">왼쪽 벽 느낌</button>
-                        <button type="button" class="tool-button !rounded-2xl" data-action="perspective-wall-right">오른쪽 벽 느낌</button>
-                        <button type="button" class="tool-button !rounded-2xl col-span-2" data-action="perspective-skybox-curve">스카이박스 곡면 보정</button>
-                    </div>
                 </div>
                 <div class="property-group space-y-4">
                     <div class="property-label">색상과 외곽선</div>
@@ -5981,8 +5765,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                         { value: 'blur', label: '블러' },
                         { value: 'neon', label: '네온' }
                     ] })}
-                    ${rangeField({ label: '틴트 강도', key: 'tintStrength', min: 0, max: 100, step: 1, value: selected.tintStrength, unit: '%' })}
-                    ${colorField({ label: '틴트 색상', key: 'tintColor', value: selected.tintColor })}
                 </div>
                 <div class="property-group space-y-4">
                     <div class="property-label">프레임 맞춤</div>
@@ -6024,7 +5806,6 @@ const REMOVE_BG_API_KEY_INDEX_STORAGE_KEY = 'skybox-remove-bg-api-key-index-v1';
                     ${colorField({ label: '배경 박스 색상', key: 'backgroundColor', value: selected.backgroundColor })}
                     ${rangeField({ label: '좌우 패딩', key: 'paddingX', min: 0, max: 120, step: 1, value: selected.paddingX, unit: 'px' })}
                     ${rangeField({ label: '상하 패딩', key: 'paddingY', min: 0, max: 120, step: 1, value: selected.paddingY, unit: 'px' })}
-                    ${rangeField({ label: '배경 박스 둥글기', key: 'cornerRadius', min: 0, max: 120, step: 1, value: selected.cornerRadius || 0, unit: 'px' })}
                 </div>
             `;
 
